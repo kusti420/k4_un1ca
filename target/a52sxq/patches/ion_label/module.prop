@@ -1,0 +1,4 @@
+id=a52sxq_ion_label
+name=Galaxy A52s 5G /dev/ion SELinux label
+author=kusti420
+description=Android 17 plat_file_contexts dropped "/dev/ion u:object_r:ion_device:s0" (ION is gone on GKI 6.x) but the 5.4 A52s kernel and its vendor still use legacy ION. Without the label /dev/ion is plain "device" and qseecomd/sscrpcd/etc. get EACCES.

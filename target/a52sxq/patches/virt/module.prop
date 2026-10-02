@@ -1,0 +1,4 @@
+id=a52sxq_virt
+name=Galaxy A52s 5G framework-only virtualization module
+author=kusti420
+description=Fold8's com.android.virt has an erofs payload the 5.4 kernel can't mount, but its framework jar must be on the bootclasspath (SystemServiceRegistry, Private Compute Services: NoClassDefFoundError VirtualMachineDescriptor). Rebuild it with an ext4 payload holding only the Java/JNI/config parts (no crosvm/microdroid/services), re-signed. Also disables isolated compilation (com.android.compos stays debloated).

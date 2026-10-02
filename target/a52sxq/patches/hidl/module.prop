@@ -1,0 +1,4 @@
+id=a52sxq_hidl
+name=Galaxy A52s 5G HIDL framework support
+author=kusti420
+description=Restores hwservicemanager, the hidl allocator/memory implementations and their framework VINTF entries (removed from the HIDL-less Fold8 system) for the HIDL-based A52s vendor.

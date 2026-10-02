@@ -1,0 +1,4 @@
+id=a52sxq_twrp_compat
+name=Galaxy A52s 5G TWRP compatibility
+author=kusti420
+description=TWRP's FBE decrypt attempt opens /data/system/locksettings.db as root and can leave an empty root-owned file behind -> LockSettingsStorage EACCES -> AuthenticationPolicyService ctor throws -> system_server crash loop. Fix ownership at boot.

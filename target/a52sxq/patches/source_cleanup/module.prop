@@ -1,0 +1,4 @@
+id=a52sxq_source_cleanup
+name=Galaxy A52s 5G Fold8-only service cleanup
+author=kusti420
+description=Drops Fold8 bits that crash-loop here: the HIDL qccsyshal@1.2 service (not in this device's VINTF manifest), and traced.relay_producer_port=vsock://... (the 5.4 kernel has no vsock, so traced dies at start).

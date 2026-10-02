@@ -1,0 +1,7 @@
+Tue Sep 29 20:57:32 2026 +0300
+2026-09-27 11:38:47.116066464 +0300
+IchthysOS out/target/product/a52sxq snapshot, cp2a SDK37
+2026-10-01T20:27:27+03:00 system/apex/com.android.tethering.capex from IchthysOS out (packages/modules/Connectivity 89e98c04b8: NetBpfLoad 5.4 floor + netd.c/libeventpolling 5.4 ports)
+2026-10-01T20:54:26+03:00 system/apex/com.android.virt.apex from IchthysOS out (minimal AVF: framework/service-virtualization jars only, erofs mountable on 5.4)
+2026-10-01T21:13:25+03:00 removed system/apex/com.android.virt.apex again (Baklava min_sdk in bootclasspath.pb)
+2026-10-02T06:05:53+03:00 removed com.android.tethering.capex (Baklava SDK -> ServiceConnectivityResources rejected); using patched netbpfload instead

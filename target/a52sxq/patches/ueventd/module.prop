@@ -1,0 +1,4 @@
+id=a52sxq_ueventd
+name=Galaxy A52s 5G legacy ueventd.rc import
+author=kusti420
+description=The R-launch A52s vendor ships its device node rules at /vendor/ueventd.rc. Android 17 ueventd only imports /vendor/etc/ueventd.rc and dropped the legacy fallback, so /dev/qseecom etc. kept root-only perms and qseecomd could not register its TEE listeners (keymaster -> keystore2 -> vold deadlock at boot).

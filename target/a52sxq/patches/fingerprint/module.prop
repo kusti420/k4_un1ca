@@ -1,0 +1,4 @@
+id=a52sxq_fingerprint
+name=Galaxy A52s 5G UDFPS sensor position access
+author=kusti420
+description=SystemUI reads the under-display sensor position from /sys/class/fingerprint/fingerprint/position. That path goes through a plain "sysfs" symlink that Android 17 policy doesn't let apps read (and genfscon can't relabel sysfs symlinks on the 5.4 kernel), so it logs "No file for sensor pos" and UDFPS never sees the finger. Point it at the real node /sys/devices/virtual/fingerprint/fingerprint/position (sysfs_ss_writable, readable by platform_app).

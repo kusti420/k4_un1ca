@@ -1,0 +1,4 @@
+id=a52sxq_vaultkeeper
+name=Galaxy A52s 5G VaultKeeper HIDL client
+author=kusti420
+description=Fold8's libvkmanager talks to the AIDL ISehVaultKeeper, but the A14 vendor only serves vendor.samsung.hardware.security.vaultkeeper@2.0 (HIDL). Every lookup blocked for seconds (Bluetooth: get_secure_storage_key retries -> BLE_START_TIMEOUT, BT never turns on). Use the A14 libvkmanager (same VaultKeeperManager API) plus its HIDL interface lib.

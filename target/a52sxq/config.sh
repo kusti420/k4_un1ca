@@ -46,3 +46,6 @@ TARGET_LCD_SUPPORT_MDNIE_HW=false
 TARGET_RIL_FEATURES="onebinary"
 TARGET_RIL_SIM_CONFIG_MULTISIM_TRAYCOUNT="1"
 TARGET_RIL_SUPPORT_WATERPROOF_SIM_TRAY_MSG=true
+
+# Bootloader rejects SEANDROIDENFORCE with a zeroed sig AND vbmeta directly after the image (boot_recovery=1); 16 zero bytes boot
+TARGET_BOOT_SEANDROID_MAGIC=false

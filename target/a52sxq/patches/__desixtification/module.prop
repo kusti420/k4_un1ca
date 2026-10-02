@@ -1,0 +1,4 @@
+id=a52sxq_desixtification
+name=Galaxy A52s 5G 32-bit vendor compatibility
+author=kusti420
+description=Grafts a CP2A.260605.016 32-bit bionic/system lib set into the 64-bit-only One UI 9 system so the A52s 32-bit vendor HALs (audio, codec2, omx, drm, cas) keep running.

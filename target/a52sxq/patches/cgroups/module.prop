@@ -1,0 +1,4 @@
+id=a52sxq_cgroups
+name=Galaxy A52s 5G cgroup compatibility
+author=kusti420
+description=Marks cgroup v1 controllers the 5.4 A52s kernel lacks (schedtune, sfreezer) as optional; Android 17 libprocessgroup aborts SetupCgroups on any missing mandatory controller.

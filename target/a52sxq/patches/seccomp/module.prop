@@ -1,0 +1,4 @@
+id=a52sxq_seccomp
+name=Galaxy A52s 5G vendor seccomp mremap
+author=kusti420
+description=The A14 vendor seccomp policies only allow mremap with specific flags; Android 17 bionic (scudo) calls it with others -> SIGSYS crash loops of the Codec2 HALs (samsung.software.media.c2, vendor.qti.media.c2) -> no video decode (setup wizard intro hangs/ANRs). Allow mremap unconditionally.

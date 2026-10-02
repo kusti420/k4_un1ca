@@ -1,0 +1,4 @@
+id=a52sxq_storage
+name=Galaxy A52s 5G StorageManagerService unblock
+author=kusti420
+description=StorageManagerService's handler thread hangs in H_SYSTEM_READY right after NandswapManager "Set daily quota" (in schedNextLimitReset/schedNextUpdateAverage -> JobScheduler.schedule), so it never processes user-unlock completion or H_BOOT_COMPLETED: "System unlocked users: []", emulated;0 never mounted (no /sdcard), setup wizard stuck. Make both NAND-swap job schedulers no-ops.
