@@ -44,7 +44,57 @@ APPLY_PATCH()
     DECODE_APK "$PARTITION" "$FILE" || return 1
 
     LOG "- Applying \"$(grep "^Subject:" "$PATCH" | sed "s/.*PATCH] //")\" to /$PARTITION/$FILE"
-    EVAL "LC_ALL=C git apply --directory=\"$APKTOOL_DIR/$PARTITION/${FILE//system\//}\" --verbose --unsafe-paths \"$PATCH\"" || return 1
+
+    local DIR="$APKTOOL_DIR/$PARTITION/${FILE//system\//}"
+    if LC_ALL=C git apply --directory="$DIR" --unsafe-paths --check "$PATCH" &> /dev/null; then
+        EVAL "LC_ALL=C git apply --directory=\"$DIR\" --verbose --unsafe-paths \"$PATCH\"" || return 1
+        return 0
+    fi
+
+    if LC_ALL=C git apply --directory="$DIR" --unsafe-paths -R --check "$PATCH" &> /dev/null; then
+        LOGW "Patch already applied, skipping: $(basename "$PATCH")"
+        return 0
+    fi
+
+    # Newer sources: classes may have moved between smali_classesN dirs and lines drift.
+    # Remap paths, then retry with reduced context.
+    local REMAPPED="$TMP_DIR/remapped-$(basename "$PATCH")"
+    mkdir -p "$TMP_DIR"
+    python3 - "$PATCH" "$DIR" "$REMAPPED" <<'PYEOF'
+import os, re, sys, glob
+patch, root, out = sys.argv[1:]
+s = open(patch, errors="surrogateescape").read()
+def remap(rel):
+    if os.path.exists(os.path.join(root, rel)) or not rel.startswith("smali"):
+        return rel
+    tail = rel.split("/", 1)[1]
+    hits = sorted(glob.glob(os.path.join(root, "smali*", tail)))
+    return os.path.relpath(hits[0], root) if hits else rel
+paths = set(re.findall(r"^diff --git a/(\S+) b/", s, re.M))
+for rel in paths:
+    new = remap(rel)
+    if new != rel:
+        s = s.replace("a/" + rel, "a/" + new).replace("b/" + rel, "b/" + new)
+open(out, "w", errors="surrogateescape").write(s)
+PYEOF
+    if LC_ALL=C git apply --directory="$DIR" --unsafe-paths --recount -C1 --check "$REMAPPED" &> /dev/null; then
+        LOGW "Patch needed path remap/reduced context: $(basename "$PATCH")"
+        EVAL "LC_ALL=C git apply --directory=\"$DIR\" --verbose --unsafe-paths --recount -C1 \"$REMAPPED\"" || return 1
+        return 0
+    fi
+
+    # Core framework code must patch cleanly; app-level cosmetic patches may be skipped
+    # and are recorded for manual porting.
+    case "$FILE" in
+        system/framework/framework.jar|system/framework/services.jar)
+            LOGE "Core patch does not apply: ${PATCH//$SRC_DIR\//} on /$PARTITION/$FILE"
+            LC_ALL=C git apply --directory="$DIR" --unsafe-paths --check "$PATCH" >&2
+            return 1
+            ;;
+    esac
+    LOGW "Skipping non-applicable patch on /$PARTITION/$FILE: ${PATCH//$SRC_DIR\//}"
+    echo "/$PARTITION/$FILE ${PATCH//$SRC_DIR\//}" >> "$OUT_DIR/skipped_patches.txt"
+    return 0
 }
 
 # DECODE_APK <partition> <apk/jar>

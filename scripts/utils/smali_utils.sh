@@ -72,6 +72,16 @@ SMALI_PATCH()
 
     local FILE_PATH="$APKTOOL_DIR/$PARTITION/${FILE//system\//}"
 
+    # Classes can move between smali_classesN dirs across releases: follow a unique match
+    if [ ! -f "$FILE_PATH/$SMALI" ] && [[ "$SMALI" == smali*/* ]]; then
+        local MOVED
+        MOVED="$(cd "$FILE_PATH" && find . -path "./smali*/${SMALI#*/}" -type f | sed "s|^\./||")"
+        if [ "$MOVED" ] && [ "$(wc -l <<< "$MOVED")" -eq 1 ]; then
+            LOGW "Smali moved: $SMALI -> $MOVED"
+            SMALI="$MOVED"
+        fi
+    fi
+
     # Check if provided smali exists
     if [ ! -f "$FILE_PATH/$SMALI" ]; then
         LOGE "Smali not found: \"/$PARTITION/$FILE/$SMALI\""
@@ -106,6 +116,17 @@ SMALI_PATCH()
         LOG "- Removing \"$SMALI\" from /$PARTITION/$FILE"
         EVAL "LC_ALL=C rm \"$FILE_PATH/${SMALI//$/\\$}\"" || return 1
         return 0
+    fi
+
+    # Signatures can change across releases (e.g. an added Context param): follow a unique same-name method
+    if [[ "$METHOD" == *"("* ]] && ! grep "^\.method" "$FILE_PATH/$SMALI" | grep -q -F -- " $METHOD"; then
+        local RENAMED
+        RENAMED="$(grep "^\.method" "$FILE_PATH/$SMALI" | grep -o -F -- " ${METHOD%%(*}(" | head -n 2 | wc -l)"
+        if [ "$RENAMED" -eq 1 ]; then
+            RENAMED="$(grep "^\.method" "$FILE_PATH/$SMALI" | grep -F -- " ${METHOD%%(*}(" | awk '{print $NF}')"
+            LOGW "Method signature changed: $METHOD -> $RENAMED"
+            METHOD="$RENAMED"
+        fi
     fi
 
     # Check if provided method is method and exists inside smali
@@ -375,6 +396,21 @@ SMALI_PATCH()
 
         AFTER="$(sha1sum "$FILE_PATH/$SMALI")"
         if [[ "$BEFORE" == "$AFTER" ]]; then
+            # Newer sources may already ship the desired value; only fail if the method
+            # contains neither the old nor the new value.
+            if [[ "$REPLACEMENT" != *$'\n'* ]] && awk -v FN="$METHOD" -v STR="$VALUE" -v REP="$REPLACEMENT" '
+                    /^\.method/ && index($0, FN) { inside = 1 }
+                    inside {
+                        line = $0; gsub(/^[ \t]+|[ \t]+$/, "", line)
+                        if (line == REP || index($0, "\"" REP "\"")) found = 1
+                        if (line == STR || index($0, "\"" STR "\"")) old = 1
+                    }
+                    inside && /^\.end method/ { inside = 0 }
+                    END { exit !(found && !old) }
+                ' "$FILE_PATH/$SMALI"; then
+                LOGW "Value \"$REPLACEMENT\" already present in method \"$METHOD\" of /$PARTITION/$FILE/$SMALI, skipping"
+                return 0
+            fi
             LOGE "Failed to replace value \"$VALUE\" of method \"$METHOD\" in /$PARTITION/$FILE/$SMALI with \"$REPLACEMENT\""
             return 1
         fi

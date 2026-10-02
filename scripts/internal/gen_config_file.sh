@@ -128,6 +128,12 @@ fi
 #     If set to true, AVB signing will be disabled.
 #     Defaults to false.
 #
+#   TARGET_BOOT_SEANDROID_MAGIC
+#     If set to false, 16 zero bytes are appended to repacked boot images instead of the "SEANDROIDENFORCE" magic.
+#     Some bootloaders reject the magic without a valid Samsung signature, and also reject an image whose
+#     AVB vbmeta blob starts right where the signature trailer is expected.
+#     Defaults to true.
+#
 #   TARGET_KEEP_ORIGINAL_SIGN
 #     If set to true, the original AVB/Samsung signature footer is kept in the target device kernel images.
 #     Defaults to false.
@@ -486,6 +492,7 @@ fi
     GET_BUILD_VAR "TARGET_BOARD_API_LEVEL"
     GET_BUILD_VAR "TARGET_DISABLE_AVB_SIGNING" "false"
     GET_BUILD_VAR "TARGET_INCLUDE_PATCHED_VBMETA" "false"
+    GET_BUILD_VAR "TARGET_BOOT_SEANDROID_MAGIC" "true"
     GET_BUILD_VAR "TARGET_KEEP_ORIGINAL_SIGN" "false"
     GET_BUILD_VAR "TARGET_BOOT_PARTITION_SIZE" "none"
     GET_BUILD_VAR "TARGET_DTBO_PARTITION_SIZE" "none"
