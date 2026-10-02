@@ -37,3 +37,9 @@ etc/permissions/privapp-permissions-com.qualcomm.location.xml
 framework/com.qti.location.sdk.jar
 priv-app/com.qualcomm.location
 "
+
+# Android Virtualization Framework: needs pKVM, and its erofs payload uses features the 5.4 kernel can't mount.
+# com.android.virt itself is kept but rebuilt framework-only with an ext4 payload by target/a52sxq/patches/virt.
+SYSTEM_DEBLOAT+="
+system/system_ext/apex/com.android.compos.apex
+"
