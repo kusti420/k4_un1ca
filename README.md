@@ -10,6 +10,22 @@
 </p>
 <p align="center">UN1CA <i>(/ˈu.ni.ka/)</i> is a work-in-progress custom firmware for Samsung Galaxy devices.</p>
 
+> [!WARNING]
+> ## k4_un1ca — unofficial fork
+> This repository is an **unofficial, community-maintained fork** of [UN1CA](https://github.com/salvogiangri/UN1CA) by [salvogiangri](https://github.com/salvogiangri).
+> It is **not affiliated with or endorsed by** the UN1CA project. Please don't report problems with k4_un1ca builds to UN1CA.
+>
+> **Why this fork exists:** UN1CA itself is actively developed, but its main branch currently targets One UI 8 (`sixteen`).
+> The One UI 9 (`seventeen`) port this fork builds on comes from [devcore94/MonsterROM](https://github.com/devcore94/MonsterROM).
+> k4_un1ca continues that One UI 9 work, focused on bringing it up on the **Galaxy A52s 5G (`a52sxq`, SM7325)**,
+> which only has an Android 14 vendor and a 5.4 kernel.
+>
+> **Status (A52s 5G):** One UI 9 boots to the setup wizard and home screen; Wi-Fi, Bluetooth, audio, camera, video,
+> sensors and storage work. Fingerprint and telephony are still being worked on. Expect bugs: this is a bring-up, not a
+> daily-driver release. Builds require the `A528BXXU5FWK4` (BIT 5) firmware as base, an unlocked bootloader and TWRP.
+>
+> All credit for the build system and patches goes to the UN1CA and MonsterROM authors; the license (GPL-3.0) is unchanged.
+
 <p align="center">
   <a href="https://github.com/salvogiangri/UN1CA/discussions">🚀 Discussions</a>
   •
