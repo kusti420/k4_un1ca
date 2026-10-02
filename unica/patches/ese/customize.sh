@@ -848,30 +848,85 @@ _ESE_PORT_ANDROID17_T2S_HIDL_STACK()
     fi
 }
 
-if [[ "$SOURCE_SECURITY_CONFIG_ESE_CHIP_VENDOR" == "NXP" ]] && [[ "$SOURCE_SECURITY_CONFIG_ESE_COS_NAME" == "JCOP6.2U" ]] && \
+if [[ "$SOURCE_SECURITY_CONFIG_ESE_CHIP_VENDOR" == "NXP" ]] && [[ "$SOURCE_SECURITY_CONFIG_ESE_COS_NAME" =~ ^JCOP(6\.2|7\.2)U$ ]] && \
         [[ "$TARGET_SECURITY_CONFIG_ESE_CHIP_VENDOR" == "none" ]] && [[ "$TARGET_SECURITY_CONFIG_ESE_COS_NAME" == "none" ]]; then
-    APPLY_PATCH "system" "system/app/SecureElement/SecureElement.apk" \
-        "$MODPATH/ese/SecureElement.apk/0001-Disable-eSE-support.patch"
+    if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+        # One UI 9 moved the COS literal to v0; blanking it makes mSupportEseHal false
+        DECODE_APK "system" "system/app/SecureElement/SecureElement.apk"
+        UTILEXT="$APKTOOL_DIR/system/app/SecureElement/SecureElement.apk/smali/com/android/se/internal/UtilExtension.smali"
+        grep -q "\"$SOURCE_SECURITY_CONFIG_ESE_COS_NAME\"" "$UTILEXT" || ABORT "eSE COS literal not found in UtilExtension.smali"
+        LOG "- Disabling eSE HAL support in /system/app/SecureElement/SecureElement.apk"
+        sed -i -e "s|\"$SOURCE_SECURITY_CONFIG_ESE_COS_NAME\"|\"\"|g" \
+            -e "s|\"eSE_COS: $SOURCE_SECURITY_CONFIG_ESE_COS_NAME\"|\"eSE_COS: \"|g" \
+            -e "s|\"eSE_Vendor: $SOURCE_SECURITY_CONFIG_ESE_CHIP_VENDOR\"|\"eSE_Vendor: \"|g" "$UTILEXT"
+        unset UTILEXT
+    else
+        APPLY_PATCH "system" "system/app/SecureElement/SecureElement.apk" \
+            "$MODPATH/ese/SecureElement.apk/0001-Disable-eSE-support.patch"
+    fi
     DELETE_FROM_WORK_DIR "system" "system/bin/sem_daemon"
     DELETE_FROM_WORK_DIR "system" "system/etc/init/sem.rc" 2>&1 | sed "/File not found/d"
     DELETE_FROM_WORK_DIR "system" "system/etc/init/sem_early.rc" 2>&1 | sed "/File not found/d"
     DELETE_FROM_WORK_DIR "system" "system/etc/permissions/privapp-permissions-com.samsung.android.ese.xml"
     DELETE_FROM_WORK_DIR "system" "system/etc/permissions/privapp-permissions-com.sem.factoryapp.xml"
-    APPLY_PATCH "system" "system/framework/framework.jar" "$MODPATH/ese/framework.jar/0001-Disable-SemService.patch"
-    EVAL "cp -a \"$MODPATH/framework.jar/SemService.smali\" \"$APKTOOL_DIR/system/framework/framework.jar/smali_classes6/com/android/server/SemService.smali\""
-    APPLY_PATCH "system" "system/framework/services.jar" "$MODPATH/ese/services.jar/0001-Disable-SemService.patch"
-    ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
-        "system" "system/lib/libsec_semRil.so" 0 0 644 "u:object_r:system_lib_file:s0"
-    ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
-        "system" "system/lib/libtlc_blockchain_keystore.so" 0 0 644 "u:object_r:system_lib_file:s0"
-    ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
-        "system" "system/lib/libtlc_payment_spay.so" 0 0 644 "u:object_r:system_lib_file:s0"
-    ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
-        "system" "system/lib64/libsec_semRil.so" 0 0 644 "u:object_r:system_lib_file:s0"
-    ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
-        "system" "system/lib64/libtlc_blockchain_keystore.so" 0 0 644 "u:object_r:system_lib_file:s0"
-    ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
-        "system" "system/lib64/libtlc_payment_spay.so" 0 0 644 "u:object_r:system_lib_file:s0"
+    if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+        # Line-based One UI 8 patches don't apply to One UI 9; flip the same switches in place
+        DECODE_APK "system" "system/framework/framework.jar"
+        FW="$APKTOOL_DIR/system/framework/framework.jar"
+        RUNE="$(grep -rl "SEM_DAEMON:Z = true" "$FW"/smali*/com/samsung/android/ProductPackagesRune.smali)"
+        SSM="$(find "$FW" -path "*com/samsung/android/service/SemService/SemServiceManager.smali" | head -n 1)"
+        [ "$RUNE" ] && [ "$SSM" ] || ABORT "SemService smali not found in framework.jar"
+        LOG "- Disabling SemService in /system/framework/framework.jar"
+        sed -i "s|SEM_DAEMON:Z = true|SEM_DAEMON:Z = false|" "$RUNE"
+        sed -i "s|isSupportSemService:Z = true|isSupportSemService:Z = false|" "$SSM"
+        python3 - "$SSM" "$SOURCE_SECURITY_CONFIG_ESE_COS_NAME" "$SOURCE_SECURITY_CONFIG_ESE_CHIP_VENDOR" <<'PYEOF' || ABORT "Failed to patch SemServiceManager.smali"
+import re, sys
+p, cos, vendor = sys.argv[1:]
+s = open(p).read()
+i = re.search(r"\.method static constructor (?:\w+ )*<clinit>\(\)V", s).start()
+j = s.index(".end method", i)
+c = s[i:j]
+c, n = re.subn(r"const/4 (v\d+), 0x1(\s+sput-boolean \1, Lcom/samsung/android/service/SemService/SemServiceManager;->isSupportSemServiceManager:Z)", r"const/4 \1, 0x0\2", c)
+assert n == 1, "isSupportSemServiceManager"
+c = c.replace('"%s"' % cos, '""').replace('"%s"' % vendor, '""')
+open(p, "w").write(s[:i] + c + s[j:])
+PYEOF
+        unset FW RUNE SSM
+    else
+        APPLY_PATCH "system" "system/framework/framework.jar" "$MODPATH/ese/framework.jar/0001-Disable-SemService.patch"
+        EVAL "cp -a \"$MODPATH/framework.jar/SemService.smali\" \"$APKTOOL_DIR/system/framework/framework.jar/smali_classes6/com/android/server/SemService.smali\""
+        APPLY_PATCH "system" "system/framework/services.jar" "$MODPATH/ese/services.jar/0001-Disable-SemService.patch"
+    fi
+    # OneUI 9 libspictrl needs eSESpiMwIpcColdResetNotice, which the OneUI 8 prebuilt lacks
+    if [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "37" ]; then
+        ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
+            "system" "system/lib/libsec_semRil.so" 0 0 644 "u:object_r:system_lib_file:s0"
+    fi
+    # The no-eSE prebuilts link the OneUI 8 HIDL TLC clients, which OneUI 9 (AIDL) no longer ships
+    if [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "37" ]; then
+        ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
+            "system" "system/lib/libtlc_blockchain_keystore.so" 0 0 644 "u:object_r:system_lib_file:s0"
+    fi
+    # The no-eSE prebuilts link the OneUI 8 HIDL TLC clients, which OneUI 9 (AIDL) no longer ships
+    if [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "37" ]; then
+        ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
+            "system" "system/lib/libtlc_payment_spay.so" 0 0 644 "u:object_r:system_lib_file:s0"
+    fi
+    # OneUI 9 libspictrl needs eSESpiMwIpcColdResetNotice, which the OneUI 8 prebuilt lacks
+    if [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "37" ]; then
+        ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
+            "system" "system/lib64/libsec_semRil.so" 0 0 644 "u:object_r:system_lib_file:s0"
+    fi
+    # The no-eSE prebuilts link the OneUI 8 HIDL TLC clients, which OneUI 9 (AIDL) no longer ships
+    if [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "37" ]; then
+        ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
+            "system" "system/lib64/libtlc_blockchain_keystore.so" 0 0 644 "u:object_r:system_lib_file:s0"
+    fi
+    # The no-eSE prebuilts link the OneUI 8 HIDL TLC clients, which OneUI 9 (AIDL) no longer ships
+    if [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "37" ]; then
+        ADD_TO_WORK_DIR "$([[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]] && echo "a73xqxx" || echo "a54xnsxx")" \
+            "system" "system/lib64/libtlc_payment_spay.so" 0 0 644 "u:object_r:system_lib_file:s0"
+    fi
     DELETE_FROM_WORK_DIR "system" "system/priv-app/SEMFactoryApp"
     DELETE_FROM_WORK_DIR "system" "system/priv-app/SamsungSeAgent"
 elif [[ "$SOURCE_SECURITY_CONFIG_ESE_CHIP_VENDOR" != "none" ]] && [[ "$SOURCE_SECURITY_CONFIG_ESE_COS_NAME" != "none" ]]; then

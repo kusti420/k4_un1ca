@@ -110,6 +110,28 @@ if ! $SOURCE_CAMERA_SUPPORT_MASS_APP_FLAVOR; then
     if $TARGET_CAMERA_SUPPORT_MASS_APP_FLAVOR; then
         ADD_TO_WORK_DIR "r9qxxx" "system" "system/priv-app/SamsungCamera/SamsungCamera.apk" 0 0 644 "u:object_r:system_file:s0"
         ADD_TO_WORK_DIR "r9qxxx" "system" "system/priv-app/SamsungCamera/SamsungCamera.apk.prof" 0 0 644 "u:object_r:system_file:s0"
+
+        # The prebuilt only knows One UI versions up to its own release and throws
+        # "get : argument is invalid - <ro.build.version.oneui>" from Camera.onCreate on newer
+        # platforms (One UI 9 = 90000). Fall back to the newest version it knows instead.
+        DECODE_APK "system" "system/priv-app/SamsungCamera/SamsungCamera.apk"
+        CAMERA_DIR="$APKTOOL_DIR/system/priv-app/SamsungCamera/SamsungCamera.apk"
+        ONEUI_ENUM="$(grep -rl "get : argument is invalid - " "$CAMERA_DIR"/smali* | head -n 1)"
+        if [ "$ONEUI_ENUM" ] && grep -q "mOneUiVersionCode" "$ONEUI_ENUM"; then
+            LOG "- Making SamsungCamera fall back to its newest known One UI version"
+            python3 - "$ONEUI_ENUM" << 'PYEOF' || ABORT "Failed to patch ${ONEUI_ENUM//$APKTOOL_DIR/}"
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+cls = re.search(r"^\.class [^\n]* (L[^;\s]+;)", s, re.M).group(1)
+last = re.findall(r"^\.field public static final enum (\w+):" + re.escape(cls), s, re.M)[-1]
+pat = re.compile(r"(:cond_\d+\n)\s+new-instance (v\d+), Ljava/lang/IllegalArgumentException;\n\s+const-string v\d+, \"get : argument is invalid - \"\n.*?\n\s+throw \2\n", re.S)
+s, n = pat.subn(lambda m: "%s    sget-object %s, %s->%s:%s\n\n    return-object %s\n" % (m.group(1), m.group(2), cls, last, cls, m.group(2)), s, count=1)
+assert n == 1, "throw block not found"
+open(p, "w").write(s)
+PYEOF
+        fi
+        unset CAMERA_DIR ONEUI_ENUM
     fi
 else
     if ! $TARGET_CAMERA_SUPPORT_MASS_APP_FLAVOR; then

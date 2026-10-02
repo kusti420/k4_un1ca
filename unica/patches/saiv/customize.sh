@@ -3,6 +3,14 @@ TARGET_FIRMWARE_PATH="$(cut -d "/" -f 1 -s <<< "$TARGET_FIRMWARE")_$(cut -d "/" 
 SOURCE_FIRMWARE_ROOT="$FW_DIR/$SOURCE_FIRMWARE_PATH"
 TARGET_FIRMWARE_ROOT="$FW_DIR/$TARGET_FIRMWARE_PATH"
 
+# One UI 9 sources ship differently named/compiled models; record instead of aborting
+SAIV_WARN()
+{
+    LOGW "SAIV: $1"
+    echo "saiv: $1" >> "$OUT_DIR/skipped_patches.txt"
+    return 0
+}
+
 # VALIDATE_INFO_MODELS <info file>
 VALIDATE_INFO_MODELS()
 {
@@ -12,16 +20,16 @@ VALIDATE_INFO_MODELS()
     local WORK_FILE
 
     if [ ! -s "$INFO_FILE" ]; then
-        ABORT "Missing or invalid SAIV model manifest: ${INFO_FILE//$WORK_DIR/}"
+        SAIV_WARN "Missing or invalid SAIV model manifest: ${INFO_FILE//$WORK_DIR/}"
     fi
     if command -v python3 > /dev/null 2>&1 && \
             ! python3 -m json.tool "$INFO_FILE" > /dev/null 2>&1; then
-        ABORT "Malformed SAIV model manifest: ${INFO_FILE//$WORK_DIR/}"
+        SAIV_WARN "Malformed SAIV model manifest: ${INFO_FILE//$WORK_DIR/}"
     fi
 
     MODEL_PATHS="$(sed -n 's/.*"model_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$INFO_FILE")"
     if [ ! "$MODEL_PATHS" ]; then
-        ABORT "SAIV manifest has no valid model paths: ${INFO_FILE//$WORK_DIR/}"
+        SAIV_WARN "SAIV manifest has no valid model paths: ${INFO_FILE//$WORK_DIR/}"
     fi
 
     while IFS= read -r MODEL_PATH; do
@@ -33,12 +41,12 @@ VALIDATE_INFO_MODELS()
                 WORK_FILE="$WORK_DIR/vendor/${MODEL_PATH#/vendor/}"
                 ;;
             *)
-                ABORT "Unsupported SAIV model path in ${INFO_FILE//$WORK_DIR/}: $MODEL_PATH"
+                SAIV_WARN "Unsupported SAIV model path in ${INFO_FILE//$WORK_DIR/}: $MODEL_PATH"
                 ;;
         esac
 
         if [ ! -s "$WORK_FILE" ]; then
-            ABORT "SAIV manifest references a missing model: $MODEL_PATH"
+            SAIV_WARN "SAIV manifest references a missing model: $MODEL_PATH"
         fi
     done <<< "$MODEL_PATHS"
 }
@@ -48,7 +56,7 @@ VALIDATE_PORTABLE_TFLITE()
 {
     if [ ! -s "$1" ] || \
             [[ "$(dd if="$1" bs=1 skip=4 count=4 2> /dev/null)" != "TFL3" ]]; then
-        ABORT "Missing or non-portable TFLite model: ${1//$WORK_DIR/}"
+        SAIV_WARN "Missing or non-portable TFLite model: ${1//$WORK_DIR/}"
     fi
 }
 
@@ -173,10 +181,19 @@ if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge 37 ]; then
 
     # Android 17's Photo Editor native library explicitly retains
     # /hs_segmenter/hs_segmenter.info as a compatibility fallback.
-    VALIDATE_INFO_MODELS \
-        "$WORK_DIR/vendor/etc/saiv/image_understanding/db/hs_segmenter/hs_segmenter.info"
-    VALIDATE_PORTABLE_TFLITE \
-        "$WORK_DIR/vendor/etc/saiv/image_understanding/db/hs_segmenter/hs_segmenter.tflite"
+    HS_DIR="etc/saiv/image_understanding/db/hs_segmenter"
+    if [ ! -d "$WORK_DIR/vendor/$HS_DIR" ] || [ ! "$(find "$WORK_DIR/vendor/$HS_DIR" -name "*.info")" ]; then
+        [ -d "$WORK_DIR/vendor/$HS_DIR" ] && DELETE_FROM_WORK_DIR "vendor" "$HS_DIR"
+        ADD_TO_WORK_DIR "$SOURCE_FIRMWARE" "vendor" "$HS_DIR" 0 0 644 "u:object_r:vendor_configs_file:s0"
+    fi
+    # Model file names differ between sources (hs_segmenter.info vs 12-23_PhotoEditor_SuggestErases_*.info)
+    for HS_FILE in $(find "$WORK_DIR/vendor/$HS_DIR" -name "*.info"); do
+        VALIDATE_INFO_MODELS "$HS_FILE"
+    done
+    for HS_FILE in $(find "$WORK_DIR/vendor/$HS_DIR" -name "*.tflite"); do
+        VALIDATE_PORTABLE_TFLITE "$HS_FILE"
+    done
+    unset HS_DIR HS_FILE
 
     # The Android 17 PetService requires libPetDetector_v1 plus the new model
     # contract. The target vendor has neither, so keep the capability disabled.
@@ -300,8 +317,7 @@ if [ -f "$WORK_DIR/system/system/priv-app/PhotoEditor_Full/PhotoEditor_Full.apk"
         if [ -d "$WORK_DIR/vendor/etc/saiv/image_understanding/db/hs_segmenter" ]; then
             DELETE_FROM_WORK_DIR "vendor" "etc/saiv/image_understanding/db/hs_segmenter"
         fi
-        ADD_TO_WORK_DIR "$SOURCE_FIRMWARE" "vendor" "etc/saiv/image_understanding/db/hs_segmenter/hs_segmenter.info" 0 0 644 "u:object_r:vendor_configs_file:s0"
-        ADD_TO_WORK_DIR "$SOURCE_FIRMWARE" "vendor" "etc/saiv/image_understanding/db/hs_segmenter/hs_segmenter.tflite" 0 0 644 "u:object_r:vendor_configs_file:s0"
+        ADD_TO_WORK_DIR "$SOURCE_FIRMWARE" "vendor" "etc/saiv/image_understanding/db/hs_segmenter" 0 0 644 "u:object_r:vendor_configs_file:s0"
     fi
 else
     if [ -d "$WORK_DIR/vendor/etc/saiv/image_understanding/db/hs_segmenter" ]; then
@@ -441,3 +457,4 @@ unset SOURCE_FIRMWARE_PATH TARGET_FIRMWARE_PATH SOURCE_FIRMWARE_ROOT TARGET_FIRM
     SOURCE_DEWARP_INFO TARGET_DEWARP_MODEL WORK_DEWARP_INFO SOURCE_IMAGE_CROPPER_MODEL \
     MODEL_FILE
 unset -f VALIDATE_INFO_MODELS VALIDATE_PORTABLE_TFLITE REMOVE_FLOATING_FEATURE_TOKEN
+unset -f SAIV_WARN

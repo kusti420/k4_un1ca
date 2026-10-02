@@ -59,7 +59,11 @@ fi
 LOG "- Repacking boot.img"
 
 EVAL "mkbootimg $MKBOOTIMG_ARGS -o \"$TMP_DIR/new-boot.img\""
-echo -n "SEANDROIDENFORCE" >> "$TMP_DIR/new-boot.img"
+if $TARGET_BOOT_SEANDROID_MAGIC; then
+    echo -n "SEANDROIDENFORCE" >> "$TMP_DIR/new-boot.img"
+else
+    head -c 16 /dev/zero >> "$TMP_DIR/new-boot.img"
+fi
 EVAL "mv -f \"$TMP_DIR/new-boot.img\" \"$WORK_DIR/kernel/boot.img\""
 
 EVAL "rm -rf \"$TMP_DIR\""

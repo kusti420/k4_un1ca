@@ -263,11 +263,15 @@ if $SOURCE_AUDIO_SUPPORT_VIRTUAL_VIBRATION_SOUND; then
                 "displayPreference(Landroidx/preference/PreferenceScreen;)V" \
                 "const/4 p1, 0x1" \
                 "const/4 p1, 0x0"
-            SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
-                "smali_classes3/com/samsung/android/settings/asbase/vibration/VirtualVibrationSoundPreferenceController.smali" "replace" \
-                "updateState(Landroidx/preference/Preference;)V" \
-                "const/4 p1, 0x1" \
-                "const/4 p1, 0x0"
+            # One UI 9 dropped the updateState() override; getAvailabilityStatus() already hides it
+            if grep -q "^\.method.* updateState(Landroidx/preference/Preference;)V" \
+                    "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/smali_classes3/com/samsung/android/settings/asbase/vibration/VirtualVibrationSoundPreferenceController.smali"; then
+                SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
+                    "smali_classes3/com/samsung/android/settings/asbase/vibration/VirtualVibrationSoundPreferenceController.smali" "replace" \
+                    "updateState(Landroidx/preference/Preference;)V" \
+                    "const/4 p1, 0x1" \
+                    "const/4 p1, 0x0"
+            fi
 
             DECODE_APK "system" "system/priv-app/SettingsProvider/SettingsProvider.apk"
             SETTINGS_PROVIDER_SMALI="$APKTOOL_DIR/system/priv-app/SettingsProvider/SettingsProvider.apk/smali/com/android/providers/settings/DatabaseHelper\$1.smali"
@@ -533,6 +537,62 @@ if [[ "$SOURCE_FINGERPRINT_CONFIG_SENSOR" != "$TARGET_FINGERPRINT_CONFIG_SENSOR"
                 # TODO handle this condition
                 LOG_MISSING_PATCHES "SOURCE_FINGERPRINT_CONFIG_SENSOR" "TARGET_FINGERPRINT_CONFIG_SENSOR"
             fi
+        elif [[ "$(GET_FINGERPRINT_SENSOR_TYPE "$SOURCE_FINGERPRINT_CONFIG_SENSOR")" == "side" ]] && \
+                [[ "$(GET_FINGERPRINT_SENSOR_TYPE "$TARGET_FINGERPRINT_CONFIG_SENSOR")" == "optical" ]] && \
+                [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+            # One UI 9 side-sensor source (Fold8) -> optical under-display target.
+            # In-display/optical/ultrasonic flags are derived at runtime from
+            # SEC_FLOATING_FEATURE_BIOAUTH_CONFIG_FINGERPRINT_FEATURES (target value is kept),
+            # but side-sensor specifics and the HIDL sensor type mapping are compiled in.
+            DECODE_APK "system" "system/framework/framework.jar"
+            DECODE_APK "system" "system/framework/services.jar"
+            python3 - "$APKTOOL_DIR/system/framework" <<'PYEOF' || ABORT "Failed to apply side -> optical fingerprint patches"
+import glob, re, sys
+root = sys.argv[1]
+def one(pat):
+    hits = glob.glob(root + "/" + pat)
+    assert len(hits) == 1, pat
+    return hits[0]
+
+# HIDL -> AIDL: sensor position 2 (in-display) was compiled out; report UNDER_DISPLAY_OPTICAL (3)
+f = one("framework.jar/smali*/android/hardware/fingerprint/HidlFingerprintSensorConfig.smali")
+s = open(f).read()
+old = """    const/4 v2, 0x2
+
+    if-eq v1, v2, :cond_4
+"""
+new = """    const/4 v2, 0x2
+
+    if-ne v1, v2, :cond_unica_not_udfps
+
+    const/4 v2, 0x3
+
+    iput-byte v2, p0, Landroid/hardware/fingerprint/HidlFingerprintSensorConfig;->sensorType:B
+
+    goto :goto_0
+
+    :cond_unica_not_udfps
+"""
+assert s.count(old) == 1, "HidlFingerprintSensorConfig"
+open(f, "w").write(s.replace(old, new))
+
+# Samsung sensor type: 1 = side, 2 = optical, 3 = ultrasonic
+f = one("framework.jar/smali*/com/samsung/android/bio/fingerprint/SemFingerprintManager$Characteristics.smali")
+s = open(f).read()
+s, n = re.subn(r"(\.method public (?:\w+ )*getSensorType\(\)I\n\s+\.locals 0\n\n\s+)const/4 p0, 0x\d", r"\1const/4 p0, 0x2", s)
+assert n == 1, "Characteristics.getSensorType"
+open(f, "w").write(s)
+
+# services: side sensor and swipe enroll are hardcoded true on the Fold8
+f = one("services.jar/smali*/com/android/server/biometrics/SemBiometricFeature.smali")
+s = open(f).read()
+for field in ("FP_FEATURE_SENSOR_IS_SIDE", "FP_FEATURE_SWIPE_ENROLL"):
+    s, n = re.subn(r"(\n(\s+)sput-boolean )(v\d+)(, Lcom/android/server/biometrics/SemBiometricFeature;->%s:Z)" % field,
+                   r"\n\2const/4 v0, 0x0\n\1v0\4", s)
+    assert n == 1, field
+open(f, "w").write(s)
+PYEOF
+            LOG "- Applied side -> optical fingerprint framework patches"
         else
             # TODO handle this condition
             LOG_MISSING_PATCHES "SOURCE_FINGERPRINT_CONFIG_SENSOR" "TARGET_FINGERPRINT_CONFIG_SENSOR"
@@ -562,11 +622,14 @@ if [[ "$SOURCE_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS" != "$TARGET_LCD_CONFIG_CONTRO
         "getBrightness()Ljava/lang/String;" \
         "$SOURCE_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS" \
         "$TARGET_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS"
-    SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
-        "smali_classes4/com/samsung/android/settings/Rune.smali" "replace" \
-        "<clinit>()V" \
-        "$SOURCE_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS" \
-        "$TARGET_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS"
+    # One UI 9 Settings no longer bakes this value into Rune
+    if [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "37" ]; then
+        SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
+            "smali_classes4/com/samsung/android/settings/Rune.smali" "replace" \
+            "<clinit>()V" \
+            "$SOURCE_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS" \
+            "$TARGET_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS"
+    fi
 fi
 
 # SEC_PRODUCT_FEATURE_LCD_CONFIG_SEAMLESS_BRT
@@ -719,12 +782,12 @@ if [[ "$SOURCE_LCD_CONFIG_HFR_MODE" != "$TARGET_LCD_CONFIG_HFR_MODE" ]]; then
         "$TARGET_LCD_CONFIG_HFR_MODE"
     SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
         "$([ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ] && echo "smali_classes3" || echo "smali_classes4")/com/samsung/android/settings/display/SecDisplayUtils.smali" "replace" \
-        "getHighRefreshRateSeamlessType(I)I" \
+        "getHighRefreshRateSeamlessType($([ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ] && echo "Landroid/content/Context;")I)I" \
         "$SOURCE_LCD_CONFIG_HFR_MODE" \
         "$TARGET_LCD_CONFIG_HFR_MODE"
     SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
         "$([ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ] && echo "smali_classes3" || echo "smali_classes4")/com/samsung/android/settings/display/SecDisplayUtils.smali" "replace" \
-        "isSupportMaxHS60RefreshRate(I)Z" \
+        "isSupportMaxHS60RefreshRate($([ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ] && echo "Landroid/content/Context;")I)Z" \
         "$SOURCE_LCD_CONFIG_HFR_MODE" \
         "$TARGET_LCD_CONFIG_HFR_MODE"
     SMALI_PATCH "system" "system/priv-app/SettingsProvider/SettingsProvider.apk" \
@@ -842,8 +905,14 @@ if $SOURCE_LCD_SUPPORT_MDNIE_HW && [[ "$SOURCE_LCD_CONFIG_COLOR_WEAKNESS_SOLUTIO
             APPLY_PATCH "system" "system/framework/framework.jar" \
                 "$MODPATH/mdnie/hw/framework.jar/0002-Disable-A11Y_COLOR_BOOL_SUPPORT_DMC_COLORWEAKNESS.patch"
         fi
-        APPLY_PATCH "system" "system/framework/services.jar" \
-            "$MODPATH/mdnie/hw/services.jar/0001-Disable-HW-mDNIe.patch"
+        if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+            # TODO One UI 9 port of the services.jar HW mDNIe removal (1.7k lines); not boot critical
+            LOGW "Deferred: mdnie/hw/services.jar on One UI 9"
+            echo "/system/system/framework/services.jar unica/patches/product_feature/mdnie/hw/services.jar/0001-Disable-HW-mDNIe.patch (deferred)" >> "$OUT_DIR/skipped_patches.txt"
+        else
+            APPLY_PATCH "system" "system/framework/services.jar" \
+                "$MODPATH/mdnie/hw/services.jar/0001-Disable-HW-mDNIe.patch"
+        fi
     fi
 elif $SOURCE_LCD_SUPPORT_MDNIE_HW && [[ "$SOURCE_LCD_CONFIG_COLOR_WEAKNESS_SOLUTION" == "0" ]]; then
     # TODO handle these conditions
@@ -1441,41 +1510,30 @@ else
 
             # Keep station-side Enhanced Open support intact.  Only remove OWE
             # from the hotspot security arrays selected by One UI 9 Settings.
-            REQUIRE_METHOD_FIXED_COUNT \
-                "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/smali_classes4/com/samsung/android/settings/wifi/mobileap/configure/WifiApConfigureSecurityDropDownController.smali" \
-                "setSecurityTypeEntryArrays(Z)V" \
-                "const v0, 0x7f0301f7" \
-                "1" \
-                "6 GHz MobileAP OWE security array"
-            SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
-                "smali_classes4/com/samsung/android/settings/wifi/mobileap/configure/WifiApConfigureSecurityDropDownController.smali" "replace" \
-                "setSecurityTypeEntryArrays(Z)V" \
-                "const v0, 0x7f0301f7" \
-                "const v0, 0x7f0301f8"
-
-            REQUIRE_METHOD_FIXED_COUNT \
-                "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/smali_classes4/com/samsung/android/settings/wifi/mobileap/configure/WifiApConfigureSecurityDropDownController.smali" \
-                "setSecurityTypeEntryArrays(Z)V" \
-                "const v0, 0x7f030203" \
-                "1" \
-                "MobileAP OWE/WPA3 security array"
-            SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
-                "smali_classes4/com/samsung/android/settings/wifi/mobileap/configure/WifiApConfigureSecurityDropDownController.smali" "replace" \
-                "setSecurityTypeEntryArrays(Z)V" \
-                "const v0, 0x7f030203" \
-                "const v0, 0x7f03020b"
-
-            REQUIRE_METHOD_FIXED_COUNT \
-                "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/smali_classes4/com/samsung/android/settings/wifi/mobileap/configure/WifiApConfigureSecurityDropDownController.smali" \
-                "setSecurityTypeEntryArrays(Z)V" \
-                "const v0, 0x7f030202" \
-                "1" \
-                "MobileAP OWE security array"
-            SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
-                "smali_classes4/com/samsung/android/settings/wifi/mobileap/configure/WifiApConfigureSecurityDropDownController.smali" "replace" \
-                "setSecurityTypeEntryArrays(Z)V" \
-                "const v0, 0x7f030202" \
-                "const v0, 0x7f030205"
+            # Resource IDs differ per source build, resolve them by name.
+            OWE_CTRL="$(cd "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk" && \
+                find . -path "./smali*/com/samsung/android/settings/wifi/mobileap/configure/WifiApConfigureSecurityDropDownController.smali" | sed "s|^\./||")"
+            OWE_PUBLIC="$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/res/values/public.xml"
+            for OWE_PAIR in \
+                    "wifi_ap_6ghz_owe_wpa3_security_type_entries:wifi_ap_6ghz_wpa3_security_type_entries" \
+                    "wifi_ap_owe_wpa3_security_type_entries:wifi_ap_wpa3_security_type_entries" \
+                    "wifi_ap_owe_security_type_entries1:wifi_ap_security_type_entries1"; do
+                OWE_FROM="$(grep -o "type=\"array\" name=\"${OWE_PAIR%%:*}\" id=\"0x[0-9a-f]*\"" "$OWE_PUBLIC" | grep -o "0x[0-9a-f]*")"
+                OWE_TO="$(grep -o "type=\"array\" name=\"${OWE_PAIR##*:}\" id=\"0x[0-9a-f]*\"" "$OWE_PUBLIC" | grep -o "0x[0-9a-f]*")"
+                [ "$OWE_FROM" ] && [ "$OWE_TO" ] || ABORT "MobileAP OWE array ids not found: $OWE_PAIR"
+                REQUIRE_METHOD_FIXED_COUNT \
+                    "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/$OWE_CTRL" \
+                    "setSecurityTypeEntryArrays(Z)V" \
+                    "const v0, $OWE_FROM" \
+                    "1" \
+                    "MobileAP ${OWE_PAIR%%:*} array"
+                SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
+                    "$OWE_CTRL" "replace" \
+                    "setSecurityTypeEntryArrays(Z)V" \
+                    "const v0, $OWE_FROM" \
+                    "const v0, $OWE_TO"
+            done
+            unset OWE_CTRL OWE_PUBLIC OWE_PAIR OWE_FROM OWE_TO
         else
             LOG_MISSING_PATCHES "SOURCE_WLAN_SUPPORT_MOBILEAP_OWE" "TARGET_WLAN_SUPPORT_MOBILEAP_OWE"
         fi
@@ -1484,7 +1542,11 @@ fi
 
 # SEC_PRODUCT_FEATURE_WLAN_SUPPORT_MOBILEAP_POWER_SAVEMODE
 if $SOURCE_WLAN_SUPPORT_MOBILEAP_POWER_SAVEMODE; then
-    if ! $TARGET_WLAN_SUPPORT_MOBILEAP_POWER_SAVEMODE; then
+    if ! $TARGET_WLAN_SUPPORT_MOBILEAP_POWER_SAVEMODE && [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+        # TODO One UI 9 port; hotspot power save stays enabled meanwhile
+        LOGW "Deferred: MOBILEAP_POWER_SAVEMODE removal on One UI 9"
+        echo "/system/system/framework/semwifi-service.jar wifi/power_savemode (deferred)" >> "$OUT_DIR/skipped_patches.txt"
+    elif ! $TARGET_WLAN_SUPPORT_MOBILEAP_POWER_SAVEMODE; then
         APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
             "$MODPATH/wifi/power_savemode/semwifi-service.jar/0001-Disable-MOBILEAP_POWER_SAVEMODE-support.patch"
         SMALI_PATCH "system" "system/framework/semwifi-service.jar" \

@@ -230,8 +230,43 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "35" ]; then
     if [ -f "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" ] && \
             ! xxd -p -c 4 "$WORK_DIR/vendor/bin/hw/vendor.samsung.hardware.light-service" | grep -q "1853$"; then
         PATCHED=true
-        APPLY_PATCH "system" "system/framework/services.jar" \
-            "$MODPATH/lights/services.jar/0001-Backport-legacy-SehLights-HAL-code.patch"
+        if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+            # One UI 9: the legacy SehLights HAL reads the brightness level from the trailing
+            # int of setLightState(), which the framework now hardcodes to -1. Recover the
+            # level the framework already computed (convertBrightnessFloatToInt) from the
+            # color: raw value when the top byte is 0, low byte when it is ARGB-packed.
+            DECODE_APK "system" "system/framework/services.jar"
+            python3 - "$APKTOOL_DIR/system/framework/services.jar" <<'PYEOF' || ABORT "Failed to backport legacy SehLights HAL support"
+import glob, re, sys
+root = sys.argv[1]
+pmu = glob.glob(root + "/smali*/com/android/server/power/PowerManagerUtil.smali")[0]
+s = open(pmu).read()
+s, n = re.subn(r"(\n(\s+)sput-boolean (v\d+), Lcom/android/server/power/PowerManagerUtil;->SEC_FEATURE_USE_LIGHTS_HAL_EXTENSION:Z)",
+               r"\n\2const/4 \3, 0x1\n\1", s)
+assert n == 1, "SEC_FEATURE_USE_LIGHTS_HAL_EXTENSION"
+open(pmu, "w").write(s)
+prx = glob.glob(root + "/smali*/vendor/samsung/hardware/light/ISehLights$Stub$Proxy.smali")[0]
+s = open(prx).read()
+old = """    const/4 p2, -0x1
+
+    invoke-virtual {v0, p2}, Landroid/os/Parcel;->writeInt(I)V"""
+new = """    iget p2, p2, Landroid/hardware/light/HwLightState;->color:I
+
+    ushr-int/lit8 v2, p2, 0x18
+
+    if-eqz v2, :cond_unica_legacy_level
+
+    and-int/lit16 p2, p2, 0xff
+
+    :cond_unica_legacy_level
+    invoke-virtual {v0, p2}, Landroid/os/Parcel;->writeInt(I)V"""
+assert s.count(old) == 1, "ISehLights proxy"
+open(prx, "w").write(s.replace(old, new))
+PYEOF
+        else
+            APPLY_PATCH "system" "system/framework/services.jar" \
+                "$MODPATH/lights/services.jar/0001-Backport-legacy-SehLights-HAL-code.patch"
+        fi
     fi
 fi
 
@@ -392,6 +427,11 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "36" ]; then
 
     if $VBOOT_MISSING && $KERNEL_MISSING; then
         PATCHED=true
+        # The handler's anonymous class index shifts between releases ($8 in One UI 8, $10 in One UI 9)
+        DECODE_APK "system" "system/framework/services.jar"
+        USB_HANDLER="$(grep -l -F "SUNNY_WORK_MODE" "$APKTOOL_DIR/system/framework/services.jar/smali_classes2/com/android/server/usb/UsbHostRestrictor\$"*.smali | \
+            xargs grep -l "handleMessage(Landroid/os/Message;)V" | head -n 1 | xargs -r basename)"
+        [ "$USB_HANDLER" ] || ABORT "UsbHostRestrictor handler class not found"
         SMALI_PATCH "system" "system/framework/services.jar" \
             "smali_classes2/com/android/server/usb/UsbHostRestrictor.smali" "replace" \
             "isFinishLockTimer()Z" \
@@ -408,12 +448,12 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "36" ]; then
             "CLOUDY_WORK_MODE" \
             "1"
         SMALI_PATCH "system" "system/framework/services.jar" \
-            "smali_classes2/com/android/server/usb/UsbHostRestrictor\$8.smali" "replace" \
+            "smali_classes2/com/android/server/usb/$USB_HANDLER" "replace" \
             "handleMessage(Landroid/os/Message;)V" \
             "SUNNY_WORK_MODE" \
             "0"
         SMALI_PATCH "system" "system/framework/services.jar" \
-            "smali_classes2/com/android/server/usb/UsbHostRestrictor\$8.smali" "replace" \
+            "smali_classes2/com/android/server/usb/$USB_HANDLER" "replace" \
             "handleMessage(Landroid/os/Message;)V" \
             "RAINY_RESTRICT_MODE" \
             "2"
@@ -429,7 +469,7 @@ if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "36" ]; then
             "1"
     fi
 
-    unset VBOOT_MISSING KERNEL_MISSING
+    unset VBOOT_MISSING KERNEL_MISSING USB_HANDLER
 fi
 
 # Support legacy LED Cover level

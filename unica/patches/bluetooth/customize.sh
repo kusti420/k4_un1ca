@@ -2,24 +2,23 @@ if [ ! -f "$WORK_DIR/system/system/lib64/libbluetooth_jni.so" ]; then
     LOG_STEP_IN "- Extracting libbluetooth_jni.so from com.android.bt.apex"
 
     if [ -d "$TMP_DIR" ]; then
+        # An interrupted build can leave the payload fuse-mounted, which makes rm -rf fail
+        mountpoint -q "$TMP_DIR/tmp_out" && EVAL "fusermount3 -u \"$TMP_DIR/tmp_out\""
         EVAL "rm -rf \"$TMP_DIR\""
     fi
     mkdir -p "$TMP_DIR"
 
     EVAL "unzip -j \"$WORK_DIR/system/system/apex/com.android.bt.apex\" \"apex_payload.img\" -d \"$TMP_DIR\""
 
-    if ! sudo -n -v &> /dev/null; then
-        LOG "\033[0;33m! Asking user for sudo password\033[0m"
-        if ! sudo -v 2> /dev/null; then
-            ABORT "Root permissions are required to unpack APEX image"
-        fi
-    fi
-
     mkdir -p "$TMP_DIR/tmp_out"
-    EVAL "sudo mount -o ro \"$TMP_DIR/apex_payload.img\" \"$TMP_DIR/tmp_out\""
-    EVAL "sudo cat \"$TMP_DIR/tmp_out/lib64/libbluetooth_jni.so\" > \"$WORK_DIR/system/system/lib64/libbluetooth_jni.so\""
+    if [[ "$(xxd -p -s 1024 -l 4 "$TMP_DIR/apex_payload.img")" == "e2e1f5e0" ]]; then
+        EVAL "fuse.erofs \"$TMP_DIR/apex_payload.img\" \"$TMP_DIR/tmp_out\""
+    else
+        EVAL "fuse2fs -o ro,fakeroot \"$TMP_DIR/apex_payload.img\" \"$TMP_DIR/tmp_out\""
+    fi
+    EVAL "cat \"$TMP_DIR/tmp_out/lib64/libbluetooth_jni.so\" > \"$WORK_DIR/system/system/lib64/libbluetooth_jni.so\""
 
-    EVAL "sudo umount \"$TMP_DIR/tmp_out\""
+    EVAL "fusermount3 -u \"$TMP_DIR/tmp_out\""
     rm -rf "$TMP_DIR"
 
     SET_METADATA "system" "system/lib64/libbluetooth_jni.so" 0 0 644 "u:object_r:system_lib_file:s0"
