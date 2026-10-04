@@ -1,6 +1,9 @@
 # De-Googled variant: strip the Google services stack from the global Fold8 base. The China (CHC) firmware was
 # checked as an alternative base on 2026-10-04 and ships the very same GSF/Play Store/GmsCore APEX, so removing them
 # here gives the same result without re-matching every binary patch against different F9760 binaries.
+# Folder names do not reveal ownership: the list below was made from the manifest package names of every APK in the
+# image (com.google.*, com.android.vending, com.android.hotwordenrollment.*), e.g. SetupWizard = com.google.android.setupwizard,
+# CallCore, CarrierWifi, CrossDeviceServices, AndroidSystemIntelligence, PrivateComputeServices, ARCore, MoseyApp.
 # Deliberately kept: Google-signed mainline APEXes (the platform's own modules), NetworkStackGoogle,
 # CaptivePortalLoginGoogle, DocumentsUIGoogle, GooglePackageInstaller, the permission controller overlays,
 # GoogleExtServicesConfigOverlay/HealthFitness/ModuleMetadata overlays (module config) and WebViewGoogle64 +
@@ -23,8 +26,12 @@ _DEGOOGLE_DELETE "product" \
     "app/com.google.mainline.telemetry" "app/com.google.mainline.adservices" "app/GoogleLpaOverlay" \
     "priv-app/AICore" "priv-app/AndroidAutoStub" "priv-app/ConfigUpdater" "priv-app/GmsCore" \
     "priv-app/GooglePartnerSetup" "priv-app/GoogleRestore" "priv-app/HotwordEnrollmentOKGoogleEx3HEXAGON" \
-    "priv-app/HotwordEnrollmentXGoogleEx3HEXAGON" "priv-app/Messages" "priv-app/Phonesky" "priv-app/Turbo" \
+    "priv-app/HotwordEnrollmentXGoogleEx3HEXAGON" "priv-app/HotwordEnrollmentXGoogleEx6_WIDEBAND_LARGE" \
+    "priv-app/HotwordEnrollmentYGoogleEx6_WIDEBAND_LARGE" "priv-app/Messages" "priv-app/Phonesky" "priv-app/Turbo" \
     "priv-app/Velvet" \
+    "priv-app/CrossDeviceServices" "priv-app/AiWallpaper" "priv-app/CarrierWifi" "priv-app/PrivateComputeServices" \
+    "priv-app/AndroidSystemIntelligence" "priv-app/CallCore" "priv-app/AndroidGlassesCore" \
+    "priv-app/FamilyLinkParentalControls" "priv-app/AndroidDeveloperVerifier" \
     "apex/com.google.android.gmssystem.prodvic.apex" \
     "overlay/GmsConfigOverlayCommon.apk" "overlay/GmsConfigOverlayADVerifier.apk" "overlay/GmsConfigOverlayASI.apk" \
     "overlay/GmsConfigOverlayGeotz.apk" "overlay/GmsConfigOverlayGSA.apk" "overlay/GmsQSfastpairOverlay.apk" \
@@ -42,7 +49,7 @@ _DEGOOGLE_DELETE "product" \
 
 _DEGOOGLE_DELETE "system" \
     "system/app/TalkBack" "system/app/GooglePrintRecommendationService" "system/app/ChromeCustomizations" \
-    "system/priv-app/EuiccGoogle" "system/priv-app/GameDriver-SM8850" \
+    "system/priv-app/EuiccGoogle" "system/priv-app/GameDriver-SM8850" "system/app/ARCore" \
     "system/etc/sysconfig/preinstalled-packages-com.google.android.marvin.talkback.xml" \
     "system/etc/sysconfig/preinstalled-packages-com.google.android.apps.accessibility.voiceaccess.xml" \
     "system/etc/sysconfig/preinstalled-packages-com.google.audio.hearing.visualization.accessibility.scribe.xml" \
@@ -50,7 +57,7 @@ _DEGOOGLE_DELETE "system" \
     "system/etc/permissions/privapp-permissions-google-euicc.xml"
 
 _DEGOOGLE_DELETE "system_ext" \
-    "priv-app/GoogleFeedback" "priv-app/GoogleServicesFramework" \
+    "priv-app/GoogleFeedback" "priv-app/GoogleServicesFramework" "priv-app/SetupWizard" "priv-app/MoseyApp" \
     "etc/default-permissions/default-permissions-com.google.android.mosey.xml" \
     "etc/permissions/privapp-permissions-com.google.android.mosey.xml" \
     "etc/sysconfig/preinstalled-packages-com.google.android.mosey.xml"
