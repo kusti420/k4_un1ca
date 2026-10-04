@@ -131,7 +131,7 @@ SMALI_PATCH "system" "system/framework/services.jar" \
     "smali_classes2/com/android/server/pm/InstallPackageHelper.smali" "replace" \
     'preparePackage(Lcom/android/server/pm/InstallRequest;)V' \
     'if-nez v0, :cond_19' \
-       'if-nez v0, :cond_19\n\n    iget-object v0, v1, Lcom/android/server/pm/InstallPackageHelper;->mContext:Landroid/content/Context;\n\n    invoke-virtual {v0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;\n\n    move-result-object v43\n\n    const-string v44, "unica_allow_sdkbypass"\n\n    const/16 v45, 0x0\n\n    invoke-static/range {v43 .. v45}, Landroid/provider/Settings$System;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I\n\n    move-result v43\n\n    if-eqz v43, :cond_19'
+       'if-nez v0, :cond_19\n\n    iget-object v0, v1, Lcom/android/server/pm/InstallPackageHelper;->mContext:Landroid/content/Context;\n\n    invoke-virtual {v0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;\n\n    move-result-object v43\n\n    const-string v44, "unica_allow_sdkbypass"\n\n    const/16 v45, 0x0\n\n    invoke-static/range {v43 .. v45}, Landroid/provider/Settings$System;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I\n\n    move-result v43\n\n    if-nez v43, :cond_19'
 
 ASKS_SMALI="$APKTOOL_DIR/system/framework/services.jar/smali/com/android/server/asks/ASKSManagerService.smali"
 ASKS_POLICY_METHOD='getUnknownAppsDataFromXML(ILjava/util/ArrayList;Ljava/util/HashMap;Z)V'
