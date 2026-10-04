@@ -1,0 +1,4 @@
+id=a52sxq_softap
+name=Use the A52s SoftAP overlay
+author=kusti420
+description=The Fold8 product overlay com.samsung.android.wifi.softap.resources (product/overlay/SoftapOverlay) overrides the A52s vendor overlay of the same package and claims bridged (dual-band) SoftAP and 6 GHz support. The framework then requests an AP_BRIDGE interface from the HIDL 1.4 Wi-Fi HAL, which can't create one, and the hotspot fails to start. Remove it so the A52s vendor values (no bridged AP, no 6 GHz, 5 GHz channel 149) apply.

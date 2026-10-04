@@ -1,0 +1,4 @@
+id=a52sxq_wallpaper
+name=Disable the foldable wallpaper policy and the Fold video wallpapers
+author=kusti420
+description=The Fold source enables CoreRune.FW_FOLD_WALLPAPER_POLICY (persist.wm.fold.wallpaper_policy), so WindowManager hides every wallpaper token whose physical display id doesn't match the default display. The id is only assigned when the wallpaper Rune runs in sub display mode, which a single screen phone never does, so the token keeps -1 and no wallpaper is laid out: black home and lock screen. Turn the policy off. The bundled default/featured wallpapers are the Fold interactive videos (2504x2504 HEVC 120 fps, which the SM7325 decoder rejects): point those entries at the matching still images and drop the videos.

@@ -10,6 +10,19 @@ if [ -f "$VIRT_APEX" ] && [[ "$(unzip -p "$VIRT_APEX" apex_payload.img 2> /dev/n
     mkdir -p "$MNT" "$PAY"
     EVAL "fuse.erofs \"$TMP_DIR/unknown/apex_payload.img\" \"$MNT\""
     EVAL "cp -a -T \"$MNT\" \"$PAY\""
+
+    # VirtualizationSystemService (apex-system-service in this APEX's manifest, so SystemServer always starts it)
+    # calls ServiceManager.waitForService("android.system.virtualizationmaintenance") on system_server's shared
+    # android.bg (BackgroundThread) for every full app uninstall / user removal, and from the daily SecretkeeperJob.
+    # virtualizationservice is dropped below, so that wait never returns and android.bg is wedged until reboot.
+    # checkService() returns null instead -> IllegalStateException, which both callers already catch and log.
+    SVJ="$PAY/javalib/service-virtualization.jar"
+    EVAL "apktool d -f -o \"$TMP_DIR/svj\" \"$SVJ\""
+    sed -i "s|Landroid/os/ServiceManager;->waitForService(Ljava/lang/String;)Landroid/os/IBinder;|Landroid/os/ServiceManager;->checkService(Ljava/lang/String;)Landroid/os/IBinder;|" \
+        "$TMP_DIR/svj/smali/com/android/system/virtualmachine/VirtualizationSystemService.smali"
+    grep -q "waitForService" -r "$TMP_DIR/svj/smali" && ABORT "service-virtualization.jar still calls waitForService"
+    EVAL "apktool b -o \"$SVJ\" \"$TMP_DIR/svj\""
+    rm -rf "$TMP_DIR/svj"
     EVAL "find \"$MNT\" | xargs -I \"{}\" -P \"$(nproc)\" stat -c \"%n %u %g %a capabilities=0x0\" \"{}\" > \"$TMP_DIR/unknown/fs_config-apex_payload\""
     EVAL "find \"$MNT\" | xargs -I \"{}\" -P \"$(nproc)\" sh -c 'echo \"\$1 \$(getfattr -n security.selinux --only-values -h --absolute-names \"\$1\")\"' \"sh\" \"{}\" > \"$TMP_DIR/unknown/file_context-apex_payload\""
     EVAL "fusermount3 -u \"$MNT\""
@@ -51,7 +64,7 @@ if [ -f "$VIRT_APEX" ] && [[ "$(unzip -p "$VIRT_APEX" apex_payload.img 2> /dev/n
     EVAL "signapk -a 4096 --align-file-size \"$SRC_DIR/security/${CERT_PREFIX}_platform.x509.pem\" \"$SRC_DIR/security/${CERT_PREFIX}_platform.pk8\" \"$VIRT_APEX\" \"$VIRT_APEX.signed\""
     mv -f "$VIRT_APEX.signed" "$VIRT_APEX"
     rm -rf "$TMP_DIR"
-    unset MNT PAY P_RE SALT CERT_PREFIX
+    unset MNT PAY P_RE SALT CERT_PREFIX SVJ
     LOG_STEP_OUT
 fi
 unset VIRT_APEX

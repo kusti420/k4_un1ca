@@ -3,4 +3,8 @@
     <bool name="config_dynamic_automatic_brightness_available">true</bool>
     <bool name="config_fillMainBuiltInDisplayCutout">false</bool>
     <bool name="config_supportAudioSourceUnprocessed">false</bool>
+    <!-- Not a foldable (see arrays.xml) -->
+    <bool name="config_unfoldTransitionEnabled">false</bool>
+    <!-- Desktop windowing gives every fullscreen task an app-handle caption window (ShellWindowDecoration) -->
+    <bool name="config_isDesktopModeSupported">false</bool>
 </resources>

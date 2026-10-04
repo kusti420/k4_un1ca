@@ -1,0 +1,4 @@
+id=a52sxq_engmode
+name=Galaxy A52s 5G EngMode HIDL client
+author=kusti420
+description=The source lib.engmode.samsung.so only talks to the AIDL vendor.samsung.hardware.security.engmode HAL, while the A52s vendor serves engmode@1.0 over HIDL. Every client call then blocks 5 s waiting for a service that never starts: CustomFrequencyManagerService delays boot by 5 s and UsbDeviceManager stalls the shared UEventObserver thread on every USB event. Ship the target firmware's HIDL client library (identical exported C API) with its HIDL interface library.

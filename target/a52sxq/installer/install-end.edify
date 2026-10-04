@@ -1,0 +1,11 @@
+# The boot image is compiled on device by odrefresh, which only notices changed boot classpath jars: a build that
+# only changes system/etc/boot-image.prof (or keeps byte-identical jars) would keep the previous, possibly poorly
+# compiled, boot image. Drop the artifacts so the first boot recompiles them (~20s longer first boot).
+if is_mounted("/data") then
+  ui_print("Clearing ART boot image artifacts...");
+  delete_recursive("/data/misc/apexdata/com.android.art/dalvik-cache/arm64");
+  # Overlay idmaps are keyed by the overlay/target paths, not their contents: stale ones from a previous build
+  # make idmap2d abort ("failed to parse idmap header") and the overlays silently stay unapplied until a reboot.
+  ui_print("Clearing overlay idmap cache...");
+  delete_recursive("/data/resource-cache");
+endif;

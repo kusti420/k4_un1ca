@@ -26,25 +26,25 @@
         <item>40000</item>
     </integer-array>
     <integer-array name="config_HysteresisBrightOutputLux">
-        <item>10</item>
-        <item>80</item>
-        <item>120</item>
-        <item>300</item>
-        <item>400</item>
-        <item>900</item>
-        <item>1300</item>
-        <item>2000</item>
+        <item>8</item>
+        <item>25</item>
+        <item>35</item>
+        <item>100</item>
+        <item>180</item>
+        <item>500</item>
+        <item>800</item>
+        <item>1600</item>
+        <item>3200</item>
         <item>4000</item>
-        <item>4000</item>
-        <item>5000</item>
+        <item>4500</item>
         <item>6000</item>
         <item>7000</item>
         <item>8000</item>
         <item>9000</item>
         <item>10000</item>
-        <item>20000</item>
-        <item>20000</item>
-        <item>40000</item>
+        <item>12000</item>
+        <item>14000</item>
+        <item>30000</item>
         <item>999999</item>
     </integer-array>
     <integer-array name="config_HysteresisDarkInputLux">
@@ -74,25 +74,25 @@
     <integer-array name="config_HysteresisDarkOutputLux">
         <item>-1</item>
         <item>0</item>
-        <item>0</item>
+        <item>2</item>
         <item>3</item>
-        <item>5</item>
         <item>10</item>
-        <item>40</item>
+        <item>22</item>
         <item>50</item>
-        <item>60</item>
-        <item>200</item>
-        <item>600</item>
-        <item>600</item>
-        <item>800</item>
+        <item>150</item>
+        <item>250</item>
+        <item>500</item>
         <item>1000</item>
-        <item>2999</item>
-        <item>2999</item>
+        <item>1500</item>
+        <item>1500</item>
+        <item>2000</item>
+        <item>2500</item>
         <item>3000</item>
+        <item>3500</item>
         <item>4000</item>
-        <item>4000</item>
+        <item>4500</item>
         <item>5000</item>
-        <item>5000</item>
+        <item>10000</item>
         <item>20000</item>
     </integer-array>
     <string-array name="config_Screen_Brightness_Backlight_Value">
@@ -2118,4 +2118,12 @@
         <item>255</item>
         <item>486</item>
     </integer-array>
+    <!-- Not a foldable: the Fold source lists device states 0/1 as folded, which keeps a single-screen phone in the
+         "folded" (rear display) state for the keyguard, camera service proxy, audio, USB and AOD. Stock values. -->
+    <integer-array name="config_foldedDeviceStates" />
+    <integer-array name="config_halfFoldedDeviceStates" />
+    <integer-array name="config_openDeviceStates" />
+    <integer-array name="config_rearDisplayDeviceStates" />
+    <integer-array name="config_deviceStatesOnWhichToSleep" />
+    <integer-array name="config_deviceStatesOnWhichToWakeUp" />
 </resources>

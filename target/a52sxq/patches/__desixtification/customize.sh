@@ -127,6 +127,26 @@ else
     ADD_PAYLOAD_ENTRY "bin/linker_asan" 0 2000 755 "u:object_r:system_file:s0"
     ADD_PAYLOAD_ENTRY "bin/crash_dump32" 0 2000 755 "u:object_r:crash_dump_exec:s0"
 
+    # Android 17 bionic: posix_spawn() with POSIX_SPAWN_CLOEXEC_DEFAULT calls close_range(3, ~0U, CLOSE_RANGE_CLOEXEC)
+    # in the child and _exit(127)s when it fails. close_range is 5.9+ (CLOEXEC 5.11+), so on this 5.4 kernel every
+    # such spawn dies silently before exec (netd's dnsmasq -> hotspot/tethering never works). Ignore the failure
+    # instead, i.e. the child keeps its inherited descriptors as before Android 14.
+    LOG "- Ignoring close_range() failures in posix_spawn"
+    python3 - "$P/lib64/bionic/libc.so" << 'PYEOF' || ABORT "Failed to patch posix_spawn in libc.so"
+import re, struct, sys
+p = sys.argv[1]
+d = bytearray(open(p, "rb").read())
+# mov w0,#3 ; mov w1,#-1 ; mov w2,#4 ; bl close_range ; cbnz w0, <_exit(127)>
+pat = re.compile(rb"\x60\x00\x80\x52\x01\x00\x80\x12\x82\x00\x80\x52(....)(....)", re.S)
+hits = [m for m in pat.finditer(d)
+        if struct.unpack("<I", m.group(1))[0] >> 26 == 0x25
+        and struct.unpack("<I", m.group(2))[0] & 0xff00001f == 0x35000000]
+assert len(hits) == 1, "posix_spawn close_range check: %d matches" % len(hits)
+off = hits[0].start(2)
+d[off:off + 4] = struct.pack("<I", 0xd503201f)  # nop
+open(p, "wb").write(d)
+PYEOF
+
     BUILD_PAYLOAD
     SIGN_PAYLOAD
     BUILD_APEX "$RUNTIME_APEX"
