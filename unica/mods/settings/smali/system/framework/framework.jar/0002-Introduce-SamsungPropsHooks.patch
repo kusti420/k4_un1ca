@@ -38,7 +38,7 @@ new file mode 100644
 index 00000000..45c67f38
 --- /dev/null
 +++ b/smali_classes6/io/mesalabs/unica/SamsungPropsHooks.smali
-@@ -0,0 +1,586 @@
+@@ -0,0 +1,610 @@
 +.class public final Lio/mesalabs/unica/SamsungPropsHooks;
 +.super Ljava/lang/Object;
 +.source "SamsungPropsHooks.java"
@@ -463,7 +463,7 @@ index 00000000..45c67f38
 +.end method
 +
 +.method private static blacklist setBuildField(Ljava/lang/String;Ljava/lang/Object;)V
-+    .locals 2
++    .locals 5
 +
 +    new-instance v0, Ljava/lang/StringBuilder;
 +
@@ -508,9 +508,33 @@ index 00000000..45c67f38
 +
 +    invoke-virtual {v0, v1}, Ljava/lang/reflect/Field;->setAccessible(Z)V
 +
-+    const/4 v1, 0x0
++    const-class v2, Ljava/lang/reflect/Field;
 +
-+    invoke-virtual {v0, v1, p1}, Ljava/lang/reflect/Field;->set(Ljava/lang/Object;Ljava/lang/Object;)V
++    const-string v3, "offset"
++
++    invoke-virtual {v2, v3}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
++
++    move-result-object v2
++
++    invoke-virtual {v2, v1}, Ljava/lang/reflect/Field;->setAccessible(Z)V
++
++    invoke-virtual {v2, v0}, Ljava/lang/reflect/Field;->getInt(Ljava/lang/Object;)I
++
++    move-result v2
++
++    int-to-long v2, v2
++
++    invoke-virtual {v0}, Ljava/lang/reflect/Field;->getDeclaringClass()Ljava/lang/Class;
++
++    move-result-object v4
++
++    invoke-static {}, Lsun/misc/Unsafe;->getUnsafe()Lsun/misc/Unsafe;
++
++    move-result-object v1
++
++    invoke-virtual {v1, v4, v2, v3, p1}, Lsun/misc/Unsafe;->putObject(Ljava/lang/Object;JLjava/lang/Object;)V
++
++    const/4 v1, 0x0
 +
 +    const/4 p1, 0x0
 +

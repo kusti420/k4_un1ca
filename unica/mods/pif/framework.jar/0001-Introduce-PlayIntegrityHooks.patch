@@ -153,7 +153,7 @@ new file mode 100644
 index 00000000..dc87c586
 --- /dev/null
 +++ b/smali_classes6/io/mesalabs/unica/PlayIntegrityHooks.smali
-@@ -0,0 +1,1048 @@
+@@ -0,0 +1,1052 @@
 +.class public final Lio/mesalabs/unica/PlayIntegrityHooks;
 +.super Ljava/lang/Object;
 +.source "PlayIntegrityHooks.java"
@@ -400,7 +400,7 @@ index 00000000..dc87c586
 +.end method
 +
 +.method private static blacklist setPropValue(Ljava/lang/String;Ljava/lang/Object;)V
-+    .locals 4
++    .locals 5
 +
 +    const-string v0, "Defining prop "
 +
@@ -445,7 +445,7 @@ index 00000000..dc87c586
 +
 +    const-class v2, Ljava/lang/reflect/Field;
 +
-+    const-string v3, "accessFlags"
++    const-string v3, "offset"
 +
 +    invoke-virtual {v2, v3}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
 +
@@ -453,19 +453,23 @@ index 00000000..dc87c586
 +
 +    invoke-virtual {v2, v1}, Ljava/lang/reflect/Field;->setAccessible(Z)V
 +
-+    invoke-virtual {v0}, Ljava/lang/reflect/Field;->getModifiers()I
++    invoke-virtual {v2, v0}, Ljava/lang/reflect/Field;->getInt(Ljava/lang/Object;)I
 +
-+    move-result v3
++    move-result v2
 +
-+    and-int/lit8 v3, v3, -0x11
++    int-to-long v2, v2
 +
-+    invoke-virtual {v2, v0, v3}, Ljava/lang/reflect/Field;->setInt(Ljava/lang/Object;I)V
++    invoke-virtual {v0}, Ljava/lang/reflect/Field;->getDeclaringClass()Ljava/lang/Class;
++
++    move-result-object v4
++
++    invoke-static {}, Lsun/misc/Unsafe;->getUnsafe()Lsun/misc/Unsafe;
++
++    move-result-object v1
++
++    invoke-virtual {v1, v4, v2, v3, p1}, Lsun/misc/Unsafe;->putObject(Ljava/lang/Object;JLjava/lang/Object;)V
 +
 +    const/4 v1, 0x0
-+
-+    invoke-virtual {v0, v1, p1}, Ljava/lang/reflect/Field;->set(Ljava/lang/Object;Ljava/lang/Object;)V
-+
-+    invoke-virtual {v2, v1}, Ljava/lang/reflect/Field;->setAccessible(Z)V
 +
 +    const/4 p1, 0x0
 +
