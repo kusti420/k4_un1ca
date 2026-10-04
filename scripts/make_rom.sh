@@ -152,6 +152,14 @@ if $BUILD_ROM; then
         LOG_STEP_OUT
     fi
 
+    LOG_STEP_IN true "Regenerating boot image profile"
+    "$SRC_DIR/scripts/internal/regen_boot_profile.sh" || exit 1
+    LOG_STEP_OUT
+
+    LOG_STEP_IN true "Regenerating app profiles"
+    "$SRC_DIR/scripts/internal/regen_app_profiles.sh" || exit 1
+    LOG_STEP_OUT
+
     echo -n "$(GET_WORK_DIR_HASH)" > "$WORK_DIR/.completed"
 fi
 
