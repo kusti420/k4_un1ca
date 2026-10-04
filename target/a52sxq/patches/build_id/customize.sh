@@ -11,6 +11,8 @@ unset FINGERPRINT
 K4_VERSION="$(tr -d '[:space:]' < "$SRC_DIR/target/$TARGET_CODENAME/version" 2> /dev/null)"
 if [ "$K4_VERSION" ]; then
     K4_TAG="k4$(date -u +%Y%m%d%H%M)"
+    # the de-Googled variant (target/a52sxq/patches/degoogle enabled) is marked in the version string
+    [ -f "$SRC_DIR/target/$TARGET_CODENAME/patches/degoogle/disable" ] || K4_VERSION="${K4_VERSION}-degoogled"
     SET_PROP "system" "ro.k4.version" "$K4_VERSION"
     # the source defines ro.build.display.id in both system and product; init's merged map lets product win
     for part in system product; do

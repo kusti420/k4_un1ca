@@ -1,0 +1,4 @@
+id=a52sxq_degoogle
+name=Galaxy A52s 5G de-Googled variant
+author=kusti420
+description=Removes the Google services stack (GSF, GmsCore APEX and stub, Play Store, ConfigUpdater, Google apps, sync adapters, Google config overlays, sysconfig/permission allowlists and Google client props) from the global One UI 9 base. Kept on purpose because the system needs them: the Google-signed mainline APEXes, NetworkStack/CaptivePortalLogin, DocumentsUI, PackageInstaller, the permission controller and Google WebView (the only WebView provider the firmware ships). Enabled by deleting the "disable" file next to this module.prop; the build then reports itself as a52sxq_OneUI<version>-degoogled.

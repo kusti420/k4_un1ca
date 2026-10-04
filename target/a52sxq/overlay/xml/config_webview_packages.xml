@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same provider list as the source's GmsConfigOverlayCommon; carried here so the de-Googled variant (which drops
+     that overlay) keeps a WebView provider. The firmware ships no WebView other than Google's. -->
+<webviewproviders>
+    <webviewprovider description="Google WebView" packageName="com.google.android.webview" availableByDefault="true" isFallback="true" />
+    <webviewprovider description="Google WebView Beta" packageName="com.google.android.webview.beta" availableByDefault="true" />
+    <webviewprovider description="Google WebView Dev" packageName="com.google.android.webview.dev" availableByDefault="true" />
+    <webviewprovider description="Google WebView Canary" packageName="com.google.android.webview.canary" availableByDefault="true" />
+    <webviewprovider description="Google WebView Debug" packageName="com.google.android.webview.debug" availableByDefault="true" />
+    <webviewprovider description="AOSP WebView" packageName="com.android.webview" availableByDefault="true" />
+</webviewproviders>
