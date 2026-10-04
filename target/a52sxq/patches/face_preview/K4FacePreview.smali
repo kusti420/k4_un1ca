@@ -26,7 +26,7 @@
 .method public static release()V
     .registers 1
 
-    .line 99
+    .line 109
     :try_start_0
     sget-object v0, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
 
@@ -40,552 +40,897 @@
     :cond_7
     const/4 v0, 0x0
 
-    .line 101
+    .line 111
     sput-object v0, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
 
-    .line 102
+    .line 112
     sput-object v0, Lcom/k4/face/K4FacePreview;->sTexture:Landroid/graphics/SurfaceTexture;
 
     return-void
 .end method
 
 .method public static render(Landroid/view/View;Ljava/lang/Object;[BIIIILandroid/os/Bundle;)V
-    .registers 16
+    .registers 25
+
+    move-object/from16 v0, p0
+
+    move-object/from16 v1, p2
+
+    move/from16 v3, p3
+
+    move/from16 v4, p4
+
+    move/from16 v6, p5
+
+    move-object/from16 v2, p7
 
     .line 38
-    const-string p1, "x"
+    const-string v7, "K4FacePreview"
 
-    const-string v1, "K4FacePreview"
+    .line 0
+    const-string v5, "bundle has no memoryfile_descriptor: "
 
-    :try_start_4
-    instance-of v0, p0, Landroid/view/TextureView;
+    const-string v8, "onImageProcessed #"
 
-    if-eqz v0, :cond_19e
+    .line 38
+    :try_start_12
+    sget v9, Lcom/k4/face/K4FacePreview;->sFrames:I
+    :try_end_14
+    .catchall {:try_start_12 .. :try_end_14} :catchall_2cc
 
-    if-lez p3, :cond_19e
+    const-string v10, "x"
 
-    if-gtz p4, :cond_e
+    const-string v11, "null"
 
-    goto/16 :goto_19e
+    const/4 v12, 0x3
 
-    :cond_e
-    const/4 v0, 0x0
+    if-lt v9, v12, :cond_23
 
-    if-nez p2, :cond_56
+    :try_start_1b
+    rem-int/lit8 v13, v9, 0x1e
 
-    if-eqz p7, :cond_56
+    if-nez v13, :cond_20
 
-    .line 40
-    const-string v2, "memoryfile_descriptor"
+    goto :goto_23
 
-    invoke-virtual {p7, v2}, Landroid/os/Bundle;->getParcelable(Ljava/lang/String;)Landroid/os/Parcelable;
+    :cond_20
+    move/from16 p1, v12
 
-    move-result-object p7
+    goto :goto_90
 
-    check-cast p7, Landroid/os/ParcelFileDescriptor;
+    .line 39
+    :cond_23
+    :goto_23
+    invoke-static {v0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
-    if-eqz p7, :cond_56
+    move-result-object v13
 
-    mul-int p2, p3, p4
+    if-nez v1, :cond_2b
 
-    mul-int/lit8 p2, p2, 0x3
+    move-object v14, v11
+
+    goto :goto_30
+
+    :cond_2b
+    array-length v14, v1
+
+    invoke-static {v14}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+
+    move-result-object v14
+
+    :goto_30
+    invoke-static {v14}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v14
+
+    invoke-static {v2}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v15
+
+    move/from16 p1, v12
+
+    new-instance v12, Ljava/lang/StringBuilder;
+
+    invoke-direct {v12, v8}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v12, v9}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    const-string v9, " view="
+
+    invoke-virtual {v8, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    invoke-virtual {v8, v13}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    const-string v9, " data="
+
+    invoke-virtual {v8, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    invoke-virtual {v8, v14}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    const-string v9, " "
+
+    invoke-virtual {v8, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    invoke-virtual {v8, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    invoke-virtual {v8, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    invoke-virtual {v8, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    const-string v9, " ori="
+
+    invoke-virtual {v8, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    invoke-virtual {v8, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    const-string v9, " fmt="
+
+    invoke-virtual {v8, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    move/from16 v9, p6
+
+    invoke-virtual {v8, v9}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    const-string v9, " extras="
+
+    invoke-virtual {v8, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    invoke-virtual {v8, v15}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v8
+
+    invoke-virtual {v8}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v8
+
+    invoke-static {v7, v8}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     .line 42
-    div-int/lit8 p2, p2, 0x2
+    :goto_90
+    sget v8, Lcom/k4/face/K4FacePreview;->sFrames:I
+
+    add-int/lit8 v8, v8, 0x1
+
+    sput v8, Lcom/k4/face/K4FacePreview;->sFrames:I
 
     .line 43
-    new-array v2, p2, [B
-    :try_end_25
-    .catchall {:try_start_4 .. :try_end_25} :catchall_197
+    instance-of v8, v0, Landroid/view/TextureView;
+
+    if-eqz v8, :cond_2c6
+
+    if-lez v3, :cond_2c6
+
+    if-gtz v4, :cond_a0
+
+    goto/16 :goto_2c6
+
+    :cond_a0
+    mul-int v8, v3, v4
+
+    mul-int/lit8 v8, v8, 0x3
 
     .line 44
-    :try_start_25
-    new-instance v3, Ljava/io/FileInputStream;
-
-    invoke-virtual {p7}, Landroid/os/ParcelFileDescriptor;->getFileDescriptor()Ljava/io/FileDescriptor;
-
-    move-result-object v4
-
-    invoke-direct {v3, v4}, Ljava/io/FileInputStream;-><init>(Ljava/io/FileDescriptor;)V
-    :try_end_2e
-    .catchall {:try_start_25 .. :try_end_2e} :catchall_50
-
-    move v4, v0
-
-    :goto_2f
-    if-ge v4, p2, :cond_48
-
-    sub-int v5, p2, v4
+    div-int/lit8 v9, v8, 0x2
+    :try_end_a6
+    .catchall {:try_start_1b .. :try_end_a6} :catchall_2cc
 
     .line 47
-    :try_start_33
-    invoke-virtual {v3, v2, v4, v5}, Ljava/io/FileInputStream;->read([BII)I
+    const-string v12, ")"
 
-    move-result v5
-    :try_end_37
-    .catchall {:try_start_33 .. :try_end_37} :catchall_3c
+    if-eqz v1, :cond_ad
 
-    if-gtz v5, :cond_3a
+    :try_start_aa
+    array-length v13, v1
 
-    goto :goto_48
+    if-ge v13, v9, :cond_15d
 
-    :cond_3a
-    add-int/2addr v4, v5
+    :cond_ad
+    if-eqz v2, :cond_15d
 
-    goto :goto_2f
+    .line 48
+    const-string v13, "memoryfile_descriptor"
 
-    :catchall_3c
-    move-exception v0
+    invoke-virtual {v2, v13}, Landroid/os/Bundle;->getParcelable(Ljava/lang/String;)Landroid/os/Parcelable;
 
-    move-object p0, v0
+    move-result-object v13
 
-    .line 44
-    :try_start_3e
-    invoke-virtual {v3}, Ljava/io/FileInputStream;->close()V
-    :try_end_41
-    .catchall {:try_start_3e .. :try_end_41} :catchall_42
+    check-cast v13, Landroid/os/ParcelFileDescriptor;
 
-    goto :goto_47
+    if-eqz v13, :cond_140
 
-    :catchall_42
-    move-exception v0
-
-    move-object p1, v0
-
-    :try_start_44
-    invoke-virtual {p0, p1}, Ljava/lang/Throwable;->addSuppressed(Ljava/lang/Throwable;)V
-
-    :goto_47
-    throw p0
+    .line 50
+    new-array v2, v9, [B
+    :try_end_bb
+    .catchall {:try_start_aa .. :try_end_bb} :catchall_2cc
 
     .line 51
-    :cond_48
-    :goto_48
-    invoke-virtual {v3}, Ljava/io/FileInputStream;->close()V
-    :try_end_4b
-    .catchall {:try_start_44 .. :try_end_4b} :catchall_50
+    :try_start_bb
+    new-instance v5, Ljava/io/FileInputStream;
 
-    .line 52
-    :try_start_4b
-    invoke-virtual {p7}, Landroid/os/ParcelFileDescriptor;->close()V
-    :try_end_4e
-    .catch Ljava/lang/Exception; {:try_start_4b .. :try_end_4e} :catch_4e
-    .catchall {:try_start_4b .. :try_end_4e} :catchall_197
+    invoke-virtual {v13}, Landroid/os/ParcelFileDescriptor;->getFileDescriptor()Ljava/io/FileDescriptor;
 
-    :catch_4e
-    move-object v3, v2
+    move-result-object v14
 
-    goto :goto_57
-
-    :catchall_50
-    move-exception v0
-
-    move-object p0, v0
-
-    :try_start_52
-    invoke-virtual {p7}, Landroid/os/ParcelFileDescriptor;->close()V
-    :try_end_55
-    .catch Ljava/lang/Exception; {:try_start_52 .. :try_end_55} :catch_55
-    .catchall {:try_start_52 .. :try_end_55} :catchall_197
+    invoke-direct {v5, v14}, Ljava/io/FileInputStream;-><init>(Ljava/io/FileDescriptor;)V
+    :try_end_c4
+    .catchall {:try_start_bb .. :try_end_c4} :catchall_13b
 
     .line 53
-    :catch_55
-    :try_start_55
-    throw p0
+    :try_start_c4
+    invoke-static {v2}, Ljava/nio/ByteBuffer;->wrap([B)Ljava/nio/ByteBuffer;
 
-    :cond_56
-    move-object v3, p2
+    move-result-object v14
 
-    :goto_57
-    if-eqz v3, :cond_19e
+    const-wide/16 v15, 0x0
+
+    move-wide v0, v15
+
+    .line 55
+    :goto_cb
+    invoke-virtual {v14}, Ljava/nio/ByteBuffer;->hasRemaining()Z
+
+    move-result v15
+
+    if-eqz v15, :cond_e5
 
     .line 56
-    array-length p2, v3
+    invoke-virtual {v5}, Ljava/io/FileInputStream;->getChannel()Ljava/nio/channels/FileChannel;
 
-    mul-int p7, p3, p4
+    move-result-object v15
 
-    mul-int/lit8 p7, p7, 0x3
+    invoke-virtual {v15, v14, v0, v1}, Ljava/nio/channels/FileChannel;->read(Ljava/nio/ByteBuffer;J)I
 
-    div-int/lit8 p7, p7, 0x2
+    move-result v15
 
-    if-ge p2, p7, :cond_64
+    if-gtz v15, :cond_dc
 
-    goto/16 :goto_19e
+    goto :goto_e5
 
-    .line 57
-    :cond_64
-    check-cast p0, Landroid/view/TextureView;
+    :cond_dc
+    move-object/from16 v16, v2
 
-    invoke-virtual {p0}, Landroid/view/TextureView;->getSurfaceTexture()Landroid/graphics/SurfaceTexture;
+    int-to-long v2, v15
 
-    move-result-object p0
+    add-long/2addr v0, v2
 
-    if-nez p0, :cond_6e
+    move/from16 v3, p3
 
-    goto/16 :goto_19e
+    move-object/from16 v2, v16
 
-    .line 59
-    :cond_6e
-    sget-object p2, Lcom/k4/face/K4FacePreview;->sTexture:Landroid/graphics/SurfaceTexture;
+    goto :goto_cb
 
-    if-eq p0, p2, :cond_82
+    :cond_e5
+    :goto_e5
+    move-object/from16 v16, v2
 
     .line 60
-    sget-object p2, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
+    sget v2, Lcom/k4/face/K4FacePreview;->sFrames:I
 
-    if-eqz p2, :cond_79
+    move/from16 v3, p1
 
-    invoke-virtual {p2}, Landroid/view/Surface;->release()V
+    if-gt v2, v3, :cond_11f
 
-    .line 61
-    :cond_79
-    sput-object p0, Lcom/k4/face/K4FacePreview;->sTexture:Landroid/graphics/SurfaceTexture;
+    invoke-virtual {v13}, Landroid/os/ParcelFileDescriptor;->getStatSize()J
+
+    move-result-wide v2
+
+    new-instance v14, Ljava/lang/StringBuilder;
+
+    invoke-direct {v14}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v15, "read "
+
+    invoke-virtual {v14, v15}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v14
+
+    invoke-virtual {v14, v0, v1}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+
+    move-result-object v14
+
+    const-string v15, " of "
+
+    invoke-virtual {v14, v15}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v14
+
+    invoke-virtual {v14, v9}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v14
+
+    const-string v15, " bytes from memory file (stat size "
+
+    invoke-virtual {v14, v15}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v14
+
+    invoke-virtual {v14, v2, v3}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+
+    move-result-object v2
+
+    invoke-virtual {v2, v12}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v2
+
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-static {v7, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_11f
+    .catchall {:try_start_c4 .. :try_end_11f} :catchall_130
+
+    :cond_11f
+    int-to-long v2, v9
+
+    cmp-long v0, v0, v2
+
+    if-ltz v0, :cond_125
+
+    goto :goto_127
+
+    :cond_125
+    move-object/from16 v16, p2
 
     .line 62
-    new-instance p2, Landroid/view/Surface;
+    :goto_127
+    :try_start_127
+    invoke-virtual {v5}, Ljava/io/FileInputStream;->close()V
+    :try_end_12a
+    .catchall {:try_start_127 .. :try_end_12a} :catchall_13b
 
-    invoke-direct {p2, p0}, Landroid/view/Surface;-><init>(Landroid/graphics/SurfaceTexture;)V
+    .line 63
+    :try_start_12a
+    invoke-virtual {v13}, Landroid/os/ParcelFileDescriptor;->close()V
+    :try_end_12d
+    .catch Ljava/lang/Exception; {:try_start_12a .. :try_end_12d} :catch_12d
+    .catchall {:try_start_12a .. :try_end_12d} :catchall_2cc
 
-    sput-object p2, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
+    :catch_12d
+    move-object/from16 v1, v16
+
+    goto :goto_15f
+
+    :catchall_130
+    move-exception v0
+
+    move-object v1, v0
+
+    .line 51
+    :try_start_132
+    invoke-virtual {v5}, Ljava/io/FileInputStream;->close()V
+    :try_end_135
+    .catchall {:try_start_132 .. :try_end_135} :catchall_136
+
+    goto :goto_13a
+
+    :catchall_136
+    move-exception v0
+
+    :try_start_137
+    invoke-virtual {v1, v0}, Ljava/lang/Throwable;->addSuppressed(Ljava/lang/Throwable;)V
+
+    :goto_13a
+    throw v1
+    :try_end_13b
+    .catchall {:try_start_137 .. :try_end_13b} :catchall_13b
+
+    :catchall_13b
+    move-exception v0
+
+    .line 63
+    :try_start_13c
+    invoke-virtual {v13}, Landroid/os/ParcelFileDescriptor;->close()V
+    :try_end_13f
+    .catch Ljava/lang/Exception; {:try_start_13c .. :try_end_13f} :catch_13f
+    .catchall {:try_start_13c .. :try_end_13f} :catchall_2cc
 
     .line 64
-    :cond_82
-    new-instance p0, Ljava/io/ByteArrayOutputStream;
-
-    invoke-direct {p0}, Ljava/io/ByteArrayOutputStream;-><init>()V
+    :catch_13f
+    :try_start_13f
+    throw v0
 
     .line 65
-    new-instance v2, Landroid/graphics/YuvImage;
+    :cond_140
+    sget v0, Lcom/k4/face/K4FacePreview;->sFrames:I
 
-    const/16 v4, 0x11
+    const/4 v3, 0x3
 
-    const/4 v7, 0x0
-
-    move v5, p3
-
-    move v6, p4
-
-    invoke-direct/range {v2 .. v7}, Landroid/graphics/YuvImage;-><init>([BIII[I)V
-
-    new-instance p2, Landroid/graphics/Rect;
-
-    invoke-direct {p2, v0, v0, v5, v6}, Landroid/graphics/Rect;-><init>(IIII)V
-
-    const/16 p3, 0x55
+    if-gt v0, v3, :cond_15d
 
     .line 66
-    invoke-virtual {v2, p2, p3, p0}, Landroid/graphics/YuvImage;->compressToJpeg(Landroid/graphics/Rect;ILjava/io/OutputStream;)Z
+    invoke-virtual {v2}, Landroid/os/Bundle;->keySet()Ljava/util/Set;
 
-    .line 67
-    invoke-virtual {p0}, Ljava/io/ByteArrayOutputStream;->toByteArray()[B
+    move-result-object v0
 
-    move-result-object p2
+    invoke-static {v0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
-    invoke-virtual {p0}, Ljava/io/ByteArrayOutputStream;->size()I
+    move-result-object v0
 
-    move-result p0
+    new-instance v1, Ljava/lang/StringBuilder;
 
-    invoke-static {p2, v0, p0}, Landroid/graphics/BitmapFactory;->decodeByteArray([BII)Landroid/graphics/Bitmap;
+    invoke-direct {v1, v5}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
-    move-result-object p0
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    if-nez p0, :cond_ab
+    move-result-object v0
 
-    goto/16 :goto_19e
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v7, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+
+    :cond_15d
+    move-object/from16 v1, p2
+
+    :goto_15f
+    if-eqz v1, :cond_29d
 
     .line 69
-    :cond_ab
-    sget-object p2, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
+    array-length v0, v1
 
-    const/4 p3, 0x0
+    div-int/lit8 v8, v8, 0x2
 
-    invoke-virtual {p2, p3}, Landroid/view/Surface;->lockCanvas(Landroid/graphics/Rect;)Landroid/graphics/Canvas;
+    if-ge v0, v8, :cond_168
 
-    move-result-object p2
-    :try_end_b2
-    .catchall {:try_start_55 .. :try_end_b2} :catchall_197
+    goto/16 :goto_29d
 
-    if-nez p2, :cond_b6
+    .line 70
+    :cond_168
+    move-object/from16 v0, p0
 
-    goto/16 :goto_19e
+    check-cast v0, Landroid/view/TextureView;
 
-    :cond_b6
-    const/high16 p4, -0x1000000
+    invoke-virtual {v0}, Landroid/view/TextureView;->getSurfaceTexture()Landroid/graphics/SurfaceTexture;
+
+    move-result-object v0
+
+    if-nez v0, :cond_196
+
+    .line 71
+    move-object/from16 v0, p0
+
+    check-cast v0, Landroid/view/TextureView;
+
+    invoke-virtual {v0}, Landroid/view/TextureView;->isAvailable()Z
+
+    move-result v0
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v2, "TextureView has no SurfaceTexture yet (available="
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v12}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v7, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+
+    goto/16 :goto_2d2
 
     .line 72
-    :try_start_b8
-    invoke-virtual {p2, p4}, Landroid/graphics/Canvas;->drawColor(I)V
+    :cond_196
+    sget-object v2, Lcom/k4/face/K4FacePreview;->sTexture:Landroid/graphics/SurfaceTexture;
+
+    if-eq v0, v2, :cond_1aa
+
+    .line 73
+    sget-object v2, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
+
+    if-eqz v2, :cond_1a1
+
+    invoke-virtual {v2}, Landroid/view/Surface;->release()V
 
     .line 74
-    new-instance p4, Landroid/graphics/Matrix;
-
-    invoke-direct {p4}, Landroid/graphics/Matrix;-><init>()V
-
-    int-to-float p7, p5
+    :cond_1a1
+    sput-object v0, Lcom/k4/face/K4FacePreview;->sTexture:Landroid/graphics/SurfaceTexture;
 
     .line 75
-    invoke-virtual {p0}, Landroid/graphics/Bitmap;->getWidth()I
+    new-instance v2, Landroid/view/Surface;
 
-    move-result v0
+    invoke-direct {v2, v0}, Landroid/view/Surface;-><init>(Landroid/graphics/SurfaceTexture;)V
 
-    int-to-float v0, v0
-
-    const/high16 v2, 0x40000000    # 2.0f
-
-    div-float/2addr v0, v2
-
-    invoke-virtual {p0}, Landroid/graphics/Bitmap;->getHeight()I
-
-    move-result v3
-
-    int-to-float v3, v3
-
-    div-float/2addr v3, v2
-
-    invoke-virtual {p4, p7, v0, v3}, Landroid/graphics/Matrix;->postRotate(FFF)Z
-
-    .line 76
-    new-instance p7, Landroid/graphics/RectF;
-
-    invoke-virtual {p0}, Landroid/graphics/Bitmap;->getWidth()I
-
-    move-result v0
-
-    int-to-float v0, v0
-
-    invoke-virtual {p0}, Landroid/graphics/Bitmap;->getHeight()I
-
-    move-result v3
-
-    int-to-float v3, v3
-
-    const/4 v4, 0x0
-
-    invoke-direct {p7, v4, v4, v0, v3}, Landroid/graphics/RectF;-><init>(FFFF)V
+    sput-object v2, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
 
     .line 77
-    invoke-virtual {p4, p7}, Landroid/graphics/Matrix;->mapRect(Landroid/graphics/RectF;)Z
+    :cond_1aa
+    new-instance v8, Ljava/io/ByteArrayOutputStream;
+
+    invoke-direct {v8}, Ljava/io/ByteArrayOutputStream;-><init>()V
 
     .line 78
-    iget v0, p7, Landroid/graphics/RectF;->left:F
+    new-instance v0, Landroid/graphics/YuvImage;
 
-    neg-float v0, v0
+    const/16 v2, 0x11
 
-    iget v3, p7, Landroid/graphics/RectF;->top:F
+    const/4 v5, 0x0
 
-    neg-float v3, v3
+    move/from16 v3, p3
 
-    invoke-virtual {p4, v0, v3}, Landroid/graphics/Matrix;->postTranslate(FF)Z
+    invoke-direct/range {v0 .. v5}, Landroid/graphics/YuvImage;-><init>([BIII[I)V
+
+    new-instance v1, Landroid/graphics/Rect;
+
+    const/4 v2, 0x0
+
+    invoke-direct {v1, v2, v2, v3, v4}, Landroid/graphics/Rect;-><init>(IIII)V
+
+    const/16 v3, 0x55
 
     .line 79
-    invoke-virtual {p7}, Landroid/graphics/RectF;->width()F
-
-    move-result v0
-
-    invoke-virtual {p7}, Landroid/graphics/RectF;->height()F
-
-    move-result p7
+    invoke-virtual {v0, v1, v3, v8}, Landroid/graphics/YuvImage;->compressToJpeg(Landroid/graphics/Rect;ILjava/io/OutputStream;)Z
 
     .line 80
-    invoke-virtual {p2}, Landroid/graphics/Canvas;->getWidth()I
+    invoke-virtual {v8}, Ljava/io/ByteArrayOutputStream;->toByteArray()[B
 
-    move-result v3
+    move-result-object v0
 
-    int-to-float v3, v3
+    invoke-virtual {v8}, Ljava/io/ByteArrayOutputStream;->size()I
 
-    div-float/2addr v3, v0
+    move-result v1
 
-    invoke-virtual {p2}, Landroid/graphics/Canvas;->getHeight()I
+    invoke-static {v0, v2, v1}, Landroid/graphics/BitmapFactory;->decodeByteArray([BII)Landroid/graphics/Bitmap;
 
-    move-result v4
+    move-result-object v0
 
-    int-to-float v4, v4
+    if-nez v0, :cond_1d4
 
-    div-float/2addr v4, p7
-
-    invoke-static {v3, v4}, Ljava/lang/Math;->max(FF)F
-
-    move-result v3
-
-    neg-float v4, v3
-
-    .line 81
-    invoke-virtual {p4, v4, v3}, Landroid/graphics/Matrix;->postScale(FF)Z
+    goto/16 :goto_2d2
 
     .line 82
-    invoke-virtual {p2}, Landroid/graphics/Canvas;->getWidth()I
+    :cond_1d4
+    sget-object v1, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v1, v2}, Landroid/view/Surface;->lockCanvas(Landroid/graphics/Rect;)Landroid/graphics/Canvas;
+
+    move-result-object v1
+
+    if-nez v1, :cond_1e4
+
+    .line 83
+    const-string v0, "lockCanvas returned null"
+
+    invoke-static {v7, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_1e2
+    .catchall {:try_start_13f .. :try_end_1e2} :catchall_2cc
+
+    goto/16 :goto_2d2
+
+    :cond_1e4
+    const/high16 v3, -0x1000000
+
+    .line 85
+    :try_start_1e6
+    invoke-virtual {v1, v3}, Landroid/graphics/Canvas;->drawColor(I)V
+
+    .line 87
+    new-instance v3, Landroid/graphics/Matrix;
+
+    invoke-direct {v3}, Landroid/graphics/Matrix;-><init>()V
+
+    int-to-float v4, v6
+
+    .line 88
+    invoke-virtual {v0}, Landroid/graphics/Bitmap;->getWidth()I
+
+    move-result v5
+
+    int-to-float v5, v5
+
+    const/high16 v6, 0x40000000    # 2.0f
+
+    div-float/2addr v5, v6
+
+    invoke-virtual {v0}, Landroid/graphics/Bitmap;->getHeight()I
+
+    move-result v8
+
+    int-to-float v8, v8
+
+    div-float/2addr v8, v6
+
+    invoke-virtual {v3, v4, v5, v8}, Landroid/graphics/Matrix;->postRotate(FFF)Z
+
+    .line 89
+    new-instance v4, Landroid/graphics/RectF;
+
+    invoke-virtual {v0}, Landroid/graphics/Bitmap;->getWidth()I
+
+    move-result v5
+
+    int-to-float v5, v5
+
+    invoke-virtual {v0}, Landroid/graphics/Bitmap;->getHeight()I
+
+    move-result v8
+
+    int-to-float v8, v8
+
+    const/4 v9, 0x0
+
+    invoke-direct {v4, v9, v9, v5, v8}, Landroid/graphics/RectF;-><init>(FFFF)V
+
+    .line 90
+    invoke-virtual {v3, v4}, Landroid/graphics/Matrix;->mapRect(Landroid/graphics/RectF;)Z
+
+    .line 91
+    iget v5, v4, Landroid/graphics/RectF;->left:F
+
+    neg-float v5, v5
+
+    iget v8, v4, Landroid/graphics/RectF;->top:F
+
+    neg-float v8, v8
+
+    invoke-virtual {v3, v5, v8}, Landroid/graphics/Matrix;->postTranslate(FF)Z
+
+    .line 92
+    invoke-virtual {v4}, Landroid/graphics/RectF;->width()F
+
+    move-result v5
+
+    invoke-virtual {v4}, Landroid/graphics/RectF;->height()F
 
     move-result v4
 
-    int-to-float v4, v4
-
-    invoke-virtual {p2}, Landroid/graphics/Canvas;->getWidth()I
-
-    move-result v7
-
-    int-to-float v7, v7
-
-    mul-float/2addr v0, v3
-
-    sub-float/2addr v7, v0
-
-    div-float/2addr v7, v2
-
-    sub-float/2addr v4, v7
-
-    invoke-virtual {p2}, Landroid/graphics/Canvas;->getHeight()I
-
-    move-result v0
-
-    int-to-float v0, v0
-
-    mul-float/2addr p7, v3
-
-    sub-float/2addr v0, p7
-
-    div-float/2addr v0, v2
-
-    invoke-virtual {p4, v4, v0}, Landroid/graphics/Matrix;->postTranslate(FF)Z
-
-    .line 83
-    invoke-virtual {p2, p0, p4, p3}, Landroid/graphics/Canvas;->drawBitmap(Landroid/graphics/Bitmap;Landroid/graphics/Matrix;Landroid/graphics/Paint;)V
-    :try_end_126
-    .catchall {:try_start_b8 .. :try_end_126} :catchall_18f
-
-    .line 85
-    :try_start_126
-    sget-object p3, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
-
-    invoke-virtual {p3, p2}, Landroid/view/Surface;->unlockCanvasAndPost(Landroid/graphics/Canvas;)V
-
-    .line 87
-    invoke-virtual {p0}, Landroid/graphics/Bitmap;->recycle()V
-
-    .line 88
-    sget p0, Lcom/k4/face/K4FacePreview;->sFrames:I
-
-    add-int/lit8 p3, p0, 0x1
-
-    sput p3, Lcom/k4/face/K4FacePreview;->sFrames:I
-
-    rem-int/lit8 p0, p0, 0x1e
-
-    if-nez p0, :cond_19e
-
-    .line 90
-    invoke-virtual {p2}, Landroid/graphics/Canvas;->getWidth()I
-
-    move-result p0
-
-    invoke-virtual {p2}, Landroid/graphics/Canvas;->getHeight()I
-
-    move-result p2
-
-    new-instance p4, Ljava/lang/StringBuilder;
-
-    invoke-direct {p4}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string p7, "frame "
-
-    invoke-virtual {p4, p7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p4
-
-    invoke-virtual {p4, p3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    const-string p4, " "
-
-    invoke-virtual {p3, p4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    invoke-virtual {p3, v5}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    invoke-virtual {p3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    invoke-virtual {p3, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    const-string p4, " fmt="
-
-    invoke-virtual {p3, p4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    invoke-virtual {p3, p6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    const-string p4, " ori="
-
-    invoke-virtual {p3, p4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    invoke-virtual {p3, p5}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    const-string p4, " canvas="
-
-    invoke-virtual {p3, p4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p3
-
-    invoke-virtual {p3, p0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object p0
-
-    invoke-virtual {p0, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p0
-
-    invoke-virtual {p0, p2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object p0
-
-    invoke-virtual {p0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object p0
-
-    .line 89
-    invoke-static {v1, p0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    goto :goto_19e
-
-    :catchall_18f
-    move-exception v0
-
-    move-object p0, v0
-
-    .line 85
-    sget-object p1, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
-
-    invoke-virtual {p1, p2}, Landroid/view/Surface;->unlockCanvasAndPost(Landroid/graphics/Canvas;)V
-
-    .line 86
-    throw p0
-    :try_end_197
-    .catchall {:try_start_126 .. :try_end_197} :catchall_197
-
-    :catchall_197
-    move-exception v0
-
-    move-object p0, v0
-
     .line 93
-    const-string p1, "render failed"
+    invoke-virtual {v1}, Landroid/graphics/Canvas;->getWidth()I
 
-    invoke-static {v1, p1, p0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+    move-result v8
 
-    :cond_19e
-    :goto_19e
+    int-to-float v8, v8
+
+    div-float/2addr v8, v5
+
+    invoke-virtual {v1}, Landroid/graphics/Canvas;->getHeight()I
+
+    move-result v9
+
+    int-to-float v9, v9
+
+    div-float/2addr v9, v4
+
+    invoke-static {v8, v9}, Ljava/lang/Math;->max(FF)F
+
+    move-result v8
+
+    neg-float v9, v8
+
+    .line 94
+    invoke-virtual {v3, v9, v8}, Landroid/graphics/Matrix;->postScale(FF)Z
+
+    .line 95
+    invoke-virtual {v1}, Landroid/graphics/Canvas;->getWidth()I
+
+    move-result v9
+
+    int-to-float v9, v9
+
+    invoke-virtual {v1}, Landroid/graphics/Canvas;->getWidth()I
+
+    move-result v11
+
+    int-to-float v11, v11
+
+    mul-float/2addr v5, v8
+
+    sub-float/2addr v11, v5
+
+    div-float/2addr v11, v6
+
+    sub-float/2addr v9, v11
+
+    invoke-virtual {v1}, Landroid/graphics/Canvas;->getHeight()I
+
+    move-result v5
+
+    int-to-float v5, v5
+
+    mul-float/2addr v4, v8
+
+    sub-float/2addr v5, v4
+
+    div-float/2addr v5, v6
+
+    invoke-virtual {v3, v9, v5}, Landroid/graphics/Matrix;->postTranslate(FF)Z
+
+    .line 96
+    invoke-virtual {v1, v0, v3, v2}, Landroid/graphics/Canvas;->drawBitmap(Landroid/graphics/Bitmap;Landroid/graphics/Matrix;Landroid/graphics/Paint;)V
+    :try_end_254
+    .catchall {:try_start_1e6 .. :try_end_254} :catchall_296
+
+    .line 98
+    :try_start_254
+    sget-object v2, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
+
+    invoke-virtual {v2, v1}, Landroid/view/Surface;->unlockCanvasAndPost(Landroid/graphics/Canvas;)V
+
+    .line 100
+    invoke-virtual {v0}, Landroid/graphics/Bitmap;->recycle()V
+
+    .line 101
+    sget v0, Lcom/k4/face/K4FacePreview;->sFrames:I
+
+    const/4 v3, 0x3
+
+    if-le v0, v3, :cond_265
+
+    rem-int/lit8 v2, v0, 0x1e
+
+    if-nez v2, :cond_2d2
+
+    :cond_265
+    invoke-virtual {v1}, Landroid/graphics/Canvas;->getWidth()I
+
+    move-result v2
+
+    invoke-virtual {v1}, Landroid/graphics/Canvas;->getHeight()I
+
+    move-result v1
+
+    new-instance v3, Ljava/lang/StringBuilder;
+
+    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v4, "drew frame "
+
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v3
+
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v3, " canvas="
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v7, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    goto :goto_2d2
+
+    :catchall_296
+    move-exception v0
+
+    .line 98
+    sget-object v2, Lcom/k4/face/K4FacePreview;->sSurface:Landroid/view/Surface;
+
+    invoke-virtual {v2, v1}, Landroid/view/Surface;->unlockCanvasAndPost(Landroid/graphics/Canvas;)V
+
+    .line 99
+    throw v0
+
+    :cond_29d
+    :goto_29d
+    if-nez v1, :cond_2a0
+
+    goto :goto_2a5
+
+    .line 69
+    :cond_2a0
+    array-length v0, v1
+
+    invoke-static {v0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+
+    move-result-object v11
+
+    :goto_2a5
+    invoke-static {v11}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v0
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v2, "no frame data ("
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, " bytes)"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v7, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+
+    goto :goto_2d2
+
+    .line 43
+    :cond_2c6
+    :goto_2c6
+    const-string v0, "bad view/size"
+
+    invoke-static {v7, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_2cb
+    .catchall {:try_start_254 .. :try_end_2cb} :catchall_2cc
+
+    return-void
+
+    :catchall_2cc
+    move-exception v0
+
+    .line 103
+    const-string v1, "render failed"
+
+    invoke-static {v7, v1, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    :cond_2d2
+    :goto_2d2
     return-void
 .end method
