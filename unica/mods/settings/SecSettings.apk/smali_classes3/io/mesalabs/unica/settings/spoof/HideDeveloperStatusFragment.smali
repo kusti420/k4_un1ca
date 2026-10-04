@@ -249,29 +249,35 @@
 
     iput-object v1, p0, Lio/mesalabs/unica/settings/spoof/HideDeveloperStatusFragment;->mLoadingViewController:Lcom/android/settings/widget/LoadingViewController;
 
-    invoke-virtual {p0}, Landroidx/fragment/app/Fragment;->getActivity()Landroidx/fragment/app/FragmentActivity;
+    # One UI 9: SettingsActivity has no switch bar any more; fragments with a main switch inflate
+    # sec_settings_main_switch_bar themselves and insert it above the list (see ToggleBackupSettingFragment)
+    iget-object p2, p0, Lio/mesalabs/unica/settings/spoof/HideDeveloperStatusFragment;->mContext:Landroid/content/Context;
+
+    invoke-static {p2}, Landroid/view/LayoutInflater;->from(Landroid/content/Context;)Landroid/view/LayoutInflater;
 
     move-result-object p1
 
-    check-cast p1, Lcom/android/settings/SettingsActivity;
+    const-string v0, "layout"
 
-    # One UI 9: SettingsActivity no longer exposes the switch bar as a field; the view is still in
-    # settings_main_prefs.xml (@id/switch_bar, gone by default)
-    const-string v0, "id"
-
-    const-string v1, "switch_bar"
+    const-string v1, "sec_settings_main_switch_bar"
 
     invoke-static {v0, v1}, Lio/mesalabs/unica/utils/Utils;->getResourceId(Ljava/lang/String;Ljava/lang/String;)I
 
     move-result v0
 
-    invoke-virtual {p1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+    move-object p2, p3
+
+    check-cast p2, Landroid/view/ViewGroup;
+
+    const/4 v1, 0x0
+
+    invoke-virtual {p1, v0, p2, v1}, Landroid/view/LayoutInflater;->inflate(ILandroid/view/ViewGroup;Z)Landroid/view/View;
 
     move-result-object p1
 
     check-cast p1, Lcom/android/settings/widget/SettingsMainSwitchBar;
 
-    invoke-virtual {p1}, Landroidx/appcompat/widget/SeslSwitchBar;->show()V
+    invoke-virtual {p2, p1, v1}, Landroid/view/ViewGroup;->addView(Landroid/view/View;I)V
 
     iput-object p1, p0, Lio/mesalabs/unica/settings/spoof/HideDeveloperStatusFragment;->mSwitchBar:Lcom/android/settings/widget/SettingsMainSwitchBar;
 

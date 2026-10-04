@@ -69,15 +69,18 @@
 
     iput-object p1, p0, Lio/mesalabs/unica/settings/ui/ForceMaxRefreshRatePreferenceController;->mContentObserver:Landroid/database/ContentObserver;
 
+    # One UI 9: SecDisplayUtils helpers take the Context (display id 0 = main display)
+    iget-object p2, p0, Lcom/android/settingslib/core/AbstractPreferenceController;->mContext:Landroid/content/Context;
+
     const/4 p1, 0x0
 
-    invoke-static {p1}, Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateSeamlessType(I)I
+    invoke-static {p2, p1}, Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateSeamlessType(Landroid/content/Context;I)I
 
     move-result p1
 
     iput p1, p0, Lio/mesalabs/unica/settings/ui/ForceMaxRefreshRatePreferenceController;->mRefreshRateType:I
 
-    invoke-static {}, Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateMaxValue()I
+    invoke-static {p2}, Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateMaxValue(Landroid/content/Context;)I
 
     move-result p1
 

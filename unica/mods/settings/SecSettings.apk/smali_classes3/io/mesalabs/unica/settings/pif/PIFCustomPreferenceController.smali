@@ -23,7 +23,10 @@
 
     new-instance p1, Landroidx/activity/result/contract/ActivityResultContracts$StartActivityForResult;
 
-    invoke-direct {p1}, Landroidx/activity/result/contract/ActivityResultContracts$StartActivityForResult;-><init>()V
+    # One UI 9: R8 merged the ActivityResultContracts into this class, $r8$classId 0 = StartActivityForResult
+    const/4 p2, 0x0
+
+    invoke-direct {p1, p2}, Landroidx/activity/result/contract/ActivityResultContracts$StartActivityForResult;-><init>(I)V
 
     new-instance p2, Lio/mesalabs/unica/settings/pif/PIFCustomPreferenceController$$ExternalSyntheticLambda0;
 
