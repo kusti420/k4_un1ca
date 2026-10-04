@@ -31,3 +31,5 @@ target/o1s/patches/variants/vendor/** binary
 target/p3s/patches/variants/vendor/** binary
 target/r9s/patches/vendor/vendor/** binary
 target/t2s/patches/variants/vendor/** binary
+# compressed text profiles are binary: never normalize line endings
+target/*/profiles/*.gz binary
