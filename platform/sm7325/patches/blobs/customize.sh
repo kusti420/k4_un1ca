@@ -5,7 +5,9 @@ ADD_TO_WORK_DIR "a73xqxx" "product" "priv-app/HotwordEnrollmentOKGoogleEx3HEXAGO
 ADD_TO_WORK_DIR "a73xqxx" "product" "priv-app/HotwordEnrollmentXGoogleEx3HEXAGON" 0 0 755 "u:object_r:system_file:s0"
 LOG_STEP_OUT
 
-if [ "$TARGET_PRODUCT_SHIPPING_API_LEVEL" -gt "30" ]; then
+# A 64-bit-only source (empty ro.system.product.cpu.abilist32, zygote64 only, no system_ext/lib) can't run the 32-bit r9qxxx WFD stack:
+# insthk dies with "libQSEEComAPI_system.so not found" at every boot and remotedisplay can't link.
+if [ "$TARGET_PRODUCT_SHIPPING_API_LEVEL" -gt "30" ] || [ ! "$(GET_PROP "system" "ro.system.product.cpu.abilist32")" ]; then
     LOG_STEP_IN "- Adding stock WFD blobs"
     ADD_TO_WORK_DIR "a73xqxx" "system" "system/bin/insthk" 0 2000 755 "u:object_r:insthk_exec:s0"
     DELETE_FROM_WORK_DIR "system" "system/lib64/libhdcp_client_aidl.so"

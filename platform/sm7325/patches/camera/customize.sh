@@ -11,7 +11,12 @@ ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" "system/lib64/liblow_light_hdr.arcso
 ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" "system/lib64/libhigh_dynamic_range.arcsoft.so" 0 0 644 "u:object_r:system_lib_file:s0"
 ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" "system/lib64/libhumantracking.arcsoft.so" 0 0 644 "u:object_r:system_lib_file:s0"
 ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" "system/lib64/libhumantracking_util.camera.samsung.so" 0 0 644 "u:object_r:system_lib_file:s0"
-ADD_TO_WORK_DIR "a73xqxx" "system" "system/lib64/libsecimaging_pdk.camera.samsung.so" 0 0 644 "u:object_r:system_lib_file:s0"
+# The a73xqxx PDK (1.6.44, Android 14) drives a Java SurfaceTexture through android::SurfaceTexture, which on
+# Android 17 is a LegacySurfaceTexture: its detachFromContext spins forever on a garbage mutex as soon as a filter
+# (effect processor) is selected. An Android 17 source ships its own PDK built for that ABI, keep it.
+if [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "37" ]; then
+    ADD_TO_WORK_DIR "a73xqxx" "system" "system/lib64/libsecimaging_pdk.camera.samsung.so" 0 0 644 "u:object_r:system_lib_file:s0"
+fi
 ADD_TO_WORK_DIR "$TARGET_FIRMWARE" "system" "system/lib64/libveengine.arcsoft.so" 0 0 644 "u:object_r:system_lib_file:s0"
 
 if [ "$TARGET_PLATFORM_SDK_VERSION" -lt "34" ]; then
