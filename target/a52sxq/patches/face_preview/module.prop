@@ -1,0 +1,4 @@
+id=a52sxq_face_preview
+name=Galaxy A52s 5G face enrollment preview
+author=kusti420
+description=The One UI 9 BiometricSetting app expects an AIDL face HAL that renders the camera preview straight into the Surface it passes to FaceManager.enroll(). The A52s vendor.samsung.hardware.biometrics.face@3.0 HAL instead delivers NV21 preview frames through EnrollmentCallback.onImageProcessed(), which this app no longer implements, so face registration shows a black screen. Add an onImageProcessed() that draws those frames into the enrollment TextureView.
