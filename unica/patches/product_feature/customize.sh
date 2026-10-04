@@ -546,6 +546,8 @@ if [[ "$SOURCE_FINGERPRINT_CONFIG_SENSOR" != "$TARGET_FINGERPRINT_CONFIG_SENSOR"
             # but side-sensor specifics and the HIDL sensor type mapping are compiled in.
             DECODE_APK "system" "system/framework/framework.jar"
             DECODE_APK "system" "system/framework/services.jar"
+            DECODE_APK "system" "system/priv-app/BiometricSetting/BiometricSetting.apk"
+            DECODE_APK "system_ext" "priv-app/SystemUI/SystemUI.apk"
             python3 - "$APKTOOL_DIR/system/framework" <<'PYEOF' || ABORT "Failed to apply side -> optical fingerprint patches"
 import glob, re, sys
 root = sys.argv[1]
@@ -576,6 +578,14 @@ new = """    const/4 v2, 0x2
 assert s.count(old) == 1, "HidlFingerprintSensorConfig"
 open(f, "w").write(s.replace(old, new))
 
+# Sensor position is compiled in as 4 (side): without 2 (in-display) the HIDL sensor is registered as
+# POWER_BUTTON, so the enroll/auth clients never enable the touchscreen FOD mode
+f = one("framework.jar/smali*/android/hardware/fingerprint/FingerprintManager.smali")
+s = open(f).read()
+s, n = re.subn(r"(\.method public static (?:\w+ )*semGetSensorPosition\(\)I\n\s+\.locals 1\n\n\s+)const/4 v0, 0x\d", r"\1const/4 v0, 0x2", s)
+assert n == 1, "FingerprintManager.semGetSensorPosition"
+open(f, "w").write(s)
+
 # Samsung sensor type: 1 = side, 2 = optical, 3 = ultrasonic
 f = one("framework.jar/smali*/com/samsung/android/bio/fingerprint/SemFingerprintManager$Characteristics.smali")
 s = open(f).read()
@@ -591,6 +601,41 @@ for field in ("FP_FEATURE_SENSOR_IS_SIDE", "FP_FEATURE_SWIPE_ENROLL"):
                    r"\n\2const/4 v0, 0x0\n\1v0\4", s)
     assert n == 1, field
 open(f, "w").write(s)
+
+# BiometricSetting and SystemUI carry their own compiled-in side-sensor flags. Left on, the enroll screen runs
+# the side-key flow (grabs the power key, "try it out" auth) on top of the in-display UI and crashes in
+# showAuthenticateResult, so Settings sees a cancelled enrollment and never enables fingerprint unlock.
+import os
+apk = os.path.dirname(os.path.dirname(root))
+def force_false(f, cls, fields):
+    s = open(f).read()
+    for field in fields:
+        pat = r"\n(\s+)sput-boolean (v\d+), %s->%s:Z" % (re.escape(cls), field)
+        m = re.search(pat, s)
+        assert m, field
+        reg = m.group(2)
+        assert re.search(r"const/4 %s, 0x1\n" % reg, s[:m.start()]), field + " source"
+        s = s[:m.start()] + "\n%sconst/4 %s, 0x0\n%ssput-boolean %s, %s->%s:Z\n%sconst/4 %s, 0x1" % (
+            m.group(1), reg, m.group(1), reg, cls, field, m.group(1), reg) + s[m.end():]
+    open(f, "w").write(s)
+f = glob.glob(apk + "/system/priv-app/BiometricSetting/BiometricSetting.apk/smali*/com/samsung/android/biometrics/app/setting/Utils$Config.smali")
+assert len(f) == 1, "BiometricSetting Utils$Config"
+force_false(f[0], "Lcom/samsung/android/biometrics/app/setting/Utils$Config;",
+            ("FP_FEATURE_SENSOR_IS_SIDE", "FP_FEATURE_SUPPORT_SWIPE_ENROLL"))
+f = glob.glob(apk + "/system_ext/priv-app/SystemUI/SystemUI.apk/smali*/com/android/systemui/LsRune.smali")
+assert len(f) == 1, "SystemUI LsRune"
+force_false(f[0], "Lcom/android/systemui/LsRune;", ("SECURITY_FINGERPRINT_SIDE",))
+
+# On screen-on, UdfpsKeyguardClient.onDisplayStateChanged only shows the lock screen icon of an optical sensor
+# when HBM is already on, i.e. when the screen was woken by a finger on the sensor: after a power-key wake the
+# icon stays hidden until the sensor is touched. Show it whenever the display turns on during keyguard auth.
+f = glob.glob(apk + "/system/priv-app/BiometricSetting/BiometricSetting.apk/smali*/com/samsung/android/biometrics/app/setting/fingerprint/UdfpsKeyguardClient.smali")
+assert len(f) == 1, "UdfpsKeyguardClient"
+s = open(f[0]).read()
+s, n = re.subn(r"(invoke-virtual \{p1\}, Lcom/samsung/android/biometrics/app/setting/DisplayStateManager;->isEnabledHbm\(\)Z\n\n\s+move-result p1\n\n\s+if-nez p1, (:cond_\d+)\n\n\s+)goto :goto_\d+\n",
+               lambda m: m.group(1) + "goto " + m.group(2) + "\n", s)
+assert n == 1, "UdfpsKeyguardClient.onDisplayStateChanged"
+open(f[0], "w").write(s)
 PYEOF
             LOG "- Applied side -> optical fingerprint framework patches"
         else
@@ -667,7 +712,18 @@ if [[ "$SOURCE_LCD_CONFIG_SEAMLESS_BRT" != "$TARGET_LCD_CONFIG_SEAMLESS_BRT" ]] 
             "getMainInstance()Lcom/samsung/android/hardware/display/RefreshRateConfig;" \
             'invoke-direct {v0, v3, v3, v1, v2}, Lcom/samsung/android/hardware/display/RefreshRateConfig$BrightnessThreshold;-><init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V' \
             'invoke-direct {v0, v3, v4, v1, v2}, Lcom/samsung/android/hardware/display/RefreshRateConfig$BrightnessThreshold;-><init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V'
-        unset API37_THRESHOLD_REGS
+        # The source shares v3 ("") between the thresholds and createRefreshRateConfig's third argument, the
+        # Standard-mode ("normal speed") refresh rates. With v3 now holding the brightness thresholds the Standard
+        # vote becomes e.g. 89-91 Hz, which no panel mode satisfies: DisplayModeDirector falls back to the default
+        # mode (120 Hz locked) and Display.getSupportedModes() returns nothing to apps. Pass "" again instead.
+        printf -v API37_NS_ARG \
+            '    const-string v4, ""\n\n    invoke-static {v1, v2, v4, v0}, Lcom/samsung/android/hardware/display/RefreshRateConfig;->createRefreshRateConfig(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/samsung/android/hardware/display/RefreshRateConfig$BrightnessThreshold;)Lcom/samsung/android/hardware/display/RefreshRateConfig;'
+        SMALI_PATCH "system" "system/framework/framework.jar" \
+            "smali_classes6/com/samsung/android/hardware/display/RefreshRateConfig.smali" "replace" \
+            "getMainInstance()Lcom/samsung/android/hardware/display/RefreshRateConfig;" \
+            'invoke-static {v1, v2, v3, v0}, Lcom/samsung/android/hardware/display/RefreshRateConfig;->createRefreshRateConfig(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Lcom/samsung/android/hardware/display/RefreshRateConfig$BrightnessThreshold;)Lcom/samsung/android/hardware/display/RefreshRateConfig;' \
+            "$API37_NS_ARG"
+        unset API37_THRESHOLD_REGS API37_NS_ARG
     elif [[ "$SOURCE_LCD_CONFIG_SEAMLESS_BRT" != "none" ]] && [[ "$SOURCE_LCD_CONFIG_SEAMLESS_LUX" != "none" ]] && \
             [[ "$TARGET_LCD_CONFIG_SEAMLESS_BRT" == "none" ]] && [[ "$TARGET_LCD_CONFIG_SEAMLESS_LUX" == "none" ]]; then
         APPLY_PATCH "system" "system/framework/framework.jar" \

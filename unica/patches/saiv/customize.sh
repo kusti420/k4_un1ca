@@ -173,7 +173,10 @@ if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge 37 ]; then
         VALIDATE_INFO_MODELS "$UNIFIED_INFO"
     else
         LOGW "No target-compatible UnifiedDetector pair; disabling Gallery image tagging"
-        SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GALLERY_CONFIG_IMAGE_TAGGER_VERSION" --delete
+        # Don't delete the key: SemFloatingFeature returns "" for missing keys and CMH (com.samsung.cmh)
+        # ControllerUtils.isTaggerAvailable()/FeatureClassSet do value.charAt(0) -> StringIndexOutOfBoundsException.
+        # "None" fails their 'V' prefix check, which disables tagging cleanly.
+        SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GALLERY_CONFIG_IMAGE_TAGGER_VERSION" "None"
         if [ -d "${UNIFIED_INFO%/*}" ]; then
             DELETE_FROM_WORK_DIR "vendor" "etc/saiv/image_understanding/db/unified_detector"
         fi
@@ -184,7 +187,7 @@ if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge 37 ]; then
     HS_DIR="etc/saiv/image_understanding/db/hs_segmenter"
     if [ ! -d "$WORK_DIR/vendor/$HS_DIR" ] || [ ! "$(find "$WORK_DIR/vendor/$HS_DIR" -name "*.info")" ]; then
         [ -d "$WORK_DIR/vendor/$HS_DIR" ] && DELETE_FROM_WORK_DIR "vendor" "$HS_DIR"
-        ADD_TO_WORK_DIR "$SOURCE_FIRMWARE" "vendor" "$HS_DIR" 0 0 644 "u:object_r:vendor_configs_file:s0"
+        ADD_TO_WORK_DIR "$SOURCE_FIRMWARE" "vendor" "$HS_DIR" 0 2000 755 "u:object_r:vendor_configs_file:s0"
     fi
     # Model file names differ between sources (hs_segmenter.info vs 12-23_PhotoEditor_SuggestErases_*.info)
     for HS_FILE in $(find "$WORK_DIR/vendor/$HS_DIR" -name "*.info"); do
@@ -194,6 +197,16 @@ if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge 37 ]; then
         VALIDATE_PORTABLE_TFLITE "$HS_FILE"
     done
     unset HS_DIR HS_FILE
+
+    # PhotoRemasterService enables its ARTIFACT_DETECTOR estimator only by checking that
+    # /system/lib64/libArtifactDetector_v1.camera.samsung.so exists, but the model it loads
+    # (etc/saiv/image_understanding/db/artifact_detector: SNPE 2.39 DSP .dlc) is source-vendor only.
+    # Without it the model input size is 0x0 and cv::resize() aborts the whole process (SIGABRT).
+    if [ ! -f "$WORK_DIR/vendor/etc/saiv/image_understanding/db/artifact_detector/artifact_detector_cnn.info" ] && \
+            [ -f "$WORK_DIR/system/system/lib64/libArtifactDetector_v1.camera.samsung.so" ]; then
+        DELETE_FROM_WORK_DIR "system" "system/lib64/libArtifactDetector_v1.camera.samsung.so"
+        sed -i "/^libArtifactDetector_v1\.camera\.samsung\.so$/d" "$WORK_DIR/system/system/etc/public.libraries-camera.samsung.txt"
+    fi
 
     # The Android 17 PetService requires libPetDetector_v1 plus the new model
     # contract. The target vendor has neither, so keep the capability disabled.

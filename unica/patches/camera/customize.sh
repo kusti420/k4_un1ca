@@ -263,7 +263,11 @@ if [[ "$SOURCE_CAMERA_CONFIG_GPPM_SOLUTIONS" != "$TARGET_CAMERA_CONFIG_GPPM_SOLU
         fi
         if [[ "$SOURCE_CAMERA_CONFIG_GPPM_SOLUTIONS" == *"motionclipper"* ]] && \
                 [[ "$TARGET_CAMERA_CONFIG_GPPM_SOLUTIONS" != *"motionclipper"* ]]; then
-            DELETE_FROM_WORK_DIR "system" "system/lib64/libdvs.camera.samsung.so"
+            # One UI 9's Wallpaper & style (DressRoom) object capture loads libdvs too
+            # (UnsatisfiedLinkError in srib.vizinsight.dvs.DVS.initJni without it)
+            if [ "$SOURCE_PLATFORM_SDK_VERSION" -lt "37" ]; then
+                DELETE_FROM_WORK_DIR "system" "system/lib64/libdvs.camera.samsung.so"
+            fi
         elif [[ "$SOURCE_CAMERA_CONFIG_GPPM_SOLUTIONS" != *"motionclipper"* ]] && \
                 [[ "$TARGET_CAMERA_CONFIG_GPPM_SOLUTIONS" == *"motionclipper"* ]]; then
             # TODO handle this condition
