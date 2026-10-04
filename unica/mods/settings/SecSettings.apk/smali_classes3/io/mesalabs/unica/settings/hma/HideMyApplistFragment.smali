@@ -255,7 +255,23 @@
 
     check-cast p1, Lcom/android/settings/SettingsActivity;
 
-    iget-object p1, p1, Lcom/android/settings/SettingsActivity;->mMainSwitch:Lcom/android/settings/widget/SettingsMainSwitchBar;
+    # One UI 9: SettingsActivity no longer exposes the switch bar as a field; the view is still in
+    # settings_main_prefs.xml (@id/switch_bar, gone by default)
+    const-string v0, "id"
+
+    const-string v1, "switch_bar"
+
+    invoke-static {v0, v1}, Lio/mesalabs/unica/utils/Utils;->getResourceId(Ljava/lang/String;Ljava/lang/String;)I
+
+    move-result v0
+
+    invoke-virtual {p1, v0}, Landroid/app/Activity;->findViewById(I)Landroid/view/View;
+
+    move-result-object p1
+
+    check-cast p1, Lcom/android/settings/widget/SettingsMainSwitchBar;
+
+    invoke-virtual {p1}, Landroidx/appcompat/widget/SeslSwitchBar;->show()V
 
     iput-object p1, p0, Lio/mesalabs/unica/settings/hma/HideMyApplistFragment;->mSwitchBar:Lcom/android/settings/widget/SettingsMainSwitchBar;
 
