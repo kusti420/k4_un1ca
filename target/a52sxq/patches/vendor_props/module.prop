@@ -1,0 +1,4 @@
+id=a52sxq_vendor_props
+name=Galaxy A52s 5G rejected vendor properties
+author=kusti420
+description=Android 17 init validates /vendor/build.prop and /vendor/default.prop entries against the vendor_init SELinux context, and the A17 platform policy labels several props the A14 vendor files define (persist.vendor.bt.a2dp_offload_cap -> bluetooth_prop, ro.build.scafe.version/ro.apk_verity.mode/... -> default_prop) so that vendor_init may no longer set them. The props silently stay empty: the Bluetooth stack then offers only SBC/aptX/SSC for A2DP offload (no AAC, aptX HD, aptX TWS+, LDAC). Re-declare them in /system/build.prop, which init loads without that check.

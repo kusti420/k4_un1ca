@@ -1,0 +1,4 @@
+id=a52sxq_suspend_hidl
+name=Galaxy A52s 5G HIDL ISystemSuspend shim
+author=kusti420
+description=The source android.system.suspend-service is AIDL-only (AOSP removed the HIDL front end), but the VNDK 30 libpower used by the A52s vendor HALs (rild, emservice, sensors multihal, audio, camera...) still looks up android.system.suspend@1.0::ISystemSuspend, so none of them could hold a wake lock. Ship a small HIDL server that hands out kernel wake locks (/sys/power/wake_lock) and runs in the existing system_suspend domain.

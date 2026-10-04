@@ -1,0 +1,11 @@
+<!--
+    Input:
+        vendor/k4/suspend-hidl-shim/android.system.suspend-hidl-shim.xml
+-->
+<manifest version="9.0" type="framework">
+    <hal format="hidl">
+        <name>android.system.suspend</name>
+        <transport>hwbinder</transport>
+        <fqname>@1.0::ISystemSuspend/default</fqname>
+    </hal>
+</manifest>

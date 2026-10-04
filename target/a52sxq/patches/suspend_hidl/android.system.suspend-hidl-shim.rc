@@ -1,0 +1,5 @@
+service system_suspend_hidl /system/bin/hw/android.system.suspend-hidl-shim
+    class early_hal
+    user system
+    group system wakelock
+    capabilities BLOCK_SUSPEND
