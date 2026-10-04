@@ -33,3 +33,8 @@ target/r9s/patches/vendor/vendor/** binary
 target/t2s/patches/variants/vendor/** binary
 # compressed text profiles are binary: never normalize line endings
 target/*/profiles/*.gz binary
+# extension-less prebuilt binaries shipped by target patches
+target/*/patches/suspend_hidl/android.system.suspend-hidl-shim binary
+target/*/patches/tethering/netbpfload_a52* binary
+*.o binary
+*.prof binary
