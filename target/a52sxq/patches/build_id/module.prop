@@ -1,0 +1,4 @@
+id=a52sxq_build_id
+name=Per-build ODM fingerprint
+author=kusti420
+description=Every build reuses the source ro.build.fingerprint, so PackageManager (which digests all partition fingerprints) never sees a flashed build as an upgrade: ArtService skips its boot-time dexopt (SystemUI/launcher at speed, the rest verified) while every app's odex is already invalid against the new boot image, leaving the UI interpreted until background dexopt runs. Tag ro.odm.build.fingerprint with the build time instead; ro.build.fingerprint (what Play Integrity sees) is untouched.

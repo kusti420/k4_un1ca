@@ -1,0 +1,4 @@
+id=a52sxq_systemserver_jars
+name=Galaxy A52s 5G system_server jar compilation
+author=kusti420
+description=Samsung loads a dozen service jars (imsmanager, hcm, hqm, knox_mtd, semcontextservice, motionrecognitionservice, secinputdev-service, gamemanager, ...) into system_server with plain PathClassLoaders. Their build-time preopt is dropped with the rest of /system/framework/oat (boot image mismatch), so every boot re-verifies them, fails to cache the result ("Could not write anonymous vdex ... Could not create directory /system/framework/oat") and runs them in the interpreter/JIT. Listing them as STANDALONE_SYSTEMSERVER_JARS in systemserverclasspath.pb makes odrefresh compile them into the ART apexdata dalvik-cache, which the runtime checks first for any dex location.
