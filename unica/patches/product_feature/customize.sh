@@ -636,6 +636,39 @@ s, n = re.subn(r"(invoke-virtual \{p1\}, Lcom/samsung/android/biometrics/app/set
                lambda m: m.group(1) + "goto " + m.group(2) + "\n", s)
 assert n == 1, "UdfpsKeyguardClient.onDisplayStateChanged"
 open(f[0], "w").write(s)
+
+# The lock screen fingerprint icon is placed from DeviceState.sInDisplayFingerprintHeight/ImageSize, which
+# setInDisplayFingerprintSensorPosition() fills from /sys/class/fingerprint/fingerprint/position. One UI 6
+# (optical A52s) called it from CentralSurfacesImpl.startKeyguard() under SECURITY_FINGERPRINT_IN_DISPLAY; the
+# side-sensor Fold8 build compiled the call out, so the icon sat at the bottom edge with zero size. Call it
+# at CentralSurfacesImpl.start() and again whenever AuthController recomputes the UDFPS bounds.
+def inject_position_call(path, cls, method_sig):
+    s = open(path).read()
+    pat = r"(\.method public final %s\n\s+\.locals \d+\n)" % re.escape(method_sig)
+    body = """
+    move-object/from16 v0, p0
+
+    iget-object v0, v0, %s->mContext:Landroid/content/Context;
+
+    invoke-virtual {v0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+
+    move-result-object v0
+
+    invoke-static {v0}, Lcom/android/systemui/util/DeviceState;->setInDisplayFingerprintSensorPosition(Landroid/util/DisplayMetrics;)V
+""" % cls
+    s, n = re.subn(pat, lambda m: m.group(1) + body, s)
+    assert n == 1, path + " " + method_sig
+    open(path, "w").write(s)
+f = glob.glob(apk + "/system_ext/priv-app/SystemUI/SystemUI.apk/smali*/com/android/systemui/statusbar/phone/CentralSurfacesImpl.smali")
+assert len(f) == 1, "SystemUI CentralSurfacesImpl"
+inject_position_call(f[0], "Lcom/android/systemui/statusbar/phone/CentralSurfacesImpl;", "start()V")
+f = glob.glob(apk + "/system_ext/priv-app/SystemUI/SystemUI.apk/smali*/com/android/systemui/biometrics/AuthController.smali")
+assert len(f) == 1, "SystemUI AuthController"
+inject_position_call(f[0], "Lcom/android/systemui/biometrics/AuthController;", "updateUdfpsLocation()V")
 PYEOF
             LOG "- Applied side -> optical fingerprint framework patches"
         else
