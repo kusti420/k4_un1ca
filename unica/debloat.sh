@@ -53,6 +53,10 @@ system/etc/sysconfig/preinstalled-packages-com.samsung.android.app.esimkeystring
 system/etc/sysconfig/preinstalled-packages-com.samsung.euicc.xml
 system/priv-app/EsimKeyString
 system/priv-app/EuiccService
+system/etc/permissions/privapp-permissions-com.samsung.euicc.mep.xml
+system/etc/permissions/privapp-permissions-com.samsung.android.app.telephonyui.esimclient.xml
+system/etc/sysconfig/preinstalled-packages-com.samsung.android.app.telephonyui.esimclient.xml
+system/priv-app/EsimClient
 "
 
 # SmartFPSAdjuster
