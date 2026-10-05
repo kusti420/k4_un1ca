@@ -720,6 +720,18 @@ s = s[:start] + """.method public final isUdfpsEnrolled(I)Z
     return p0
 .end method""" + s[end:]
 open(f[0], "w").write(s)
+
+# KeyguardSecUpdateMonitorImpl overrides isUdfpsEnrolled()/isUdfpsSupported() with constant false on the side-sensor
+# Fold8 build; keyguard's fingerprint listening logic reads these, so it kept listening (and the FOD icon shown)
+# while a call or the secure camera occluded the lock screen. Drop the overrides so KeyguardUpdateMonitor's
+# AuthController-backed implementations are used.
+f = glob.glob(apk + "/system_ext/priv-app/SystemUI/SystemUI.apk/smali*/com/android/keyguard/KeyguardSecUpdateMonitorImpl.smali")
+assert len(f) == 1, "SystemUI KeyguardSecUpdateMonitorImpl"
+s = open(f[0]).read()
+for name in ("isUdfpsEnrolled", "isUdfpsSupported"):
+    s, n = re.subn(r"\.method public final %s\(\)Z\n(?:(?!\.end method).)*?const/4 p0, 0x0\n\s+return p0\n\.end method\n" % name, "", s, flags=re.S)
+    assert n == 1, "KeyguardSecUpdateMonitorImpl." + name
+open(f[0], "w").write(s)
 PYEOF
             LOG "- Applied side -> optical fingerprint framework patches"
         else
