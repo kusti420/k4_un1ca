@@ -73,59 +73,110 @@
 .end method
 
 .method public getSummary()Ljava/lang/CharSequence;
-    .locals 2
+    .locals 3
 
-    const-string p0, "ro.unica.version"
+    # k4: "<ro.k4.rom_name> (UN1CA <ro.unica.version>, <codename>)" when the target sets ro.k4.rom_name,
+    # otherwise upstream's "<ro.unica.version> (<codename>)"
+    const-string v0, "ro.unica.version"
 
-    const-string v0, "Unknown"
-
-    invoke-static {p0, v0}, Landroid/os/SemSystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object p0
-
-    const-string v0, "ro.unica.codename"
-
-    const-string v1, ""
+    const-string v1, "Unknown"
 
     invoke-static {v0, v1}, Landroid/os/SemSystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v0
 
-    invoke-static {v0}, Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z
+    const-string v1, "ro.unica.codename"
 
-    move-result v1
+    const-string v2, ""
 
-    if-nez v1, :cond_0
+    invoke-static {v1, v2}, Landroid/os/SemSystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
-    new-instance v1, Ljava/lang/StringBuilder;
+    move-result-object v1
 
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    const-string p0, "ro.k4.rom_name"
 
-    invoke-virtual {v1, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p0
-
-    const-string v1, " ("
-
-    invoke-virtual {p0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {p0, v2}, Landroid/os/SemSystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object p0
 
-    invoke-virtual {p0, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+
+    invoke-static {p0}, Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z
+
+    move-result v2
+
+    if-eqz v2, :k4_name
+
+    move-object p0, v0
+
+    goto :k4_codename
+
+    :k4_name
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string p0, " (UN1CA "
+
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-static {v1}, Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z
+
+    move-result p0
+
+    if-nez p0, :k4_close
+
+    const-string p0, ", "
+
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    :k4_close
+    const-string p0, ")"
+
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object p0
 
-    const-string v0, ")"
+    return-object p0
 
-    invoke-virtual {p0, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :k4_codename
+    invoke-static {v1}, Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z
+
+    move-result v2
+
+    if-nez v2, :k4_done
+
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string p0, " ("
+
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string p0, ")"
+
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object p0
 
-    invoke-virtual {p0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object p0
-
-    :cond_0
+    :k4_done
     return-object p0
 .end method
 

@@ -14,6 +14,8 @@ if [ "$K4_VERSION" ]; then
     # the de-Googled variant (target/a52sxq/patches/degoogle enabled) is marked in the version string
     [ -f "$SRC_DIR/target/$TARGET_CODENAME/patches/degoogle/disable" ] || K4_VERSION="${K4_VERSION}-degoogled"
     SET_PROP "system" "ro.k4.version" "$K4_VERSION"
+    # shown by the UN1CA Settings "ROM version" row (settings mod ROMVersionPreferenceController)
+    SET_PROP "system" "ro.k4.rom_name" "a52sxq_OneUI${K4_VERSION}"
     # the source defines ro.build.display.id in both system and product; init's merged map lets product win
     for part in system product; do
         SET_PROP "$part" "ro.build.display.id" "a52sxq_OneUI${K4_VERSION}.${K4_TAG} ($(GET_PROP "system" "ro.build.id"))"
