@@ -669,6 +669,57 @@ inject_position_call(f[0], "Lcom/android/systemui/statusbar/phone/CentralSurface
 f = glob.glob(apk + "/system_ext/priv-app/SystemUI/SystemUI.apk/smali*/com/android/systemui/biometrics/AuthController.smali")
 assert len(f) == 1, "SystemUI AuthController"
 inject_position_call(f[0], "Lcom/android/systemui/biometrics/AuthController;", "updateUdfpsLocation()V")
+
+# AuthController.isUdfpsEnrolled() only reads mUdfpsEnrolledForUser, which handleEnrollmentsChanged() fills when
+# the enrollment broadcast finds the sensor in mFpProps. With a HIDL sensor the broadcast lands before the
+# "all authenticators registered" callback sets mFpProps, so the flag stays false forever: keyguard then treats the
+# sensor as a side sensor and keeps fingerprint listening (and the FOD icon) while an incoming call or the secure
+# camera covers the lock screen. Fall back to FingerprintManager and cache a positive answer.
+f = glob.glob(apk + "/system_ext/priv-app/SystemUI/SystemUI.apk/smali*/com/android/systemui/biometrics/AuthController.smali")
+assert len(f) == 1, "SystemUI AuthController"
+s = open(f[0]).read()
+start = s.index(".method public final isUdfpsEnrolled(I)Z")
+end = s.index(".end method", start) + len(".end method")
+assert "mUdfpsEnrolledForUser" in s[start:end] and "mUdfpsController" in s[start:end], "isUdfpsEnrolled shape"
+s = s[:start] + """.method public final isUdfpsEnrolled(I)Z
+    .locals 2
+
+    iget-object v0, p0, Lcom/android/systemui/biometrics/AuthController;->mUdfpsController:Lcom/android/systemui/biometrics/UdfpsController;
+
+    if-nez v0, :unica_no_udfps
+
+    const/4 p0, 0x0
+
+    return p0
+
+    :unica_no_udfps
+    iget-object v0, p0, Lcom/android/systemui/biometrics/AuthController;->mUdfpsEnrolledForUser:Landroid/util/SparseBooleanArray;
+
+    invoke-virtual {v0, p1}, Landroid/util/SparseBooleanArray;->get(I)Z
+
+    move-result v1
+
+    if-eqz v1, :unica_ask_fpm
+
+    return v1
+
+    :unica_ask_fpm
+    iget-object p0, p0, Lcom/android/systemui/biometrics/AuthController;->mFingerprintManager:Landroid/hardware/fingerprint/FingerprintManager;
+
+    invoke-virtual {p0, p1}, Landroid/hardware/fingerprint/FingerprintManager;->hasEnrolledTemplates(I)Z
+
+    move-result p0
+
+    if-eqz p0, :unica_done
+
+    const/4 v1, 0x1
+
+    invoke-virtual {v0, p1, v1}, Landroid/util/SparseBooleanArray;->put(IZ)V
+
+    :unica_done
+    return p0
+.end method""" + s[end:]
+open(f[0], "w").write(s)
 PYEOF
             LOG "- Applied side -> optical fingerprint framework patches"
         else
