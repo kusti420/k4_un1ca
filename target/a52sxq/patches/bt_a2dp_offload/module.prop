@@ -1,0 +1,4 @@
+id=a52sxq_bt_a2dp_offload
+name=Galaxy A52s 5G Bluetooth A2DP offload for all codecs
+author=kusti420
+description=One UI 9's Bluetooth stack (com.android.bt APEX) only lets SBC/aptX/SSC/hifi use the hardware A2DP offload path (A2dpService.isOffloadSupportedCodec) and sends AAC/aptX HD/LDAC down the software encoding path, which the A52s vendor Bluetooth audio HAL cannot drive (its software session supports one codec) and the audio policy never opens an output for: LDAC/AAC headsets stay silent. Ships the source APEX with Bluetooth.apk patched to offload codec types 0-4 (SBC, AAC, aptX, aptX HD, LDAC) like the A14 stack did, re-signed with the tethering patch keys.
