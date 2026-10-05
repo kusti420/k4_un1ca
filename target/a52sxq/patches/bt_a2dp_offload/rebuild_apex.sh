@@ -36,6 +36,16 @@ guard="""
 """ % (yes, yes, yes)
 open(p,"w").write(s[:m.end()]+guard+s[m.end():])
 PY
+python3 - "$(ls "$W"/dec/smali*/com/android/bluetooth/a2dp/A2dpServiceHelper.smali)" <<'PY'
+import re,sys
+p=sys.argv[1]; s=open(p).read()
+# updateBtDevToAudio(): when the device's "HQ audio" codec (LDAC / SSC UHQ) is enabled, Samsung forces the software
+# ("hifi") path even for offload-capable codecs. This vendor has no software path for LDAC, so ignore the HQ state.
+pat=r"(invoke-virtual \{(v\d+), p1\}, Lcom/android/bluetooth/a2dp/A2dpService;->checkHqCodecState\(Landroid/bluetooth/BluetoothDevice;\)Z\n\n\s+move-result (v\d+)\n)"
+s,n=re.subn(pat, lambda m: m.group(1)+"\n    # unica: HQ codec state must not push LDAC/SSC off the hardware offload path on this vendor\n    const/4 %s, 0x0\n" % m.group(3), s)
+assert n==1, "checkHqCodecState call site"
+open(p,"w").write(s)
+PY
 java -Xmx6g -jar "$T/apktool.jar" b -o "$W/unsigned.apk" "$W/dec" >/dev/null
 "$H/zipalign" -p -f 4 "$W/unsigned.apk" "$W/aligned.apk"
 java -jar "$T/signapk.jar" "$ROOT/security/aosp_platform.x509.pem" "$ROOT/security/aosp_platform.pk8" "$W/aligned.apk" "$W/Bluetooth_patched.apk"
