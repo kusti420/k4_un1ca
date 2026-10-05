@@ -12,21 +12,28 @@ java -Xmx6g -jar "$T/apktool.jar" d -r -f -o "$W/dec" "$W/Bluetooth.apk" >/dev/n
 python3 - "$(ls "$W"/dec/smali*/com/android/bluetooth/a2dp/A2dpService.smali)" <<'PY'
 import re,sys
 p=sys.argv[1]; s=open(p).read()
-m=re.search(r"\.method public isOffloadSupportedCodec\(I\)Z\n(\s+\.locals (\d+)\n)", s); assert m and int(m.group(2))>=1
+m=re.search(r"\.method public isOffloadSupportedCodec\(I\)Z\n(?:.*\n)*?\s+iget-boolean p0, p0, Lcom/android/bluetooth/a2dp/A2dpService;->mA2dpOffloadEnabled:Z\n\n\s+if-eqz p0, :cond_\w+\n", s)
+assert m, "isOffloadSupportedCodec head"
+end=s.index(".end method", m.end())
+t=re.search(r"(:cond_\w+)\n\s+const/4 p0, 0x1\n\s+return p0\n", s[m.end():end])
+assert t, "return-true label"
+yes=t.group(1)
+# Samsung codec ids: SBC 0, AAC 0x2, aptX 0x8, aptX HD 0x10, LDAC 0x40, SSC 0x80, hifi 0x100. Stock only lets
+# sbc/aptx/ssc/hifi offload; the A52s vendor HAL offloads AAC/aptX HD/LDAC too (persist.vendor.bt.a2dp_offload_cap).
 guard="""
-    # unica: offload SBC/AAC/aptX/aptX HD/LDAC (codec types 0..4) like the A14 stack; others keep the stock prop logic
-    const/4 v0, 0x4
+    # unica: AAC / aptX HD / LDAC are hardware-offloaded on this vendor (A14 behaviour); the software path can't drive them
+    const/4 v0, 0x2
 
-    if-gt p1, v0, :unica_orig
+    if-eq p1, v0, %s
 
-    if-ltz p1, :unica_orig
+    const/16 v0, 0x10
 
-    const/4 p0, 0x1
+    if-eq p1, v0, %s
 
-    return p0
+    const/16 v0, 0x40
 
-    :unica_orig
-"""
+    if-eq p1, v0, %s
+""" % (yes, yes, yes)
 open(p,"w").write(s[:m.end()]+guard+s[m.end():])
 PY
 java -Xmx6g -jar "$T/apktool.jar" b -o "$W/unsigned.apk" "$W/dec" >/dev/null
