@@ -732,6 +732,48 @@ for name in ("isUdfpsEnrolled", "isUdfpsSupported"):
     s, n = re.subn(r"\.method public final %s\(\)Z\n(?:(?!\.end method).)*?const/4 p0, 0x0\n\s+return p0\n\.end method\n" % name, "", s, flags=re.S)
     assert n == 1, "KeyguardSecUpdateMonitorImpl." + name
 open(f[0], "w").write(s)
+
+# R8 inlined isUdfpsEnrolled()==false into KeyguardSecUpdateMonitorImpl.shouldListenForFingerprint(), so the
+# side-sensor branch that keeps listening while an app occludes the keyguard (incoming call, secure camera) is
+# compiled in. Guard the method: while occluded, listen only if the bouncer is coming up, the occluding app asked
+# for fingerprint, or the device is dreaming (AOSP's UDFPS rule).
+f = glob.glob(apk + "/system_ext/priv-app/SystemUI/SystemUI.apk/smali*/com/android/keyguard/KeyguardSecUpdateMonitorImpl.smali")
+assert len(f) == 1, "SystemUI KeyguardSecUpdateMonitorImpl"
+s = open(f[0]).read()
+guard = """
+    invoke-virtual {p0}, Lcom/android/keyguard/KeyguardSecUpdateMonitorImpl;->isKeyguardOccluded()Z
+
+    move-result v0
+
+    if-eqz v0, :unica_occlusion_ok
+
+    iget-boolean v0, p0, Lcom/android/keyguard/KeyguardUpdateMonitor;->mPrimaryBouncerIsOrWillBeShowing:Z
+
+    if-nez v0, :unica_occlusion_ok
+
+    iget-boolean v0, p0, Lcom/android/keyguard/KeyguardUpdateMonitor;->mOccludingAppRequestingFp:Z
+
+    if-nez v0, :unica_occlusion_ok
+
+    iget-boolean v0, p0, Lcom/android/keyguard/KeyguardUpdateMonitor;->mIsDreaming:Z
+
+    if-nez v0, :unica_occlusion_ok
+
+    const-string v0, "KeyguardFingerprint"
+
+    const-string v1, "shouldListenForFingerprint ( return false, keyguard occluded and sensor is under the display )"
+
+    invoke-static {v0, v1}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
+
+    const/4 v0, 0x0
+
+    return v0
+
+    :unica_occlusion_ok
+"""
+s, n = re.subn(r"(\.method public final shouldListenForFingerprint\(Z\)Z\n\s+\.locals \d+\n)", lambda m: m.group(1) + guard, s)
+assert n == 1, "KeyguardSecUpdateMonitorImpl.shouldListenForFingerprint"
+open(f[0], "w").write(s)
 PYEOF
             LOG "- Applied side -> optical fingerprint framework patches"
         else
