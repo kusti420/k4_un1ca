@@ -1,0 +1,4 @@
+id=a52sxq_no_native_zygote
+name=Galaxy A52s 5G: refuse native isolated services
+author=kusti420
+description=Android 17 starts services declared android:nativeService + isolatedProcess (Chrome's NativeOnlySandboxedProcessService) through the new zygote_next native zygote. On this port zygote_next starts but never reports ready, so ActivityManager:procStart blocks until the watchdog restarts the system (Chrome dies with "Timed out waiting for GPU channel", then a soft reboot). Resolve such services as not found so bindService fails fast and the app uses its regular sandbox, and never route a service record to or prewarm the native zygote.
