@@ -1,0 +1,4 @@
+id=a52sxq_audio_policy_legacy_keys
+name=Galaxy A52s 5G: legacy connect/format keys for the A14 audio HAL
+author=kusti420
+description=One UI 9's AudioPolicyManager::broadcastDeviceConnectionState sends Samsung's renamed HAL keys l_device_connect / l_device_disconnect / l_a2dp_format. The A52s A14 audio HAL only knows connect / disconnect / format: without "connect=128;format=2097152" its Samsung layer never sets bt_offload, start_output_stream fails with "A2DP profile is not ready" and every Bluetooth headset is silent. Point the three string references at the plain key that ends each renamed string (no new data).
