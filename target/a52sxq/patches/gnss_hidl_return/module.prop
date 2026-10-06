@@ -1,0 +1,4 @@
+id=a52sxq_gnss_hidl_return
+name=Galaxy A52s 5G: GNSS HAL survives a dead Samsung location callback
+author=kusti420
+description=vendor.samsung.hardware.gnss@2.0-impl-sec SecLocAPIClient::onBdmsgCb calls the registered Samsung GNSS callback and drops the HIDL Return unchecked. When system_server (which owns the callback) restarts, the next AGNSS config indication gets DEAD_OBJECT and libhidlbase aborts the whole android.hardware.gnss@2.1-service-qti ("Failed HIDL return status not checked"). Mark that Return as checked before its destructor runs (3-instruction trampoline in the .text padding), so the failure is ignored like the callback's other transport errors.
