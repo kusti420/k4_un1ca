@@ -1,0 +1,4 @@
+id=a52sxq_zygote_next_fix
+name=Galaxy A52s 5G: zygote_next diagnostics (stderr to kmsg, TRACE log level)
+author=kusti420
+description=DIAGNOSTIC ONLY, disabled by default. The Android 17 native zygote's child ("zygote-child") aborts right after fork with no log line: Rust panics and the cxx bridge write their message to stderr, which is /dev/null for an init service, and crash_dump cannot exec in that domain, so no tombstone. This sends zygote_next's (and its children's) stdout/stderr to the kernel log and raises its log level to TRACE. Only useful together with patches/no_native_zygote disabled in a test build, so a nativeService bind actually reaches zygote_next; then read the panic from dmesg (adb bugreport).
