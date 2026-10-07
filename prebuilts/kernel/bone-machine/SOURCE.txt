@@ -1,0 +1,16 @@
+bone-machine kernel for Galaxy A52s 5G (a52sxq), One UI variant, Linux 5.4.302-bone-machine-qgki
+File:     bone-machine_2026-10-04_One-UI_ReSukiSU-v4.2.0-rc3_a52sxq.zip
+SHA-256:  62580f19ff3031fe2c7e12548d0c0c3677362a11117d89a0091f5107f592c128
+Release:  https://github.com/mna08072-cmyk/android_kernel_samsung_sm7325_a52s_5g/releases/tag/build-20261004-122005
+          (built by GitHub Actions run 37200490865 from commit 6806314d69f2bf73199a2f31ea177b5b9b48f4af, branch resukisu-oneui)
+Source:   https://github.com/mna08072-cmyk/android_kernel_samsung_sm7325_a52s_5g (GPL-2.0 kernel; repo license file GPL-3.0)
+Upstream: https://github.com/bone-machine/android_kernel_samsung_sm7325_a52s_5g (bone-machine, A528NKSU4GXE1 base + A73 backports)
+Contents: images/boot.img (kernel Image), images/vendor_boot.img (first-stage ramdisk with 84 modules rebuilt for this kernel
+          incl. wlan.ko, and the dtb), images/dtbo.img
+
+ReSukiSU manager (KernelSU fork manager matching the kernel's built-in ReSukiSU v4.2.0-rc3)
+File:     ReSukiSU_v4.2.0-rc3_35171-arm64-v8a-release.apk  (package com.resukisu.resukisu, versionCode 35171, targetSdk 37)
+SHA-256:  25657bc449439687608fffa04b4b586de90fc405e3dc6217bd997fc71ba0a0a1
+Release:  https://github.com/ReSukiSU/ReSukiSU/releases/tag/v4.2.0-rc3 (repo now Baka-SU/BakaSU, GPL-3.0)
+Signer:   CN=ReSukiSU, O=ReSukiSU, L=Shantou, ST=Guangdong, C=CN; cert SHA-256 d3469712b6214462764a1d8d3e5cbe1d6819a0b629791b9f4101867821f1df64
+          (this hash is compiled into the bundled kernel's manager allowlist)

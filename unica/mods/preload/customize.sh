@@ -10,6 +10,13 @@ if [ "$SBROWSER_ACTUAL_SHA256" != "$SBROWSER_SHA256" ]; then
     ABORT "Samsung Internet digest mismatch: expected $SBROWSER_SHA256, found $SBROWSER_ACTUAL_SHA256"
 fi
 
+# Extra preloaded APKs staged by device patches (they run before _debloat removes /system/preload)
+if [ -d "$WORK_DIR/.extra_preload" ]; then
+    LOG "- Adding staged preloaded apps: $(ls "$WORK_DIR/.extra_preload" | tr '\n' ' ')"
+    EVAL "cp -a \"$WORK_DIR/.extra_preload/.\" \"$WORK_DIR/system/system/preload/\""
+    rm -rf "$WORK_DIR/.extra_preload"
+fi
+
 while IFS= read -r i; do
     i="${i//$WORK_DIR\/system\//}"
 

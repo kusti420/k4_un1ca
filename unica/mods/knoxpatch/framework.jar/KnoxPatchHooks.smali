@@ -164,7 +164,7 @@
 .method private static blacklist isRootPackage(Ljava/lang/String;)Z
     .locals 3
 
-    const-string v0, ";com.noshufou.android.su;com.noshufou.android.su.elite;eu.chainfire.supersu;com.koushikdutta.superuser;com.thirdparty.superuser;com.yellowes.su;com.devadvance.rootcloak;com.devadvance.rootcloakplus;de.robv.android.xposed.installer;com.saurik.substrate;com.zachspong.temprootremovejb;com.amphoras.hidemyroot;com.amphoras.hidemyrootadfree;com.formyhm.hiderootPremium;com.formyhm.hideroot;com.koushikdutta.rommanager;com.koushikdutta.rommanager.license;com.dimonvideo.luckypatcher;com.chelpus.lackypatch;com.ramdroid.appquarantine;com.ramdroid.appquarantinepro;stericson.busybox;com.topjohnwu.magisk;me.weishu.kernelsu;com.rifsxd.ksunext;"
+    const-string v0, ";com.noshufou.android.su;com.noshufou.android.su.elite;eu.chainfire.supersu;com.koushikdutta.superuser;com.thirdparty.superuser;com.yellowes.su;com.devadvance.rootcloak;com.devadvance.rootcloakplus;de.robv.android.xposed.installer;com.saurik.substrate;com.zachspong.temprootremovejb;com.amphoras.hidemyroot;com.amphoras.hidemyrootadfree;com.formyhm.hiderootPremium;com.formyhm.hideroot;com.koushikdutta.rommanager;com.koushikdutta.rommanager.license;com.dimonvideo.luckypatcher;com.chelpus.lackypatch;com.ramdroid.appquarantine;com.ramdroid.appquarantinepro;stericson.busybox;com.topjohnwu.magisk;me.weishu.kernelsu;com.rifsxd.ksunext;com.resukisu.resukisu;com.sukisu.ultra;"
 
     new-instance v1, Ljava/lang/StringBuilder;
 

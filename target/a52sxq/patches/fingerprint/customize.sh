@@ -301,7 +301,9 @@ fi
 # in-display sensor layout branch: DeviceState.sInDisplayFingerprintHeight is never computed (the sensor position
 # setter has no caller left), the lock screen indication (charging text) is drawn inside the sensor area and the
 # bouncer's Emergency call button sits right on the sensor. Restore the stock One UI formulas: indication bottom
-# margin = sensor height + keyguard_indication_margin_bottom_fingerprint_low[_with_nowbar], bouncer bottom padding
+# margin = sensor height + keyguard_indication_margin_bottom_fingerprint_low[_with_nowbar] (+36dp with the Now Bar:
+# the AOD plugin's finger-low Now Bar card sits ~89dp above this sensor, not the ~54dp the stock 66dp assumes, so
+# the charging text otherwise overlaps the Now Bar card; +36dp keeps the stock 12dp gap above it), bouncer bottom padding
 # = sensor height (both only for a low sensor with fingerprint unlock enabled), and let DeviceType report an
 # in-display sensor (lock screen fingerprint help/error texts, AOD plugin).
 SYSTEMUI="priv-app/SystemUI/SystemUI.apk"
@@ -402,16 +404,34 @@ if ":cond_unica_fp_indication" not in s:
 
     const v11, 0x7e0705b3
 
-    goto :goto_unica_fp_dimen
-
-    :cond_unica_fp_nowbar
-    const v11, 0x7e0705b2
-
-    :goto_unica_fp_dimen
     invoke-virtual {v2, v11}, Landroid/content/res/Resources;->getDimensionPixelSize(I)I
 
     move-result v11
 
+    add-int/2addr v10, v11
+
+    invoke-virtual {v2}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+
+    move-result-object v11
+
+    iget v11, v11, Landroid/util/DisplayMetrics;->density:F
+
+    const/high16 v12, 0x42100000    # 36.0f
+
+    mul-float/2addr v11, v12
+
+    float-to-int v11, v11
+
+    goto :goto_unica_fp_add
+
+    :cond_unica_fp_nowbar
+    const v11, 0x7e0705b2
+
+    invoke-virtual {v2, v11}, Landroid/content/res/Resources;->getDimensionPixelSize(I)I
+
+    move-result v11
+
+    :goto_unica_fp_add
     add-int/2addr v10, v11
 
     if-le v10, v8, :cond_unica_fp_indication

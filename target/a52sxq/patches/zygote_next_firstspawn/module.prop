@@ -1,0 +1,4 @@
+id=a52sxq_zygote_next_firstspawn
+name=Galaxy A52s 5G: native zygote spawn timeout
+author=kusti420
+description=system_server waits for the native zygote's spawn reply with a blocking read and no timeout (NativeZygoteProcess -> ReadSpawnResponse). If a native child zygote never answers, ActivityManager:procStart blocks until the watchdog restarts the whole system (seen 2026-10-07 with a native service that declares no native library). Set a 20 s receive timeout on the zygote_next socket, so a dead spawn fails that one service start with an IOException instead of freezing the phone, and drop the connection after a failed child-zygote start so a late reply cannot be read as the answer to the next request. Only matters while native services run through zygote_next (no_native_zygote disabled).

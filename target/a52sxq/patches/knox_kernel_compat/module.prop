@@ -1,0 +1,4 @@
+id=a52sxq_knox_kernel_compat
+name=Galaxy A52s 5G: userspace for the bone-machine KernelSU/Knox-off kernel
+author=kusti420
+description=Only active while target/a52sxq/patches/kernel_bone_machine is enabled (no disable file there). Preinstalls the official ReSukiSU v4.2.0-rc3 manager (com.resukisu.resukisu, whose signing certificate the kernel's built-in ReSukiSU trusts) through Samsung's /system/preload mechanism, which installs it as a normal user app in /data/app on the first boot after each flash; KernelSU only recognises a manager under /data/app. Knox apps keep working through UN1CA's KnoxPatch (already in every build: Secure Folder DAR, Samsung Health Knox SDK, SAK/ICD attestation, ICCC/flash-lock/warranty props for scoped Samsung apps, root-manager package hiding incl. ReSukiSU).
