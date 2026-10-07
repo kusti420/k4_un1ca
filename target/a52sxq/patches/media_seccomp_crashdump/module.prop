@@ -1,0 +1,4 @@
+id=a52sxq_media_seccomp_crashdump
+name=Galaxy A52s 5G codec HAL seccomp: allow the Android 17 crash_dump syscalls
+author=kusti420
+description=The Codec2 HALs (vendor.qti.media.c2, samsung.software.media.c2) run under the A14 vendor seccomp policies, which allow exactly what the A14 crash_dump needs. crash_dump inherits the HAL's filter, and the Android 17 crash_dump also calls getppid/setsockopt/uname (+recvfrom for the Samsung one), so every native stack dump of the codec HALs (each app ANR / watchdog half-trigger / bugreport) kills them: both services restart, running video/audio decoders die (Chrome: "Codec2 component c2.qti.vp9.decoder died", MediaCodec error 1101). Add the missing rules from the system's crash_dump policy.
