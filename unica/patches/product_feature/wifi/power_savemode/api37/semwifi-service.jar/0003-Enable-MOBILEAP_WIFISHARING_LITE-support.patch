@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kusti420 <kristjan0@live.com>
+Date: Tue, 7 Oct 2026 18:00:00 +0300
+Subject: [PATCH] Enable MOBILEAP_WIFISHARING_LITE support (SDK 37)
+
+---
+ smali/com/samsung/android/server/wifi/ap/SemWifiApChipInfo.smali | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/smali/com/samsung/android/server/wifi/ap/SemWifiApChipInfo.smali b/smali/com/samsung/android/server/wifi/ap/SemWifiApChipInfo.smali
+index 7acb565..0f07b04 100644
+--- a/smali/com/samsung/android/server/wifi/ap/SemWifiApChipInfo.smali
++++ b/smali/com/samsung/android/server/wifi/ap/SemWifiApChipInfo.smali
+@@ -684,6 +684,17 @@
+ 
+     iput-boolean v5, p0, Lcom/samsung/android/server/wifi/ap/SemWifiApChipInfo;->mSupportPowerSave:Z
+ 
++    sget-boolean v2, Lcom/samsung/android/server/wifi/ap/SemWifiApChipInfo;->mSupportWifiSharing:Z
++
++    if-ne v2, v5, :unica_wifisharing_lite_end
++
++    sput-boolean v5, Lcom/samsung/android/server/wifi/ap/SemWifiApChipInfo;->mSupportWifiSharingLite:Z
++
++    const-string v2, "wifisharinlite true with feature"
++
++    invoke-virtual {p0, v2}, Lcom/samsung/android/server/wifi/ap/SemWifiApChipInfo;->addMHSDumpLog(Ljava/lang/String;)V
++
++    :unica_wifisharing_lite_end
+     invoke-virtual {p0}, Lcom/samsung/android/server/wifi/ap/SemWifiApChipInfo;->isKoreaModelForWifiSharingLite()Z
+ 
+     move-result v2
+-- 
+2.51.0

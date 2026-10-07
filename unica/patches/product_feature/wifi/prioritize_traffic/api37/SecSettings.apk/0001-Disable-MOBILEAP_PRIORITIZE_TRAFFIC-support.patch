@@ -1,0 +1,137 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kusti420 <kristjan0@live.com>
+Date: Tue, 7 Oct 2026 18:00:00 +0300
+Subject: [PATCH] Disable MOBILEAP_PRIORITIZE_TRAFFIC support (SDK 37)
+
+---
+ .../wifi/mobileap/smartpriority/WifiApSmartPrioritySwitchController.smali   | 13 ------
+ .../samsung/android/settings/wifi/mobileap/utils/WifiApFrameworkUtils.smali | 81 ++-----------------------------------
+ 2 files changed, 4 insertions(+), 90 deletions(-)
+
+diff --git a/smali_classes4/com/samsung/android/settings/wifi/mobileap/smartpriority/WifiApSmartPrioritySwitchController.smali b/smali_classes4/com/samsung/android/settings/wifi/mobileap/smartpriority/WifiApSmartPrioritySwitchController.smali
+index 49715c9..aab2bcb 100644
+--- a/smali_classes4/com/samsung/android/settings/wifi/mobileap/smartpriority/WifiApSmartPrioritySwitchController.smali
++++ b/smali_classes4/com/samsung/android/settings/wifi/mobileap/smartpriority/WifiApSmartPrioritySwitchController.smali
+@@ -75,19 +75,6 @@
+ .method public getAvailabilityStatus()I
+     .locals 0
+ 
+-    iget-object p0, p0, Lcom/samsung/android/settings/wifi/mobileap/smartpriority/WifiApSmartPrioritySwitchController;->mContext:Landroid/content/Context;
+-
+-    invoke-static {p0}, Lcom/samsung/android/settings/wifi/mobileap/utils/WifiApFeatureUtils;->isMobileDataUsageSupported(Landroid/content/Context;)Z
+-
+-    move-result p0
+-
+-    if-eqz p0, :cond_0
+-
+-    const/4 p0, 0x0
+-
+-    return p0
+-
+-    :cond_0
+     const/4 p0, 0x3
+ 
+     return p0
+diff --git a/smali_classes4/com/samsung/android/settings/wifi/mobileap/utils/WifiApFrameworkUtils.smali b/smali_classes4/com/samsung/android/settings/wifi/mobileap/utils/WifiApFrameworkUtils.smali
+index d4a252c..a90ff96 100644
+--- a/smali_classes4/com/samsung/android/settings/wifi/mobileap/utils/WifiApFrameworkUtils.smali
++++ b/smali_classes4/com/samsung/android/settings/wifi/mobileap/utils/WifiApFrameworkUtils.smali
+@@ -816,47 +816,11 @@
+ .end method
+ 
+ .method public static isPrioritizeRealTimeTrafficOn(Landroid/content/Context;)Z
+-    .locals 3
+-
+-    invoke-static {p0}, Lcom/samsung/android/settings/wifi/mobileap/utils/WifiApFeatureUtils;->isMobileDataUsageSupported(Landroid/content/Context;)Z
+-
+-    move-result v0
+-
+-    const-string v1, "WifiApFrameworkUtils"
+-
+-    const/4 v2, 0x0
+-
+-    if-eqz v0, :cond_1
+-
+-    invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+-
+-    move-result-object p0
+-
+-    const-string v0, "wifi_ap_smart_priority_enable"
+-
+-    invoke-static {p0, v0, v2}, Landroid/provider/Settings$Secure;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I
+-
+-    move-result p0
+-
+-    const/4 v0, 0x1
+-
+-    if-ne p0, v0, :cond_0
+-
+-    move v2, v0
+-
+-    :cond_0
+-    const-string p0, "Getting(DB) Prioritize Real-Time Traffic: "
+-
+-    invoke-static {p0, v1, v2}, Lcom/android/settings/Utils$$ExternalSyntheticOutline1;->m$1(Ljava/lang/String;Ljava/lang/String;Z)V
+-
+-    return v2
+-
+-    :cond_1
+-    const-string p0, "Prioritize Real- Time Traffic Not Supported."
++    .locals 0
+ 
+-    invoke-static {v1, p0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++    const/4 p0, 0x0
+ 
+-    return v2
++    return p0
+ .end method
+ 
+ .method public static isWiFiStateDisablingOrDisabled(Landroid/content/Context;)Z
+@@ -1126,44 +1090,7 @@
+ .end method
+ 
+ .method public static setPrioritizeRealTimeTrafficDB(Landroid/content/Context;Z)V
+-    .locals 2
+-
+-    new-instance v0, Ljava/lang/StringBuilder;
+-
+-    const-string v1, "Setting(DB) Prioritize Real-Time Traffic : "
+-
+-    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+-
+-    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object v0
+-
+-    const-string v1, "WifiApFrameworkUtils"
+-
+-    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    invoke-static {p0}, Lcom/samsung/android/settings/wifi/mobileap/utils/WifiApFeatureUtils;->isMobileDataUsageSupported(Landroid/content/Context;)Z
+-
+-    move-result v0
+-
+-    if-eqz v0, :cond_0
+-
+-    invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+-
+-    move-result-object p0
+-
+-    const-string v0, "wifi_ap_smart_priority_enable"
+-
+-    invoke-static {p0, v0, p1}, Landroid/provider/Settings$Secure;->putInt(Landroid/content/ContentResolver;Ljava/lang/String;I)Z
+-
+-    return-void
+-
+-    :cond_0
+-    const-string p0, "Prioritize Real- Time Traffic Not Supported"
+-
+-    invoke-static {v1, p0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;)I
++    .locals 0
+ 
+     return-void
+ .end method
+-- 
+2.51.0

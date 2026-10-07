@@ -1,0 +1,466 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kusti420 <kristjan0@live.com>
+Date: Tue, 7 Oct 2026 18:00:00 +0300
+Subject: [PATCH] Disable HDR Settings (SDK 37)
+
+---
+ .../com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali   |   2 +-
+ .../com/samsung/android/settings/usefulfeature/UsefulfeatureUtils.smali     | 366 +-----------------------------------
+ .../videoenhancer/SecBrightenUpVideoPreferenceController.smali              |  15 +-
+ .../usefulfeature/videoenhancer/VideoEnhancerPreferenceController.smali     |  15 +-
+ 4 files changed, 5 insertions(+), 393 deletions(-)
+
+diff --git a/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali b/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali
+index 09e5f20..b9cce60 100644
+--- a/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali
++++ b/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali
+@@ -1547,7 +1547,7 @@
+     move v4, v5
+ 
+     :goto_1c
+-    if-ge v4, v8, :cond_37
++    goto :cond_37
+ 
+     aget-object v7, v9, v4
+ 
+diff --git a/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureUtils.smali b/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureUtils.smali
+index b115230..0aff498 100644
+--- a/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureUtils.smali
++++ b/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureUtils.smali
+@@ -1575,156 +1575,10 @@
+ .end method
+ 
+ .method public static getVideoEnhanceAppInfo(Landroid/content/Context;)Ljava/lang/String;
+-    .locals 9
+-
+-    const-string v0, "DisplaySolution"
+-
+-    invoke-virtual {p0, v0}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+-
+-    move-result-object v0
+-
+-    check-cast v0, Lcom/samsung/android/displaysolution/SemDisplaySolutionManager;
+-
+-    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+-
+-    move-result-object v1
+-
+-    const v2, 0x1070098
+-
+-    invoke-virtual {v1, v2}, Landroid/content/res/Resources;->getStringArray(I)[Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+-
+-    move-result-object p0
+-
+-    const v2, 0x107007e
+-
+-    invoke-virtual {p0, v2}, Landroid/content/res/Resources;->getStringArray(I)[Ljava/lang/String;
+-
+-    move-result-object p0
+-
+-    array-length v2, v1
+-
+-    array-length v3, p0
+-
+-    add-int/2addr v2, v3
+-
+-    new-array v3, v2, [Ljava/lang/String;
+-
+-    array-length v4, p0
+-
+-    const/4 v5, 0x0
+-
+-    invoke-static {p0, v5, v3, v5, v4}, Ljava/lang/System;->arraycopy(Ljava/lang/Object;ILjava/lang/Object;II)V
+-
+-    array-length p0, p0
+-
+-    array-length v4, v1
+-
+-    invoke-static {v1, v5, v3, p0, v4}, Ljava/lang/System;->arraycopy(Ljava/lang/Object;ILjava/lang/Object;II)V
+-
+-    new-instance p0, Lorg/json/JSONObject;
+-
+-    invoke-direct {p0}, Lorg/json/JSONObject;-><init>()V
+-
+-    new-instance v1, Lorg/json/JSONArray;
+-
+-    invoke-direct {v1}, Lorg/json/JSONArray;-><init>()V
+-
+-    new-instance v4, Lorg/json/JSONArray;
+-
+-    invoke-direct {v4}, Lorg/json/JSONArray;-><init>()V
+-
+-    :goto_0
+-    if-ge v5, v2, :cond_2
+-
+-    aget-object v6, v3, v5
+-
+-    invoke-virtual {v0, v6}, Lcom/samsung/android/displaysolution/SemDisplaySolutionManager;->getVideoEnhancerSettingState(Ljava/lang/String;)I
+-
+-    move-result v7
+-
+-    if-nez v7, :cond_0
+-
+-    invoke-virtual {v1, v6}, Lorg/json/JSONArray;->put(Ljava/lang/Object;)Lorg/json/JSONArray;
+-
+-    goto :goto_1
+-
+-    :cond_0
+-    invoke-virtual {v0, v6}, Lcom/samsung/android/displaysolution/SemDisplaySolutionManager;->getVideoEnhancerSettingState(Ljava/lang/String;)I
+-
+-    move-result v7
+-
+-    const/4 v8, 0x1
+-
+-    if-ne v7, v8, :cond_1
+-
+-    invoke-virtual {v4, v6}, Lorg/json/JSONArray;->put(Ljava/lang/Object;)Lorg/json/JSONArray;
+-
+-    :cond_1
+-    :goto_1
+-    add-int/lit8 v5, v5, 0x1
+-
+-    goto :goto_0
+-
+-    :cond_2
+-    :try_start_0
+-    const-string v0, "false_names"
+-
+-    invoke-virtual {p0, v0, v1}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+-
+-    const-string v0, "true_names"
+-
+-    invoke-virtual {p0, v0, v4}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+-    :try_end_0
+-    .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :catch_0
+-
+-    goto :goto_2
+-
+-    :catch_0
+-    move-exception v0
+-
+-    new-instance v1, Ljava/lang/StringBuilder;
+-
+-    const-string v2, "Failed to put FrontScreenAppsInfo in json object. "
+-
+-    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+-
+-    invoke-virtual {v0}, Lorg/json/JSONException;->getMessage()Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    const-string v2, "UsefulfeatureUtils"
+-
+-    invoke-static {v2, v1}, Landroid/util/Log;->secD(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    invoke-virtual {v0}, Lorg/json/JSONException;->printStackTrace()V
+-
+-    :goto_2
+-    invoke-virtual {p0}, Lorg/json/JSONObject;->length()I
+-
+-    move-result v0
+-
+-    if-nez v0, :cond_3
++    .locals 0
+ 
+     const/4 p0, 0x0
+ 
+-    goto :goto_3
+-
+-    :cond_3
+-    invoke-virtual {p0}, Lorg/json/JSONObject;->toString()Ljava/lang/String;
+-
+-    move-result-object p0
+-
+-    :goto_3
+     return-object p0
+ .end method
+ 
+@@ -6719,223 +6573,7 @@
+ .end method
+ 
+ .method public static setVideoEnhanceAppInfo(Landroid/content/Context;Ljava/lang/String;)V
+-    .locals 6
+-
+-    const-string v0, "DisplaySolution"
+-
+-    invoke-virtual {p0, v0}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+-
+-    move-result-object v0
+-
+-    check-cast v0, Lcom/samsung/android/displaysolution/SemDisplaySolutionManager;
+-
+-    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+-
+-    move-result-object v1
+-
+-    const v2, 0x1070098
+-
+-    invoke-virtual {v1, v2}, Landroid/content/res/Resources;->getStringArray(I)[Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {p0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+-
+-    move-result-object v2
+-
+-    const v3, 0x107007e
+-
+-    invoke-virtual {v2, v3}, Landroid/content/res/Resources;->getStringArray(I)[Ljava/lang/String;
+-
+-    move-result-object v2
+-
+-    new-instance v3, Ljava/util/HashSet;
+-
+-    invoke-direct {v3}, Ljava/util/HashSet;-><init>()V
+-
+-    invoke-static {v1}, Ljava/util/Arrays;->asList([Ljava/lang/Object;)Ljava/util/List;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v3, v1}, Ljava/util/HashSet;->addAll(Ljava/util/Collection;)Z
+-
+-    invoke-static {v2}, Ljava/util/Arrays;->asList([Ljava/lang/Object;)Ljava/util/List;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v3, v1}, Ljava/util/HashSet;->addAll(Ljava/util/Collection;)Z
+-
+-    :try_start_0
+-    new-instance v1, Lorg/json/JSONObject;
+-
+-    invoke-direct {v1, p1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+-
+-    const-string v2, "false_names"
+-
+-    invoke-virtual {v1, v2}, Lorg/json/JSONObject;->getJSONArray(Ljava/lang/String;)Lorg/json/JSONArray;
+-
+-    move-result-object v1
+-
+-    const/4 v2, 0x0
+-
+-    move v4, v2
+-
+-    :goto_0
+-    invoke-virtual {v1}, Lorg/json/JSONArray;->length()I
+-
+-    move-result v5
+-
+-    if-ge v4, v5, :cond_1
+-
+-    invoke-virtual {v1, v4}, Lorg/json/JSONArray;->get(I)Ljava/lang/Object;
+-
+-    move-result-object v5
+-
+-    invoke-virtual {v5}, Ljava/lang/Object;->toString()Ljava/lang/String;
+-
+-    move-result-object v5
+-
+-    invoke-virtual {v3, v5}, Ljava/util/HashSet;->contains(Ljava/lang/Object;)Z
+-
+-    move-result v5
+-
+-    if-eqz v5, :cond_0
+-
+-    invoke-virtual {v1, v4}, Lorg/json/JSONArray;->get(I)Ljava/lang/Object;
+-
+-    move-result-object v5
+-
+-    invoke-virtual {v5}, Ljava/lang/Object;->toString()Ljava/lang/String;
+-
+-    move-result-object v5
+-
+-    invoke-static {p0, v5}, Lcom/android/settings/Utils;->hasPackage(Landroid/content/Context;Ljava/lang/String;)Z
+-
+-    move-result v5
+-
+-    if-eqz v5, :cond_0
+-
+-    invoke-virtual {v1, v4}, Lorg/json/JSONArray;->get(I)Ljava/lang/Object;
+-
+-    move-result-object v5
+-
+-    invoke-virtual {v5}, Ljava/lang/Object;->toString()Ljava/lang/String;
+-
+-    move-result-object v5
+-
+-    invoke-virtual {v0, v5, v2}, Lcom/samsung/android/displaysolution/SemDisplaySolutionManager;->setVideoEnhancerSettingState(Ljava/lang/String;I)V
+-
+-    :cond_0
+-    add-int/lit8 v4, v4, 0x1
+-
+-    goto :goto_0
+-
+-    :cond_1
+-    new-instance v1, Lorg/json/JSONObject;
+-
+-    invoke-direct {v1, p1}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+-
+-    const-string p1, "true_names"
+-
+-    invoke-virtual {v1, p1}, Lorg/json/JSONObject;->getJSONArray(Ljava/lang/String;)Lorg/json/JSONArray;
+-
+-    move-result-object p1
+-
+-    :goto_1
+-    invoke-virtual {p1}, Lorg/json/JSONArray;->length()I
+-
+-    move-result v1
+-
+-    if-ge v2, v1, :cond_3
+-
+-    invoke-virtual {p1, v2}, Lorg/json/JSONArray;->get(I)Ljava/lang/Object;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v1}, Ljava/lang/Object;->toString()Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v3, v1}, Ljava/util/HashSet;->contains(Ljava/lang/Object;)Z
+-
+-    move-result v1
+-
+-    if-eqz v1, :cond_2
+-
+-    invoke-virtual {p1, v2}, Lorg/json/JSONArray;->get(I)Ljava/lang/Object;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v1}, Ljava/lang/Object;->toString()Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-static {p0, v1}, Lcom/android/settings/Utils;->hasPackage(Landroid/content/Context;Ljava/lang/String;)Z
+-
+-    move-result v1
+-
+-    if-eqz v1, :cond_2
+-
+-    invoke-virtual {p1, v2}, Lorg/json/JSONArray;->get(I)Ljava/lang/Object;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v1}, Ljava/lang/Object;->toString()Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v0, v1}, Lcom/samsung/android/displaysolution/SemDisplaySolutionManager;->getVideoEnhancerSettingState(Ljava/lang/String;)I
+-
+-    move-result v1
+-
+-    const/4 v4, 0x1
+-
+-    if-eq v1, v4, :cond_2
+-
+-    invoke-virtual {p1, v2}, Lorg/json/JSONArray;->get(I)Ljava/lang/Object;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v1}, Ljava/lang/Object;->toString()Ljava/lang/String;
+-
+-    move-result-object v1
+-
+-    invoke-virtual {v0, v1, v4}, Lcom/samsung/android/displaysolution/SemDisplaySolutionManager;->setVideoEnhancerSettingState(Ljava/lang/String;I)V
+-    :try_end_0
+-    .catch Lorg/json/JSONException; {:try_start_0 .. :try_end_0} :catch_0
+-
+-    :cond_2
+-    add-int/lit8 v2, v2, 0x1
+-
+-    goto :goto_1
+-
+-    :cond_3
+-    return-void
+-
+-    :catch_0
+-    move-exception p0
+-
+-    new-instance p1, Ljava/lang/StringBuilder;
+-
+-    const-string v0, "Failed to get VideoEnhanceAppInfo from json object. "
+-
+-    invoke-direct {p1, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+-
+-    invoke-virtual {p0}, Lorg/json/JSONException;->getMessage()Ljava/lang/String;
+-
+-    move-result-object v0
+-
+-    invoke-virtual {p1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+-
+-    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+-
+-    move-result-object p1
+-
+-    const-string v0, "UsefulfeatureUtils"
+-
+-    invoke-static {v0, p1}, Landroid/util/Log;->secD(Ljava/lang/String;Ljava/lang/String;)I
+-
+-    invoke-virtual {p0}, Lorg/json/JSONException;->printStackTrace()V
++    .locals 0
+ 
+     return-void
+ .end method
+diff --git a/smali_classes3/com/samsung/android/settings/usefulfeature/videoenhancer/SecBrightenUpVideoPreferenceController.smali b/smali_classes3/com/samsung/android/settings/usefulfeature/videoenhancer/SecBrightenUpVideoPreferenceController.smali
+index 4c186c5..68e3f90 100644
+--- a/smali_classes3/com/samsung/android/settings/usefulfeature/videoenhancer/SecBrightenUpVideoPreferenceController.smali
++++ b/smali_classes3/com/samsung/android/settings/usefulfeature/videoenhancer/SecBrightenUpVideoPreferenceController.smali
+@@ -138,20 +138,7 @@
+ .method public getAvailabilityStatus()I
+     .locals 0
+ 
+-    iget-object p0, p0, Lcom/android/settingslib/core/AbstractPreferenceController;->mContext:Landroid/content/Context;
+-
+-    invoke-static {p0}, Lcom/samsung/android/settings/usefulfeature/UsefulfeatureUtils;->isVideoBrightnessMenuDisabled(Landroid/content/Context;)Z
+-
+-    move-result p0
+-
+-    if-eqz p0, :cond_0
+-
+-    const/4 p0, 0x5
+-
+-    return p0
+-
+-    :cond_0
+-    const/4 p0, 0x0
++    const/4 p0, 0x3
+ 
+     return p0
+ .end method
+diff --git a/smali_classes3/com/samsung/android/settings/usefulfeature/videoenhancer/VideoEnhancerPreferenceController.smali b/smali_classes3/com/samsung/android/settings/usefulfeature/videoenhancer/VideoEnhancerPreferenceController.smali
+index 98cbae0..d833201 100644
+--- a/smali_classes3/com/samsung/android/settings/usefulfeature/videoenhancer/VideoEnhancerPreferenceController.smali
++++ b/smali_classes3/com/samsung/android/settings/usefulfeature/videoenhancer/VideoEnhancerPreferenceController.smali
+@@ -140,20 +140,7 @@
+ .method public getAvailabilityStatus()I
+     .locals 0
+ 
+-    iget-object p0, p0, Lcom/android/settingslib/core/AbstractPreferenceController;->mContext:Landroid/content/Context;
+-
+-    invoke-static {p0}, Lcom/samsung/android/settings/usefulfeature/UsefulfeatureUtils;->isVideoBrightnessMenuDisabled(Landroid/content/Context;)Z
+-
+-    move-result p0
+-
+-    if-eqz p0, :cond_0
+-
+-    const/4 p0, 0x5
+-
+-    return p0
+-
+-    :cond_0
+-    const/4 p0, 0x0
++    const/4 p0, 0x3
+ 
+     return p0
+ .end method
+-- 
+2.51.0

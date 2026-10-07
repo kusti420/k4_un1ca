@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kusti420 <kristjan0@live.com>
+Date: Tue, 7 Oct 2026 18:00:00 +0300
+Subject: [PATCH] Disable MOBILEAP_PRIORITIZE_TRAFFIC support (SDK 37)
+
+---
+ smali/com/samsung/android/server/wifi/SemWifiManagerProxy.smali | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/smali/com/samsung/android/server/wifi/SemWifiManagerProxy.smali b/smali/com/samsung/android/server/wifi/SemWifiManagerProxy.smali
+index 00d10e8..acb6b01 100644
+--- a/smali/com/samsung/android/server/wifi/SemWifiManagerProxy.smali
++++ b/smali/com/samsung/android/server/wifi/SemWifiManagerProxy.smali
+@@ -2397,7 +2397,7 @@
+ .method public isWifiApSmartPrioritySupported()Z
+     .locals 0
+ 
+-    const/4 p0, 0x1
++    const/4 p0, 0x0
+ 
+     return p0
+ .end method
+-- 
+2.51.0

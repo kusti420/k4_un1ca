@@ -414,10 +414,19 @@ if $SOURCE_COMMON_SUPPORT_HDR_EFFECT; then
     if ! $TARGET_COMMON_SUPPORT_HDR_EFFECT; then
         SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_COMMON_SUPPORT_HDR_EFFECT" --delete
 
-        APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
-            "$MODPATH/mdnie/hdr/SecSettings.apk/0001-Disable-HDR-Settings.patch"
-        APPLY_PATCH "system" "system/priv-app/SettingsProvider/SettingsProvider.apk" \
-            "$MODPATH/mdnie/hdr/SettingsProvider.apk/0001-Disable-HDR-Settings.patch"
+        if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+            # One UI 9: hide the video brightness/enhancer entries, no-op the video enhancer app list
+            # backup/restore helpers, skip the video enhancer reset loop and the hdr_effect default.
+            APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
+                "$MODPATH/mdnie/hdr/api37/SecSettings.apk/0001-Disable-HDR-Settings.patch"
+            APPLY_PATCH "system" "system/priv-app/SettingsProvider/SettingsProvider.apk" \
+                "$MODPATH/mdnie/hdr/api37/SettingsProvider.apk/0001-Disable-HDR-Settings.patch"
+        else
+            APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
+                "$MODPATH/mdnie/hdr/SecSettings.apk/0001-Disable-HDR-Settings.patch"
+            APPLY_PATCH "system" "system/priv-app/SettingsProvider/SettingsProvider.apk" \
+                "$MODPATH/mdnie/hdr/SettingsProvider.apk/0001-Disable-HDR-Settings.patch"
+        fi
     else
         if [ ! "$(GET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_COMMON_SUPPORT_HDR_EFFECT")" ]; then
             SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_COMMON_SUPPORT_HDR_EFFECT" "TRUE"
@@ -1765,14 +1774,26 @@ if $SOURCE_WLAN_SUPPORT_MOBILEAP_PRIORITIZE_TRAFFIC; then
         DELETE_FROM_WORK_DIR "system" "system/app/MhsAiService"
         DELETE_FROM_WORK_DIR "system" "system/etc/xgb_mhs_l1.model"
 
-        APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
-            "$MODPATH/wifi/prioritize_traffic/semwifi-service.jar/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch"
+        if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+            # One UI 9: report hotspot smart priority as unsupported, hide the switch and no-op the
+            # real-time traffic DB helpers used by its backup/restore (MhsAiService is removed above).
+            APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
+                "$MODPATH/wifi/prioritize_traffic/api37/semwifi-service.jar/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch"
+        else
+            APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
+                "$MODPATH/wifi/prioritize_traffic/semwifi-service.jar/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch"
+        fi
         SMALI_PATCH "system" "system/framework/semwifi-service.jar" \
             "smali/com/samsung/android/server/wifi/ap/SemSoftApConfiguration.smali" "replaceall" \
             "SPF_Prio_Traffic=true" \
             "SPF_Prio_Traffic=false"
-        APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
-            "$MODPATH/wifi/prioritize_traffic/SecSettings.apk/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch"
+        if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+            APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
+                "$MODPATH/wifi/prioritize_traffic/api37/SecSettings.apk/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch"
+        else
+            APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
+                "$MODPATH/wifi/prioritize_traffic/SecSettings.apk/0001-Disable-MOBILEAP_PRIORITIZE_TRAFFIC-support.patch"
+        fi
     fi
 else
     if $TARGET_WLAN_SUPPORT_MOBILEAP_PRIORITIZE_TRAFFIC; then
@@ -1809,8 +1830,13 @@ if ! $SOURCE_WLAN_SUPPORT_MOBILEAP_WIFISHARING_LITE; then
     if $TARGET_WLAN_SUPPORT_MOBILEAP_WIFISHARING_LITE; then
         # Check for target flag instead as we've already took care of this SPF above
         if ! $TARGET_WLAN_SUPPORT_MOBILEAP_POWER_SAVEMODE; then
-            APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
-                "$MODPATH/wifi/power_savemode/semwifi-service.jar/0003-Enable-MOBILEAP_WIFISHARING_LITE-support.patch"
+            if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+                APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
+                    "$MODPATH/wifi/power_savemode/api37/semwifi-service.jar/0003-Enable-MOBILEAP_WIFISHARING_LITE-support.patch"
+            else
+                APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
+                    "$MODPATH/wifi/power_savemode/semwifi-service.jar/0003-Enable-MOBILEAP_WIFISHARING_LITE-support.patch"
+            fi
         else
             APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
                 "$MODPATH/wifi/wifisharing/semwifi-service.jar/0002-Enable-MOBILEAP_WIFISHARING_LITE-support.patch"
@@ -1851,12 +1877,42 @@ if $SOURCE_WLAN_SUPPORT_TWT_CONTROL && $SOURCE_WLAN_SUPPORT_LOWLATENCY; then
         fi
 
         if ! $TARGET_WLAN_SUPPORT_LOWLATENCY; then
-            APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
-                "$MODPATH/wifi/twt_control/semwifi-service.jar/0002-Disable-LOWLATENCY-support.patch"
+            if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+                # One UI 9 no longer seeds the LOWLATENCY bit (SW feature 3) in configDefaultFeatureSet();
+                # it only comes from the vendor feature string, so gate its public query instead.
+                DECODE_APK "system" "system/framework/semwifi-service.jar"
+                REPLACE_SMALI_METHOD \
+                    "$APKTOOL_DIR/system/framework/semwifi-service.jar/smali/com/samsung/android/server/wifi/driver/WifiDriverFeatureProvider.smali" \
+                    "isWifiOptimizerSupported()Z" \
+                    '.method public isWifiOptimizerSupported()Z
+    .locals 1
+
+    const/4 v0, 0x0
+
+    return v0
+.end method'
+            else
+                APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
+                    "$MODPATH/wifi/twt_control/semwifi-service.jar/0002-Disable-LOWLATENCY-support.patch"
+            fi
         fi
     elif ! $TARGET_WLAN_SUPPORT_LOWLATENCY; then
-        APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
-            "$MODPATH/wifi/lowlatency/semwifi-service.jar/0001-Disable-LOWLATENCY-support.patch"
+        if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+            DECODE_APK "system" "system/framework/semwifi-service.jar"
+            REPLACE_SMALI_METHOD \
+                "$APKTOOL_DIR/system/framework/semwifi-service.jar/smali/com/samsung/android/server/wifi/driver/WifiDriverFeatureProvider.smali" \
+                "isWifiOptimizerSupported()Z" \
+                '.method public isWifiOptimizerSupported()Z
+    .locals 1
+
+    const/4 v0, 0x0
+
+    return v0
+.end method'
+        else
+            APPLY_PATCH "system" "system/framework/semwifi-service.jar" \
+                "$MODPATH/wifi/lowlatency/semwifi-service.jar/0001-Disable-LOWLATENCY-support.patch"
+        fi
     fi
 else
     if ! $SOURCE_WLAN_SUPPORT_TWT_CONTROL && $TARGET_WLAN_SUPPORT_TWT_CONTROL; then
