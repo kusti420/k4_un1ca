@@ -1,0 +1,4 @@
+id=a52sxq_fold_flex_mode_settings
+name=Galaxy A52s 5G: hide the Fold-only Flex mode panel setting
+author=kusti420
+description=Settings > Advanced features lists "Flex mode panel" because the Fold8 SecSettings compiles FlexModePanelPreferenceController.getAvailabilityStatus() to a constant AVAILABLE. Flex mode needs the hinge's half-folded posture, which this flat phone never reports, so the entry does nothing. Report it as UNSUPPORTED_ON_DEVICE (3), which also drops it from Settings search.
