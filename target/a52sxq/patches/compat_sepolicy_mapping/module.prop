@@ -1,0 +1,4 @@
+id=a52sxq_compat_sepolicy_mapping
+name=Galaxy A52s 5G: complete the API 30 SELinux mapping for Android 17 domains
+author=kusti420
+description=The A14 vendor policy is versioned 30.0, and the 30.0 mapping is restored from the A14 firmware, so it predates domains Android 17 split off: platform_app_36 / priv_app_36 (apps targeting SDK 36, e.g. Samsung Internet, Samsung Keyboard, Setup Wizard), untrusted_app_34 (most Play Store apps, e.g. Chrome) and new sysfs/proc/vendor file labels. Every vendor rule written for platform_app/priv_app/untrusted_app/sysfs therefore missed them (e.g. denied ISehCodecSolution, ro.chipname). Add the members the Fold8's own 31.0 mapping has, as Android does for older vendor versions.
