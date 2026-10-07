@@ -4,8 +4,11 @@
 # ActivityManager:procStart for 70s"): a soft reboot. Chrome declares such services
 # (NativeOnlySandboxedProcessService0/1); when it uses them its GPU process never starts, Chrome aborts with
 # "Timed out waiting for GPU channel" and the phone restarts its UI a minute later.
-# Chrome falls back to its regular sandbox when that bind fails, so resolve native isolated services as
-# "not found" and keep ServiceRecord from routing to or prewarming the native zygote.
+# Resolve native isolated services as "not found" and keep ServiceRecord from routing to or prewarming the
+# native zygote. Chrome 154+ (Play Store) always binds NativeOnlySandboxedProcessService<N> for renderers on
+# Android 17 and has no fallback for that bind (blank tabs, "cr_ChildProcessConn: Failed to establish the service
+# connection"), so its binds are redirected to the matching Java SandboxedProcessService<N> first: the same swap
+# Chrome's own ChildProcessConnection.fallbackService() does, run in Chrome's classic app zygote.
 DECODE_APK "system" "system/framework/services.jar"
 python3 - "$APKTOOL_DIR/system/framework/services.jar" << 'PYEOF' || ABORT "Failed to apply the native zygote patch"
 import glob, re, sys
@@ -45,6 +48,66 @@ body = body[:m.start()] + guard + body[m.end():]
 s = s[:start] + body + s[end:]
 open(f, "w").write(s)
 
+# 1b. ActiveServices.bindServiceLocked: at entry, rewrite a bind of
+#     org.chromium.content.app.NativeOnlySandboxedProcessService<N> to ...SandboxedProcessService<N> (same package),
+#     before the Intent is read for anything. v0-v4 are first written later in the method, so they are free here.
+start = s.index(".method public final bindServiceLocked(")
+end = s.index(".end method", start)
+body = s[start:end]
+assert "unica_chrome_done" not in body, "bindServiceLocked already patched"
+hdr = re.match(r"(\.method public final bindServiceLocked\(Landroid/app/IApplicationThread;Landroid/os/IBinder;Landroid/content/Intent;[^\n]*\n    \.locals (\d+)\n)", body)
+assert hdr, "bindServiceLocked header"
+nloc = int(hdr.group(2))
+assert nloc >= 5, ".locals"
+first = body[hdr.end():].lstrip("\n").split("\n", 1)[0]
+assert first.startswith("    move-object/from16 v1, p0"), "bindServiceLocked first insn: " + first
+redirect = """
+    move-object/from16 v0, p3
+
+    invoke-virtual {v0}, Landroid/content/Intent;->getComponent()Landroid/content/ComponentName;
+
+    move-result-object v1
+
+    if-eqz v1, :unica_chrome_done
+
+    invoke-virtual {v1}, Landroid/content/ComponentName;->getClassName()Ljava/lang/String;
+
+    move-result-object v2
+
+    const-string v3, "org.chromium.content.app.NativeOnlySandboxedProcessService"
+
+    invoke-virtual {v2, v3}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v4
+
+    if-eqz v4, :unica_chrome_done
+
+    invoke-virtual {v3}, Ljava/lang/String;->length()I
+
+    move-result v4
+
+    invoke-virtual {v2, v4}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+
+    move-result-object v2
+
+    const-string v3, "org.chromium.content.app.SandboxedProcessService"
+
+    invoke-virtual {v3, v2}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v1}, Landroid/content/ComponentName;->getPackageName()Ljava/lang/String;
+
+    move-result-object v3
+
+    invoke-virtual {v0, v3, v2}, Landroid/content/Intent;->setClassName(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;
+
+    :unica_chrome_done
+"""
+body = body[:hdr.end()] + redirect + body[hdr.end():]
+s = s[:start] + body + s[end:]
+open(f, "w").write(s)
+
 # 2. ServiceRecord.<init>: never mark a record native-isolated, so it is neither prewarmed nor started in zygote_next.
 f = one("com/android/server/am/ServiceRecord.smali")
 s = open(f).read()
@@ -53,4 +116,4 @@ assert n == 1, "ServiceRecord native isolated check"
 assert "iput-boolean" in s and "mIsNativeIsolated:Z" in s, "mIsNativeIsolated"
 open(f, "w").write(s)
 PYEOF
-LOG "- Native isolated services resolved as not found, zygote_next never used"
+LOG "- Native isolated services resolved as not found (Chrome redirected to its Java sandbox), zygote_next never used"
