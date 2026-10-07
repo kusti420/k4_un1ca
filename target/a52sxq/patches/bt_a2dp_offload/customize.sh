@@ -17,8 +17,11 @@ LOG "- Replaced com.android.bt.apex with the all-codec A2DP offload build"
 # product/etc/build.prop sets the Fold8 DSP set "sbc-aptx-ssc-hifi", so AAC, aptX HD and LDAC were never offload
 # candidates: the native stack kept a software session (IsCodecOffloadingEnabled: software codec={LDAC}) that this
 # vendor's audio HAL never reports ready for ("A2DP profile is not ready") and LDAC/AAC headsets stayed silent.
-# Use the A52s DSP set from persist.vendor.bt.a2dp_offload_cap (sbc-aptx-aptxtws-aptxhd-aac-ldac) in Samsung's tokens.
-BT_OFFLOAD_CAP="sbc-aac-aptx-aptx_hd-ldac"
+# Use the A52s DSP set from persist.vendor.bt.a2dp_offload_cap (sbc-aptx-aptxtws-aptxhd-aac-ldac) in Samsung's tokens,
+# plus Samsung's own SSC (Galaxy Buds) and "hifi" codecs: the stock A14 Bluetooth app offloaded SSC (0x80) and hifi
+# (0x100) unconditionally and the A52s offload library has the SSC encoder ("Received SSC encoder supported BT device").
+# Without "ssc" here A2dpService.isOffloadSupportedCodec(0x80) is false and SSC headsets get the (silent) software path.
+BT_OFFLOAD_CAP="sbc-aac-aptx-aptx_hd-ldac-ssc-hifi"
 SET_PROP "product" "persist.bluetooth.samsung.a2dp_offload.cap" "$BT_OFFLOAD_CAP"
 # A value stored in /data/property by an earlier build would win over build.prop; re-apply once persist props are loaded.
 cat > "$WORK_DIR/system/system/etc/init/a52sxq_bt_offload.rc" << RCEOF
@@ -29,3 +32,11 @@ RCEOF
 SET_METADATA "system" "system/etc/init/a52sxq_bt_offload.rc" 0 0 644 "u:object_r:system_file:s0"
 LOG "- A2DP offload codec set: $BT_OFFLOAD_CAP"
 unset BT_OFFLOAD_CAP
+
+# HFP super-wideband: the Fold8 product build.prop sets bluetooth.hfp.swb.supported=true, so the One UI 9 stack offers
+# LC3/aptX super-wideband voice and, once a headset accepts it, tells the HAL "bt_lc3_swb=on;g_sco_samplerate=32000".
+# The A52s A14 audio HAL / DSP never did 32 kHz SCO: it doesn't know bt_lc3_swb, and its bt_swb key is an aptX speech
+# mode parsed with atoi, so translating on/off would turn SWB mode 0 on in both cases. Stock A14 doesn't set the prop
+# (false) and calls use mSBC wideband (16 kHz). Match stock so calls on SWB-capable headsets keep working.
+SET_PROP "product" "bluetooth.hfp.swb.supported" "false"
+LOG "- HFP super-wideband voice disabled (A14 HAL has no 32 kHz SCO)"
