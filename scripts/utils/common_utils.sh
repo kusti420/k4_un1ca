@@ -664,15 +664,20 @@ SET_PROP()
         local FILES
         FILES="$(_GET_PROP_LOCATION "$PARTITION" "$PROP")"
 
+        # Match exactly "<prop>=": escape regex metacharacters (dots) and anchor on "=", so that
+        # deleting/replacing "ro.foo" doesn't also hit "ro.foo.bar" or "ro.foobar"
+        local PROP_RE
+        PROP_RE="$(sed 's/[][\.*^$/]/\\&/g' <<< "$PROP")"
+
         while IFS= read -r f; do
             if [[ "$VALUE" == "-d" ]] || [[ "$VALUE" == "--delete" ]]; then
                 LOG "- Deleting \"$PROP\" prop in ${f//$WORK_DIR/}"
-                sed -i "/^$PROP/d" "$f"
+                sed -i "/^${PROP_RE}=/d" "$f"
             else
                 LOG "- Replacing \"$PROP\" prop with \"$VALUE\" in ${f//$WORK_DIR/}"
 
                 local LINES
-                LINES="$(sed -n "/^${PROP}\b/=" "$f")"
+                LINES="$(sed -n "/^${PROP_RE}=/=" "$f")"
                 for l in $LINES; do
                     sed -i "$l c${PROP}=${VALUE}" "$f"
                 done

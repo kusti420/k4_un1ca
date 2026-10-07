@@ -17,7 +17,10 @@ TARGET_FIRMWARE_PATH="$(cut -d "/" -f 1 -s <<< "$TARGET_FIRMWARE")_$(cut -d "/" 
 
 GET_WORK_DIR_HASH()
 {
-    find "$SRC_DIR/unica" "$SRC_DIR/target/$TARGET_CODENAME" "$SRC_DIR/platform/$TARGET_PLATFORM" "$SRC_DIR/scripts" -type f -print0 | \
+    # prebuilts/ is copied into the work dir by patches (e.g. prebuilts/ichthys32, prebuilts/samsung): include it,
+    # or updated blobs would be skipped as "No changes"
+    find "$SRC_DIR/unica" "$SRC_DIR/target/$TARGET_CODENAME" "$SRC_DIR/platform/$TARGET_PLATFORM" "$SRC_DIR/scripts" \
+        "$SRC_DIR/prebuilts" -type f -print0 2> /dev/null | \
         sort -z | xargs -0 sha1sum | sha1sum | cut -d " " -f 1
 }
 
@@ -73,11 +76,15 @@ PRINT_USAGE()
 
 PREPARE_SCRIPT "$@"
 
+# Hash the build environment once, before anything is applied: writing a hash taken at the end would
+# record edits made while the build was running as already built, and the next run would skip them
+WORK_DIR_HASH="$(GET_WORK_DIR_HASH)"
+
 if $FORCE; then
     BUILD_ROM=true
 else
     if [ -f "$WORK_DIR/.completed" ]; then
-        if [[ "$(cat "$WORK_DIR/.completed")" == "$(GET_WORK_DIR_HASH)" ]]; then
+        if [[ "$(cat "$WORK_DIR/.completed")" == "$WORK_DIR_HASH" ]]; then
             LOGW "No changes have been detected in the build environment"
             BUILD_ROM=false
         else
@@ -95,6 +102,8 @@ trap 'echo' INT
 if $BUILD_ROM; then
     [ -d "$APKTOOL_DIR" ] && rm -rf "$APKTOOL_DIR"
     [ -f "$WORK_DIR/.completed" ] && rm -f "$WORK_DIR/.completed"
+    # Patches report non-applicable hunks here: start each build with an empty list (it used to grow across builds)
+    rm -f "$OUT_DIR/skipped_patches.txt"
 
     if [ ! -f "$FW_DIR/$SOURCE_FIRMWARE_PATH/.extracted" ] || [ ! -f "$FW_DIR/$TARGET_FIRMWARE_PATH/.extracted" ]; then
         if [ ! -f "$ODIN_DIR/$SOURCE_FIRMWARE_PATH/.downloaded" ] || [ ! -f "$ODIN_DIR/$TARGET_FIRMWARE_PATH/.downloaded" ]; then
@@ -146,8 +155,12 @@ if $BUILD_ROM; then
             fi
         done < <(find "$APKTOOL_DIR" -type d \( -name "*.apk" -o -name "*.jar" \))
 
-        # shellcheck disable=SC2046
-        wait $(jobs -p) || exit 1
+        # "wait pid1 pid2 ..." only returns the status of the last pid: check every build job
+        BUILD_FAILED=false
+        for p in $(jobs -p); do
+            wait "$p" || BUILD_FAILED=true
+        done
+        $BUILD_FAILED && exit 1
 
         LOG_STEP_OUT
     fi
@@ -160,7 +173,11 @@ if $BUILD_ROM; then
     "$SRC_DIR/scripts/internal/regen_app_profiles.sh" || exit 1
     LOG_STEP_OUT
 
-    echo -n "$(GET_WORK_DIR_HASH)" > "$WORK_DIR/.completed"
+    echo -n "$WORK_DIR_HASH" > "$WORK_DIR/.completed"
+
+    if [ -s "$OUT_DIR/skipped_patches.txt" ]; then
+        LOGW "$(wc -l < "$OUT_DIR/skipped_patches.txt") patch(es) were skipped as non-applicable, see ${OUT_DIR//$SRC_DIR\//}/skipped_patches.txt"
+    fi
 fi
 
 if $BUILD_TARGET_FILES || $BUILD_FLASHABLE_ZIP; then
