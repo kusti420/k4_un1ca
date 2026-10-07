@@ -1,0 +1,4 @@
+id=a52sxq_zygote_next_kernel54
+name=Galaxy A52s 5G: zygote_next child on kernel 5.4
+author=kusti420
+description=zygote_next's child (zygote::child_process::re_initialize) drops every capability 0-40 not kept from the bounding set and unwraps each prctl(PR_CAPBSET_READ) result. Kernel 5.4 only knows capabilities 0-37 (PERFMON/BPF/CHECKPOINT_RESTORE are 5.8/5.9), so reading cap 38 fails with EINVAL, the unwrap panics and the child aborts silently (SIGABRT "zygote-child"), leaving system_server blocked until the watchdog. Limit the mask to caps 0-37. STAGED: test only together with no_native_zygote disabled.
