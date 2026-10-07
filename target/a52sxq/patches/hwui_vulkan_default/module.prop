@@ -1,0 +1,4 @@
+id=a52sxq_hwui_vulkan_default
+name=Galaxy A52s 5G: Vulkan UI renderer by default
+author=kusti420
+description=Testers see artifacts (green tiles) in Instagram/Facebook videos with the default OpenGL (skiagl) UI renderer on the stock Adreno V@0530 driver; with UN1CA's Vulkan renderer toggle on (debug.hwui.renderer=skiavk) videos are clean. Declare Vulkan HWUI support for the vendor and default the UN1CA toggle to on (users can still turn it off in UN1CA settings).
