@@ -305,7 +305,7 @@ fi
 # = sensor height (both only for a low sensor with fingerprint unlock enabled), and let DeviceType report an
 # in-display sensor (lock screen fingerprint help/error texts, AOD plugin).
 SYSTEMUI="priv-app/SystemUI/SystemUI.apk"
-if [ -f "$WORK_DIR/system_ext/$SYSTEMUI" ]; then
+if [ -f "$WORK_DIR/system/system/system_ext/$SYSTEMUI" ] || [ -f "$WORK_DIR/system_ext/$SYSTEMUI" ]; then
     DECODE_APK "system_ext" "$SYSTEMUI" || ABORT "Failed to decode $SYSTEMUI"
     LOG "- Restoring the in-display fingerprint lock screen margins in SystemUI"
     python3 - "$APKTOOL_DIR/system_ext/$SYSTEMUI" << 'PYEOF' || ABORT "Failed to patch the SystemUI fingerprint margins"
