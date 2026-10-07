@@ -256,11 +256,34 @@ if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge 37 ]; then
     fi
 
     # libStride in Android 17 still names the target's TFLite models and searches
-    # this directory. Preserve the Exynos 2100 set instead of replacing it.
-    for MODEL_FILE in mSTR_Arabic.tflite mSTR_Latin.tflite mSTR_CraftBPN_Refiner.tflite; do
-        VALIDATE_PORTABLE_TFLITE \
-            "$WORK_DIR/system/system/saiv/textrecognition/stride/$MODEL_FILE"
+    # this directory. Preserve the target set instead of replacing it, but add every
+    # portable model/charset/lexicon the source libStride names that the target set
+    # lacks (e.g. the TextBPN text detector and ViT recognizers of One UI 9), or OCR
+    # has no detector at all. NPU-specific .dla/.dlc/.nnc variants are not copied.
+    STRIDE_LIB="$WORK_DIR/system/system/lib64/libStride.camera.samsung.so"
+    STRIDE_DIR="system/saiv/textrecognition/stride"
+    STRIDE_NEEDED=""
+    if [ -f "$STRIDE_LIB" ]; then
+        STRIDE_NEEDED="$(grep -aoE "mSTR_[A-Za-z0-9_]+\.(tflite|charset|bin)" "$STRIDE_LIB" | sort -u)"
+    fi
+    for MODEL_FILE in $STRIDE_NEEDED; do
+        if [ ! -e "$WORK_DIR/system/$STRIDE_DIR/$MODEL_FILE" ] && \
+                [ -s "$SOURCE_FIRMWARE_ROOT/system/$STRIDE_DIR/$MODEL_FILE" ]; then
+            ADD_TO_WORK_DIR "$SOURCE_FIRMWARE" "system" "$STRIDE_DIR/$MODEL_FILE" \
+                0 0 644 "u:object_r:system_file:s0"
+        fi
     done
+    for MODEL_FILE in mSTR_Arabic.tflite mSTR_Latin.tflite mSTR_CraftBPN_Refiner.tflite; do
+        if [ ! "$STRIDE_NEEDED" ] || grep -qx "$MODEL_FILE" <<< "$STRIDE_NEEDED"; then
+            VALIDATE_PORTABLE_TFLITE \
+                "$WORK_DIR/system/$STRIDE_DIR/$MODEL_FILE"
+        fi
+    done
+    for MODEL_FILE in $(grep -E "\.tflite$" <<< "$STRIDE_NEEDED"); do
+        [ -e "$WORK_DIR/system/$STRIDE_DIR/$MODEL_FILE" ] && \
+            VALIDATE_PORTABLE_TFLITE "$WORK_DIR/system/$STRIDE_DIR/$MODEL_FILE"
+    done
+    unset STRIDE_LIB STRIDE_DIR STRIDE_NEEDED
 
     # Android 17 SmartScan still supports the old _cnn.info + Caffe CPU fallback.
     VALIDATE_INFO_MODELS \
