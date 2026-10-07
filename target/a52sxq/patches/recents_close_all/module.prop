@@ -1,0 +1,4 @@
+id=a52sxq_recents_close_all
+name=Galaxy A52s 5G: Recents "Close all" removes the tasks
+author=kusti420
+description=The Fold8 launcher picks its recent-task remover by ActivityManager.getMaxLongLiveApps(), which is > 0 only when CoreRune.FW_DEDICATED_MEMORY (total RAM > 6144 MB, i.e. the 8 GB A52s). That "dedicated" remover hands Close all to DesktopModeSource.removeAllVisibleRecentTasks() (WMShell desktop mode), which this port disables (sff.sh DESKTOP_WINDOWING=FALSE), so on 8 GB phones Close all animated but no task was removed and the cards came back. Always use the internal remover, which removes each task via ActivityManagerWrapper.removeTask() (the path 6 GB phones already use).
