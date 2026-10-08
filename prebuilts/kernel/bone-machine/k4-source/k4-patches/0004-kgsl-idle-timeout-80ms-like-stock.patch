@@ -1,0 +1,11 @@
+--- a/drivers/gpu/msm/Kconfig
++++ b/drivers/gpu/msm/Kconfig
+@@ -56,7 +56,7 @@
+ config QCOM_KGSL_IDLE_TIMEOUT
+ 	int
+ 	default 100000 if !QGKI
+-	default 58
++	default 80
+ 	help
+ 	  GPU idle timeout for Adreno GPU. This value decides after how
+ 	  long the GPU will go into slumber. A higher value will mean that

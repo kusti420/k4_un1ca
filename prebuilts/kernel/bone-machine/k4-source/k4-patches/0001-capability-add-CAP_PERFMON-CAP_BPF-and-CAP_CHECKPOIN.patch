@@ -1,0 +1,106 @@
+From 9dcd2093808e9d0064102a9cad4e1669f178ccfa Mon Sep 17 00:00:00 2001
+From: k4 <k4@local>
+Date: Wed, 7 Oct 2026 19:31:57 +0300
+Subject: [PATCH] capability: add CAP_PERFMON, CAP_BPF and
+ CAP_CHECKPOINT_RESTORE (backport)
+
+Minimal backport of upstream 980737282232 (CAP_PERFMON, v5.8), a17b53c4a4b5
+(CAP_BPF, v5.8) and 124ea650d307 (CAP_CHECKPOINT_RESTORE, v5.9): define the
+capability numbers 38-40, raise CAP_LAST_CAP, add them to the SELinux
+capability2 class and provide the upstream helper functions. Existing
+permission checks are unchanged (they keep using CAP_SYS_ADMIN).
+
+Android 17's native zygote (zygote_next) drops capabilities 0-40 from its
+child with PR_CAPBSET_READ/PR_CAPBSET_DROP; on 5.4 caps 38-40 return EINVAL
+and the child aborts.
+---
+ include/linux/capability.h          | 17 +++++++++++++++++
+ include/uapi/linux/capability.h     | 25 ++++++++++++++++++++++++-
+ security/selinux/include/classmap.h |  5 +++--
+ 3 files changed, 44 insertions(+), 3 deletions(-)
+
+diff --git a/include/linux/capability.h b/include/linux/capability.h
+index ecce0f43c..6c394352f 100755
+--- a/include/linux/capability.h
++++ b/include/linux/capability.h
+@@ -252,6 +252,23 @@ extern bool capable_wrt_inode_uidgid(const struct inode *inode, int cap);
+ extern bool file_ns_capable(const struct file *file, struct user_namespace *ns, int cap);
+ extern bool ptracer_capable(struct task_struct *tsk, struct user_namespace *ns);
+ 
++/* Backported from v5.8/v5.9: the new capabilities fall back to CAP_SYS_ADMIN like upstream. */
++static inline bool perfmon_capable(void)
++{
++	return capable(CAP_PERFMON) || capable(CAP_SYS_ADMIN);
++}
++
++static inline bool bpf_capable(void)
++{
++	return capable(CAP_BPF) || capable(CAP_SYS_ADMIN);
++}
++
++static inline bool checkpoint_restore_ns_capable(struct user_namespace *ns)
++{
++	return ns_capable(ns, CAP_CHECKPOINT_RESTORE) ||
++		ns_capable(ns, CAP_SYS_ADMIN);
++}
++
+ /* audit system wants to get cap info from files as well */
+ extern int get_vfs_caps_from_disk(const struct dentry *dentry, struct cpu_vfs_cap_data *cpu_caps);
+ 
+diff --git a/include/uapi/linux/capability.h b/include/uapi/linux/capability.h
+index 6e0d68e84..d547ce846 100755
+--- a/include/uapi/linux/capability.h
++++ b/include/uapi/linux/capability.h
+@@ -366,8 +366,31 @@ struct vfs_ns_cap_data {
+ 
+ #define CAP_AUDIT_READ		37
+ 
++/*
++ * Allow system performance and observability privileged operations
++ * using perf_events, i915_perf and other kernel subsystems
++ */
++
++#define CAP_PERFMON		38
++
++/*
++ * CAP_BPF allows the following BPF operations:
++ * - Creating all types of BPF maps
++ * - Advanced verifier features
++ * - Loading BPF Type Format (BTF) data
++ * - Retrieve xlated and JITed code of BPF programs
++ * - Use bpf_spin_lock() helper
++ */
++
++#define CAP_BPF			39
++
++/* Allow checkpoint/restore related operations */
++/* Allow PID selection during clone3() */
++/* Allow writing to ns_last_pid */
++
++#define CAP_CHECKPOINT_RESTORE	40
+ 
+-#define CAP_LAST_CAP         CAP_AUDIT_READ
++#define CAP_LAST_CAP         CAP_CHECKPOINT_RESTORE
+ 
+ #define cap_valid(x) ((x) >= 0 && (x) <= CAP_LAST_CAP)
+ 
+diff --git a/security/selinux/include/classmap.h b/security/selinux/include/classmap.h
+index 74495cec8..3285ddceb 100755
+--- a/security/selinux/include/classmap.h
++++ b/security/selinux/include/classmap.h
+@@ -27,9 +27,10 @@
+ 	    "audit_control", "setfcap"
+ 
+ #define COMMON_CAP2_PERMS  "mac_override", "mac_admin", "syslog", \
+-		"wake_alarm", "block_suspend", "audit_read"
++		"wake_alarm", "block_suspend", "audit_read", "perfmon", "bpf", \
++		"checkpoint_restore"
+ 
+-#if CAP_LAST_CAP > CAP_AUDIT_READ
++#if CAP_LAST_CAP > CAP_CHECKPOINT_RESTORE
+ #error New capability defined, please update COMMON_CAP2_PERMS.
+ #endif
+ 
+-- 
+2.56.0
+

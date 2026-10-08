@@ -1,0 +1,12 @@
+diff --git a/arch/arm64/boot/dts/vendor/qcom/yupik-gpu.dtsi b/arch/arm64/boot/dts/vendor/qcom/yupik-gpu.dtsi
+index b68518bbd..c8a93bd66 100755
+--- a/arch/arm64/boot/dts/vendor/qcom/yupik-gpu.dtsi
++++ b/arch/arm64/boot/dts/vendor/qcom/yupik-gpu.dtsi
+@@ -52,6 +52,7 @@
+ 
+ 		qcom,chipid = <0x06030500>;
+ 		qcom,gpu-model = "Adreno642Lv1";
++		qcom,no-nap;
+ 
+ 		qcom,min-access-length = <32>;
+ 		qcom,ubwc-mode = <3>;

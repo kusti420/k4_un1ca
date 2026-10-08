@@ -1,0 +1,59 @@
+diff --git a/arch/arm64/boot/dts/vendor/qcom/yupik-gpu.dtsi b/arch/arm64/boot/dts/vendor/qcom/yupik-gpu.dtsi
+index f4c9c6dc5..b68518bbd 100755
+--- a/arch/arm64/boot/dts/vendor/qcom/yupik-gpu.dtsi
++++ b/arch/arm64/boot/dts/vendor/qcom/yupik-gpu.dtsi
+@@ -397,12 +397,12 @@
+ 				#size-cells = <0>;
+ 
+ 				qcom,speed-bin = <117>;
+-				qcom,initial-pwrlevel = <3>;
++				qcom,initial-pwrlevel = <2>;
+ 
+ 				qcom,gpu-pwrlevel@0 {
+ 					reg = <0>;
+ 					qcom,gpu-freq = <550000000>;
+-					qcom,level = <RPMH_REGULATOR_LEVEL_SVS>;
++					qcom,level = <RPMH_REGULATOR_LEVEL_SVS_L1>;
+ 
+ 					qcom,bus-freq-ddr7 = <9>;
+ 					qcom,bus-min-ddr7 = <8>;
+@@ -418,7 +418,7 @@
+ 				qcom,gpu-pwrlevel@1 {
+ 					reg = <1>;
+ 					qcom,gpu-freq = <450000000>;
+-					qcom,level = <RPMH_REGULATOR_LEVEL_LOW_SVS>;
++					qcom,level = <RPMH_REGULATOR_LEVEL_SVS>;
+ 
+ 					qcom,bus-freq-ddr7 = <6>;
+ 					qcom,bus-min-ddr7 = <5>;
+@@ -434,7 +434,7 @@
+ 				qcom,gpu-pwrlevel@2 {
+ 					reg = <2>;
+ 					qcom,gpu-freq = <315000000>;
+-					qcom,level = <RPMH_REGULATOR_LEVEL_MIN_SVS>;
++					qcom,level = <RPMH_REGULATOR_LEVEL_LOW_SVS>;
+ 
+ 					qcom,bus-freq-ddr7 = <3>;
+ 					qcom,bus-min-ddr7 = <2>;
+@@ -446,21 +446,6 @@
+ 
+ 					qcom,acd-level = <0x882F5FFD>;
+ 				};
+-				
+-				qcom,gpu-pwrlevel@3 {
+-					reg = <3>;
+-					qcom,gpu-freq = <180000000>;
+-					qcom,level = <RPMH_REGULATOR_LEVEL_RETENTION>;
+-					
+-					qcom,bus-freq-ddr7 = <2>;
+-					qcom,bus-min-ddr7 = <1>;
+-					qcom,bus-max-ddr7 = <8>;
+-					
+-					qcom,bus-freq-ddr8 = <2>;
+-					qcom,bus-min-ddr8 = <1>;
+-					qcom,bus-max-ddr8 = <6>;
+-					qcom,acd-level = <0x882F5FFD>;
+-				};
+ 			};
+ 			qcom,gpu-pwrlevels-3 {
+ 				#address-cells = <1>;

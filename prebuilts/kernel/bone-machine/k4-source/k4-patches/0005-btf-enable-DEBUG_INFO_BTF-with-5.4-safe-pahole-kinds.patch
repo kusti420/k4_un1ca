@@ -1,0 +1,49 @@
+From: k4 <k4@localhost>
+Subject: [PATCH] btf: enable CONFIG_DEBUG_INFO_BTF, restrict pahole to BTF kinds 5.4 knows
+
+Android 17's bpfloader needs /sys/kernel/btf/vmlinux to load the CO-RE
+program /system/etc/bpf/cputimeinstate/timeInState.bpf (per-UID CPU time).
+
+- a52sxq defconfig: CONFIG_DEBUG_INFO_BTF=y (DEBUG_INFO/DWARF4 already on,
+  DEBUG_INFO_REDUCED/SPLIT stay off), which also builds kernel/bpf/sysfs_btf.o.
+- link-vmlinux.sh: this kernel's BTF ABI ends at BTF_KIND_DATASEC, so keep
+  pahole from emitting FLOAT/DECL_TAG/TYPE_TAG/ENUM64
+  (pahole >= 1.26: --btf_features_strict=var; older: --skip_encoding_btf_*).
+
+--- a/arch/arm64/configs/vendor/a52sxq_kor_single_defconfig
++++ b/arch/arm64/configs/vendor/a52sxq_kor_single_defconfig
+@@ -7156,7 +7156,7 @@
+ # CONFIG_DEBUG_INFO_REDUCED is not set
+ # CONFIG_DEBUG_INFO_SPLIT is not set
+ CONFIG_DEBUG_INFO_DWARF4=y
+-# CONFIG_DEBUG_INFO_BTF is not set
++CONFIG_DEBUG_INFO_BTF=y
+ # CONFIG_GDB_SCRIPTS is not set
+ # CONFIG_ENABLE_MUST_CHECK is not set
+ CONFIG_FRAME_WARN=4096
+--- a/scripts/link-vmlinux.sh
++++ b/scripts/link-vmlinux.sh
+@@ -186,10 +186,22 @@
+ 		return 1
+ 	fi
+ 
++	# This 5.4 kernel only knows BTF kinds up to BTF_KIND_DATASEC
++	# (include/uapi/linux/btf.h): no FLOAT, DECL_TAG, TYPE_TAG or ENUM64.
++	# Newer pahole emits some of those by default, so restrict it.
++	extra_paholeopt=
++	if [ "${pahole_ver}" -ge "126" ]; then
++		extra_paholeopt="--btf_features_strict=var"
++	elif [ "${pahole_ver}" -ge "124" ]; then
++		extra_paholeopt="--skip_encoding_btf_decl_tag --skip_encoding_btf_type_tag --skip_encoding_btf_enum64"
++	elif [ "${pahole_ver}" -ge "123" ]; then
++		extra_paholeopt="--skip_encoding_btf_decl_tag --skip_encoding_btf_type_tag"
++	fi
++
+ 	vmlinux_link ${1}
+ 
+ 	info "BTF" ${2}
+-	LLVM_OBJCOPY=${OBJCOPY} ${PAHOLE} -J ${1}
++	LLVM_OBJCOPY=${OBJCOPY} ${PAHOLE} -J ${extra_paholeopt} ${1}
+ 
+ 	# Create ${2} which contains just .BTF section but no symbols. Add
+ 	# SHF_ALLOC because .BTF will be part of the vmlinux image. --strip-all
