@@ -25,6 +25,16 @@ end = s.index(".end method", start)
 s = s[:start] + ".method public getAvailabilityStatus()I\n    .locals 1\n\n    const/4 p0, 0x3\n\n    return p0\n" + s[end:]
 open(f, "w").write(s)
 
+# SecSettings > Display > Continue apps on cover screen (fold-only; only hidden on multi-fold models)
+f = glob.glob(A + "/**/SecSettings.apk/smali*/com/samsung/android/settings/display/controller/FrontScreenAppsPreferenceController.smali", recursive=True)
+assert len(f) == 1, "FrontScreenAppsPreferenceController"; f = f[0]
+s = open(f).read()
+start = s.index(".method public getAvailabilityStatus()I")
+end = s.index(".end method", start)
+assert "isMultiFoldModel" in s[start:end], "unexpected FrontScreenApps availability"
+s = s[:start] + ".method public getAvailabilityStatus()I\n    .locals 1\n\n    const/4 p0, 0x3\n\n    return p0\n" + s[end:]
+open(f, "w").write(s)
+
 # SystemUI: Wireless DeX tile is offered unconditionally when the launcher exports DesktopModeTile
 f = [x for x in glob.glob(A + "/**/SystemUI.apk/smali*/com/android/systemui/qs/TileFeatureChecker.smali", recursive=True)]
 assert len(f) == 1, "TileFeatureChecker"; f = f[0]
@@ -48,4 +58,4 @@ tiles = [t for t in s[i:j].split(",") if t not in ("DesktopMode", "Auracast")]
 s = s[:i] + ",".join(tiles) + s[j:]
 open(f, "w").write(s)
 PYEOF
-LOG "- Hid Wireless DeX tile, Adaptive color tone, LE Audio/Auracast and the SM8850 AICore config"
+LOG "- Hid Wireless DeX tile, Adaptive color tone, Continue apps on cover screen, LE Audio/Auracast and the SM8850 AICore config"
