@@ -1,0 +1,4 @@
+id=a52sxq_soundbooster
+name=Galaxy A52s 5G: stock SoundBooster effect libraries
+author=kusti420
+description=The Fold8 libsamsungSoundbooster_plus_legacy.so expects the Fold tuning format (SoundBoosterParam_Fold.txt) and rejects the A52s /vendor/etc/SoundBoosterParam.txt ("SoundBooster_v20 Param mismatch", "OPEN STATE PARAMS LOAD FAILED bypass"), so speaker tuning runs in bypass. libmysound_legacy.so, listed in the vendor audio_effects_common.conf, is missing entirely. Restore the stock A52s effect libraries (same approach UN1CA uses on exynos2100/990 and a53x).
