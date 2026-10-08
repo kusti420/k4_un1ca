@@ -1,0 +1,4 @@
+id=zz_target
+name=Target post-mods hook
+author=kusti420
+description=Runs target/<codename>/post_mods.sh after every other ROM mod, so a target can undo shared mod settings (e.g. floating features forced by miracle) that its hardware can't back.
