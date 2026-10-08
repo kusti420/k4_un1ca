@@ -21,3 +21,7 @@ Signer:   CN=ReSukiSU, O=ReSukiSU, L=Shantou, ST=Guangdong, C=CN; cert SHA-256 d
   base: mna08072-cmyk/android_kernel_samsung_sm7325_a52s_5g branch resukisu-oneui @93b49d0ccd89 (ReSukiSU 8770c7e3, versionCode 35203)
   k4-patches: 0001 CAP_PERFMON/CAP_BPF/CAP_CHECKPOINT_RESTORE; 0002 revert GPU NAP removal (qcom,no-nap); 0003 revert GPU undervolt + 180 MHz step (init level back to 315 MHz); 0004 KGSL idle timeout 80 ms
   file: bone-machine_k4caps_gpufix_a52sxq.zip sha256 07f7fbeac5be403b2fa426dcf4688e1ac584d220a13eb0a892cdd6998079d626
+
+2026-10-08 (evening): rebuilt with k4-patches 0005 (CONFIG_DEBUG_INFO_BTF; link-vmlinux.sh pahole --btf_features_strict=var so only BTF kinds 5.4 understands are emitted).
+  Exposes /sys/kernel/btf/vmlinux -> Android 17 BpfLoader loads cputimeinstate/timeInState.bpf (per-UID CPU time / battery usage per app). Device-tested on R5CTA0ESFTF: boots, timeInState loads, per-app cpu power non-zero.
+  file: bone-machine_k4btf_a52sxq.zip sha256 ca625587a1722edffb0d1f47ed0dcf40cdb0ddd855e80941bf18027d1e42c039
