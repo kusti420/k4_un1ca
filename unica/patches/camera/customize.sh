@@ -132,6 +132,36 @@ open(p, "w").write(s)
 PYEOF
         fi
         unset CAMERA_DIR ONEUI_ENUM
+
+        # One UI 9 SystemUI draws the lock screen shortcut from the activity's "com.samsung.keyguard.shortcut.icon"
+        # meta-data (a white monochrome glyph) and falls back to the full-colour app icon without it. The prebuilt
+        # camera predates that meta-data, so give it the same glyph the source firmware's camera uses.
+        CAMERA_DIR="$APKTOOL_DIR/system/priv-app/SamsungCamera/SamsungCamera.apk"
+        if [ -f "$CAMERA_DIR/AndroidManifest.xml" ] && ! grep -q "com.samsung.keyguard.shortcut.icon" "$CAMERA_DIR/AndroidManifest.xml"; then
+            LOG "- Adding the lock screen shortcut glyph to SamsungCamera"
+            mkdir -p "$CAMERA_DIR/res/drawable"
+            cat > "$CAMERA_DIR/res/drawable/unica_keyguard_shortcut_camera.xml" << 'XMLEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:height="108.0dp" android:width="108.0dp" android:viewportWidth="108.0" android:viewportHeight="108.0">
+    <path android:fillColor="#ffffff" android:pathData="M68.64,28.8C74.02,28.8 76.71,28.8 78.76,29.85C80.57,30.77 82.03,32.24 82.96,34.04C84,36.1 84,38.78 84,44.16V63.84C84,69.22 84,71.9 82.96,73.96C82.03,75.76 80.57,77.23 78.76,78.15C76.71,79.2 74.02,79.2 68.64,79.2H39.36C33.99,79.2 31.3,79.2 29.24,78.15C27.44,77.23 25.97,75.76 25.05,73.96C24,71.9 24,69.22 24,63.84V44.16C24,38.78 24,36.1 25.05,34.04C25.97,32.24 27.44,30.77 29.24,29.85C31.3,28.8 33.99,28.8 39.36,28.8H68.64ZM54,36C44.06,36 36,44.06 36,54C36,63.94 44.06,72 54,72C63.94,72 72,63.94 72,54C72,44.06 63.94,36 54,36ZM33.6,35.4C31.95,35.4 30.6,36.74 30.6,38.4C30.6,40.06 31.95,41.4 33.6,41.4C35.26,41.4 36.6,40.06 36.6,38.4C36.6,36.74 35.26,35.4 33.6,35.4Z" />
+    <path android:fillColor="#ffffff" android:fillAlpha="0.4" android:pathData="M54,36C63.94,36 72,44.06 72,54C72,63.94 63.94,72 54,72C44.06,72 36,63.94 36,54C36,44.06 44.06,36 54,36ZM54,46.8C50.03,46.8 46.8,50.02 46.8,54C46.8,57.98 50.03,61.2 54,61.2C57.98,61.2 61.2,57.98 61.2,54C61.2,50.02 57.98,46.8 54,46.8Z" />
+</vector>
+XMLEOF
+            python3 - "$CAMERA_DIR/AndroidManifest.xml" << 'PYEOF' || ABORT "Failed to add the lock screen shortcut glyph to SamsungCamera"
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+m = re.search(r'<activity [^>]*android:name="com\.sec\.android\.app\.camera\.Camera"[^>]*>.*?</activity>', s, re.S)
+assert m, "Camera activity"
+act = m.group(0)
+meta = '<meta-data android:name="com.samsung.keyguard.SHOW_WHEN_LOCKED_SHORTCUT" android:value="true"/>'
+assert act.count(meta) == 1, "SHOW_WHEN_LOCKED_SHORTCUT meta-data"
+act2 = act.replace(meta, meta + '\n            <meta-data android:name="com.samsung.keyguard.shortcut.icon" android:resource="@drawable/unica_keyguard_shortcut_camera"/>')
+s = s[:m.start()] + act2 + s[m.end():]
+open(p, "w").write(s)
+PYEOF
+        fi
+        unset CAMERA_DIR
     fi
 else
     if ! $TARGET_CAMERA_SUPPORT_MASS_APP_FLAVOR; then

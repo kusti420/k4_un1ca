@@ -9,8 +9,15 @@ Contents: images/boot.img (kernel Image), images/vendor_boot.img (first-stage ra
           incl. wlan.ko, and the dtb), images/dtbo.img
 
 ReSukiSU manager (KernelSU fork manager matching the kernel's built-in ReSukiSU v4.2.0-rc3)
-File:     ReSukiSU_v4.2.0-rc3_35171-arm64-v8a-release.apk  (package com.resukisu.resukisu, versionCode 35171, targetSdk 37)
-SHA-256:  25657bc449439687608fffa04b4b586de90fc405e3dc6217bd997fc71ba0a0a1
-Release:  https://github.com/ReSukiSU/ReSukiSU/releases/tag/v4.2.0-rc3 (repo now Baka-SU/BakaSU, GPL-3.0)
+File:     ReSukiSU_v4.2.0-rc3_35203-arm64-v8a-release.apk  (package com.resukisu.resukisu, versionCode 35203 = the kernel's KSU version)
+SHA-256:  8c760adde1a256202e9b6e7c0523219f0b7af71c4f5306bd3b564875d8d70dad
+Source:   official CI, Baka-SU/BakaSU (ex ReSukiSU/ReSukiSU, GPL-3.0) Build Manager run 37180105212, artifact Manager-release,
+          commit 8770c7e324a22895703c4916b8a16520e0b81c79 (the same KernelSU commit built into the kernel). The v4.2.0-rc3
+          release APK (35171) is too old: the 35203 kernel reports "manager version too low" and SuperUser/modules don't work.
 Signer:   CN=ReSukiSU, O=ReSukiSU, L=Shantou, ST=Guangdong, C=CN; cert SHA-256 d3469712b6214462764a1d8d3e5cbe1d6819a0b629791b9f4101867821f1df64
           (this hash is compiled into the bundled kernel's manager allowlist)
+
+2026-10-08: replaced the release zip with our own from-source build (~/git/kernel_a52sxq_bone/k4_build.sh, K4_BACKPORTS=1):
+  base: mna08072-cmyk/android_kernel_samsung_sm7325_a52s_5g branch resukisu-oneui @93b49d0ccd89 (ReSukiSU 8770c7e3, versionCode 35203)
+  k4-patches: 0001 CAP_PERFMON/CAP_BPF/CAP_CHECKPOINT_RESTORE; 0002 revert GPU NAP removal (qcom,no-nap); 0003 revert GPU undervolt + 180 MHz step (init level back to 315 MHz); 0004 KGSL idle timeout 80 ms
+  file: bone-machine_k4caps_gpufix_a52sxq.zip sha256 07f7fbeac5be403b2fa426dcf4688e1ac584d220a13eb0a892cdd6998079d626

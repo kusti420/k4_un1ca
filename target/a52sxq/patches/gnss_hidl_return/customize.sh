@@ -33,4 +33,26 @@ struct.pack_into("<I", d, CALL, bl(CALL, CAVE))
 open(p, "wb").write(d)
 PYEOF
 LOG "- GNSS HAL no longer aborts when the Samsung location callback is dead"
+
+# OPTIONAL (off by default, set GNSS_SKIP_BDMSG=true in this file to enable): onBdmsgCb reads the callback sp<> at
+# this+0x310 into a register without taking its own reference and calls it on the LocApiMsgTask thread. If
+# system_server (re)registers the callback at the same moment (setCallback/updateCallback replace the sp<>), the old
+# proxy is freed mid-call: SIGSEGV in RefBase::incStrong via BpHwSehGnssExtraCallback / IInterface::asBinder (seen once
+# per boot on 9.1.21). The function already skips a NULL callback (0xddec ldr / 0xddf0 cbz). Turning that cbz into an
+# unconditional branch stops forwarding AGNSS-config "bdmsg" indications to system_server, which removes the race.
+GNSS_SKIP_BDMSG=false
+if [ "$GNSS_SKIP_BDMSG" = true ]; then
+python3 - "$LIB" << 'PYEOF2' || ABORT "Failed to apply GNSS_SKIP_BDMSG"
+import struct, sys
+p = sys.argv[1]
+d = bytearray(open(p, "rb").read())
+LDR, CBZ, TARGET = 0xDDEC, 0xDDF0, 0xDEF8
+assert struct.unpack_from("<I", d, LDR)[0] == 0xF9418A68, "ldr x8, [x19, #0x310]"
+cbz = 0xB4000000 | ((((TARGET - CBZ) >> 2) & 0x7FFFF) << 5) | 8
+assert struct.unpack_from("<I", d, CBZ)[0] == cbz, "cbz x8 at 0xddf0"
+struct.pack_into("<I", d, CBZ, 0x14000000 | (((TARGET - CBZ) >> 2) & 0x3FFFFFF))
+open(p, "wb").write(d)
+PYEOF2
+LOG "- GNSS HAL: AGNSS bdmsg indications are no longer forwarded to system_server (callback race)"
+fi
 unset LIB

@@ -47,3 +47,40 @@ for pol, binary, arch in targets:
     print("%s: added %s" % (pol, " ".join(missing)))
 PYEOF
 LOG "- Codec2 HAL seccomp policies allow the Android 17 crash_dump syscalls"
+# The same applies to every other vendor HAL/daemon with an A14 seccomp policy (GNSS + its XTRA/xtwifi helpers, imsrtp
+# (VoLTE RTP), qspm, qti-systemd, sxrhalservice, dspservice, mediaextractor_sec): a native stack dump during an ANR or a
+# bugreport would kill them. Their binaries load the policy by name from libraries, so pick the arch from the policy
+# content (arm-only syscalls like mmap2/_llseek/fstat64 => arm). Duplicate rules are harmless (stock files already have some).
+python3 - "$WORK_DIR" << 'PYEOF' || ABORT "Failed to update the vendor seccomp policies"
+import glob, os, sys
+wd = sys.argv[1]
+crash = {a: os.path.join(wd, "system/system/etc/seccomp_policy/crash_dump.%s.policy" % a) for a in ("arm", "arm64")}
+def rules(path):
+    out = {}
+    for line in open(path):
+        t = line.strip()
+        if t and not t.startswith(("#", "@")):
+            out.setdefault(t.split(":", 1)[0].strip(), t)
+    return out
+skip = ("codec2.vendor.", "samsung.software.media.c2-")
+for pol_p in sorted(glob.glob(os.path.join(wd, "vendor/etc/seccomp_policy/*"))):
+    name = os.path.basename(pol_p)
+    if name.startswith(skip):
+        continue
+    have = rules(pol_p)
+    # fragments merged with another policy (no read/write rules) are left alone, and only the syscalls the Android 17
+    # crash_dump added over A14 are granted, so the sandboxes are not widened beyond what a stack dump needs
+    if "read" not in have or "write" not in have:
+        continue
+    arch = "arm" if any(k in have for k in ("mmap2", "_llseek", "fstat64", "fcntl64")) else "arm64"
+    want = rules(crash[arch])
+    missing = [n for n in ("getppid", "setsockopt", "uname", "readlinkat", "recvfrom") if n in want and n not in have]
+    if not missing:
+        continue
+    with open(pol_p, "a") as f:
+        f.write("\n# Android 17 crash_dump additions (a52sxq media_seccomp_crashdump)\n")
+        for n in missing:
+            f.write(want[n] + "\n")
+    print("%s (%s): added %s" % (name, arch, " ".join(missing)))
+PYEOF
+LOG "- Vendor HAL seccomp policies allow the Android 17 crash_dump syscalls"

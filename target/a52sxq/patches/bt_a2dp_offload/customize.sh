@@ -18,10 +18,10 @@ LOG "- Replaced com.android.bt.apex with the all-codec A2DP offload build"
 # candidates: the native stack kept a software session (IsCodecOffloadingEnabled: software codec={LDAC}) that this
 # vendor's audio HAL never reports ready for ("A2DP profile is not ready") and LDAC/AAC headsets stayed silent.
 # Use the A52s DSP set from persist.vendor.bt.a2dp_offload_cap (sbc-aptx-aptxtws-aptxhd-aac-ldac) in Samsung's tokens,
-# plus Samsung's own SSC (Galaxy Buds) and "hifi" codecs: the stock A14 Bluetooth app offloaded SSC (0x80) and hifi
-# (0x100) unconditionally and the A52s offload library has the SSC encoder ("Received SSC encoder supported BT device").
+# plus Samsung's own SSC (Galaxy Buds) codec: the vendor offload library has an SSC encoder. "hifi" (0x100) is left out: the
+# vendor offload library has no hifi/UHQ encoder (no "hifi" strings in liba2dpoffload/libbthost_if). SSC: "Received SSC encoder supported BT device".
 # Without "ssc" here A2dpService.isOffloadSupportedCodec(0x80) is false and SSC headsets get the (silent) software path.
-BT_OFFLOAD_CAP="sbc-aac-aptx-aptx_hd-ldac-ssc-hifi"
+BT_OFFLOAD_CAP="sbc-aac-aptx-aptx_hd-ldac-ssc"
 SET_PROP "product" "persist.bluetooth.samsung.a2dp_offload.cap" "$BT_OFFLOAD_CAP"
 # A value stored in /data/property by an earlier build would win over build.prop; re-apply once persist props are loaded.
 cat > "$WORK_DIR/system/system/etc/init/a52sxq_bt_offload.rc" << RCEOF
