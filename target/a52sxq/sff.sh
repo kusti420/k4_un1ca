@@ -11,3 +11,6 @@ SEC_FLOATING_FEATURE_LCD_SUPPORT_EXTRA_BRIGHTNESS=TRUE
 
 # Desktop windowing gives every fullscreen task a caption window on a phone (ShellWindowDecoration churn)
 SEC_FLOATING_FEATURE_COMMON_SUPPORT_DESKTOP_WINDOWING=FALSE
+
+# Wallpaper AOD ("Show Lock screen wallpaper" on Always On Display), as on the Fold8/S23; no LTPO needed
+SEC_FLOATING_FEATURE_LCD_CONFIG_AOD_FULLSCREEN=1

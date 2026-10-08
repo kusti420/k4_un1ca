@@ -1,0 +1,4 @@
+id=a52sxq_power_menu_lockdown
+name=Galaxy A52s 5G: power menu lockdown follows its setting
+author=kusti420
+description=One UI 8.5+ locks the phone (strong-auth lockdown + lockNow) 500 ms after the power menu opens, so cancelling it lands on the bouncer and biometrics are refused until the PIN/pattern is entered. Settings > Lock screen > Secure lock settings > "Secure lock with Power button" (lockdown_option_enabled) is only honoured for the quick panel power button; from the side key it locks unconditionally. Make the switch govern every entry point.
