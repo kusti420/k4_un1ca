@@ -3,7 +3,7 @@ for p in bap.broadcast.assist bap.broadcast.source bap.unicast.client bas.client
     mcp.server ccp.server vcp.controller; do
     SET_PROP "product" "bluetooth.profile.$p.enabled" "false"
 done
-SET_PROP "product" "persist.bluetooth.samsung.leaudio.livecast" --delete
+SET_PROP "product" "persist.bluetooth.samsung.leaudio.livecast" "false"
 LOG_STEP_OUT
 
 # Gemini Nano / AICore: the SM8850 hardware config makes AICore pick SM8850 NPU models that can't run on SM7325
