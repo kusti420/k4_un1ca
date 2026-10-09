@@ -31,7 +31,26 @@ if ! $SOURCE_HAS_SPEN; then
     fi
 else
     if ! $TARGET_HAS_SPEN; then
-        ABORT "Missing patch for condition (SOURCE_HAS_SPEN: [$SOURCE_HAS_SPEN], TARGET_HAS_SPEN: [$TARGET_HAS_SPEN]). Aborting"
+        # S Pen source (e.g. Galaxy S26 Ultra) on a target without a pen: drop the pen feature declaration and the
+        # pen-only apps/blobs (the inverse of the list added above for pen targets on pen-less sources).
+        while IFS= read -r f; do
+            DELETE_FROM_WORK_DIR "system" "$f"
+        done < <(cd "$WORK_DIR/system" && find "system/etc/permissions" -maxdepth 1 -type f -name "com.sec.feature.spen_usp*.xml")
+        for f in \
+            "system/app/AirGlance" \
+            "system/app/LiveDrawing" \
+            "system/etc/default-permissions/default-permissions-com.samsung.android.service.aircommand.xml" \
+            "system/etc/permissions/privapp-permissions-com.samsung.android.app.readingglass.xml" \
+            "system/etc/permissions/privapp-permissions-com.samsung.android.service.aircommand.xml" \
+            "system/etc/permissions/privapp-permissions-com.samsung.android.service.airviewdictionary.xml" \
+            "system/etc/sysconfig/airviewdictionaryservice.xml" \
+            "system/media/audio/pensounds" \
+            "system/priv-app/AirCommand" \
+            "system/priv-app/AirReadingGlass" \
+            "system/priv-app/SmartEye"; do
+            [ -e "$WORK_DIR/system/$f" ] && DELETE_FROM_WORK_DIR "system" "$f"
+        done
+        unset f
     fi
 fi
 
