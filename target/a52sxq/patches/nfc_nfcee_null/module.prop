@@ -1,0 +1,4 @@
+id=a52sxq_nfc_nfcee_null
+name=Galaxy A52s 5G: SecNfc null NFCEE list
+author=kusti420
+description=The S25 SecNfc NfcSecureElement.getActiveNfceeTech() uses NfcOemExtension.getActiveNfceeList() without a null check; the A52s NFC stack returns null, so com.android.nfc crashes (NPE on Map.getOrDefault, SamsungExtensionMainHandler) right after boot. Return 0 (no NFCEE technologies) when the list is null; HCE/host card emulation does not depend on it.
