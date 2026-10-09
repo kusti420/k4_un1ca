@@ -444,8 +444,23 @@ if ! $SOURCE_COMMON_SUPPORT_DYN_RESOLUTION_CONTROL; then
     fi
 else
     if ! $TARGET_COMMON_SUPPORT_DYN_RESOLUTION_CONTROL; then
-        # TODO handle this condition
-        LOG_MISSING_PATCHES "SOURCE_COMMON_SUPPORT_DYN_RESOLUTION_CONTROL" "TARGET_COMMON_SUPPORT_DYN_RESOLUTION_CONTROL"
+        # Source can switch WQHD/FHD/HD (e.g. Galaxy S26 Ultra), target has a single fixed-resolution panel: drop the
+        # feature so the framework never rescales, and hide Settings > Display > Screen resolution (its controller is
+        # unconditionally AVAILABLE on these sources). The panel density pair (ro.sf.lcd_density/ro.sf.init.lcd_density)
+        # must be set equal by the target.
+        SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_COMMON_CONFIG_DYN_RESOLUTION_CONTROL" --delete
+        DECODE_APK "system" "system/priv-app/SecSettings/SecSettings.apk"
+        SR_SMALI="$(find "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk" -path "*/com/samsung/android/settings/display/controller/ScreenResolutionPreferenceController.smali" | head -n 1)"
+        [ -f "$SR_SMALI" ] || ABORT "ScreenResolutionPreferenceController.smali not found"
+        python3 - "$SR_SMALI" << 'PYEOF' || ABORT "Failed to hide the Screen resolution setting"
+import sys
+f = sys.argv[1]; s = open(f).read()
+start = s.index(".method public getAvailabilityStatus()I"); end = s.index(".end method", start)
+s = s[:start] + ".method public getAvailabilityStatus()I\n    .locals 1\n\n    const/4 p0, 0x3\n\n    return p0\n" + s[end:]
+open(f, "w").write(s)
+PYEOF
+        LOG "- Hid Settings > Display > Screen resolution (fixed-resolution target)"
+        unset SR_SMALI
     fi
 fi
 
