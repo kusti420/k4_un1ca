@@ -50,3 +50,8 @@ if [ "$RC_LINES" ]; then
 fi
 unset RC RC_LINES p v f
 LOG_STEP_OUT
+
+# S26 Ultra SurfaceFlinger computes the density from ro.sf.init.lcd_density (native-resolution density, used for its
+# QHD+/FHD+ switching); unset it fell back to 213 dpi -> tablet UI (smallest width 811dp). The A52s panel is natively
+# 1080 wide, so the native density equals ro.sf.lcd_density.
+SET_PROP "vendor" "ro.sf.init.lcd_density" "450"
