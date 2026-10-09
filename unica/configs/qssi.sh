@@ -95,8 +95,8 @@ SOURCE_LCD_CONFIG_SEAMLESS_LUX="none"
 # floating LCD_SUPPORT_MDNIE_HW=TRUE
 SOURCE_LCD_SUPPORT_MDNIE_HW=true
 # SecureElement UtilExtension "UT8.3U" / "eSE_Vendor: GEMALTO", framework SemServiceManager.<clinit>
-SOURCE_SECURITY_CONFIG_ESE_CHIP_VENDOR="GEMALTO"
-SOURCE_SECURITY_CONFIG_ESE_COS_NAME="UT8.3U"
+SOURCE_SECURITY_CONFIG_ESE_CHIP_VENDOR="NXP"
+SOURCE_SECURITY_CONFIG_ESE_COS_NAME="JCOP7.2U"
 # framework.jar TelephonyFeatures RIL_FEATURES
 SOURCE_RIL_FEATURES="onebinary entitlement_sa"
 # framework.jar TelephonyFeatures.isOneTray() identical to the Fold8 (single tray + eSIM)
