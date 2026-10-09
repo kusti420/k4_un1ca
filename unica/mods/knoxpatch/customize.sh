@@ -94,7 +94,7 @@ SMALI_PATCH "system" "system/framework/services.jar" \
 # existing catch path ("Failed to add KnoxGuardService.") skips registration.
 # Depending on the source, SystemServer instantiates either KnoxGuard30Service
 # (e.g. Fold8 One UI 9) or the legacy KnoxGuardSeService (e.g. S25 One UI 9).
-# Only p1 (already consumed) and v0 are used, so .locals stays untouched.
+# Uses v0 and v1 (the KnoxGuard constructors have .locals >= 2: S26 Ultra KG30 has 17, so p1 maps to v18 and cannot be used by a non-range invoke).
 DECODE_APK "system" "system/framework/services.jar"
 for KG_CLASS in \
     "com/samsung/android/knoxguard30/service/KnoxGuard30Service" \
@@ -109,7 +109,7 @@ do
         "$KG_SMALI" "replace" \
         '<init>(Landroid/content/Context;)V' \
         "sput-object p1, L$KG_CLASS;->mContext:Landroid/content/Context;" \
-        '    new-instance v0, Ljava/lang/UnsupportedOperationException;\n\n    const-string p1, "KnoxGuard is unsupported on this port"\n\n    invoke-direct {v0, p1}, Ljava/lang/UnsupportedOperationException;-><init>(Ljava/lang/String;)V\n\n    throw v0'
+        '    new-instance v0, Ljava/lang/UnsupportedOperationException;\n\n    const-string v1, "KnoxGuard is unsupported on this port"\n\n    invoke-direct {v0, v1}, Ljava/lang/UnsupportedOperationException;-><init>(Ljava/lang/String;)V\n\n    throw v0'
     KG_PATCHED=true
 done
 if [ "$KG_PATCHED" != "true" ]; then
