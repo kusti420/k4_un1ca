@@ -16,19 +16,97 @@ EVAL "sed -i \"/persist.sys.usb.config/i ro.surface_flinger.enable_frame_rate_ov
 # (an LTPO panel whose kernel/panel driver drops the refresh rate on idle by itself), so SurfaceFlinger never runs
 # its own idle timer and Adaptive mode sits at the maximum rate whenever no layer votes otherwise. The A52s panel
 # has no kernel idle timer: turn that `b.ne` into an unconditional branch so the AOSP path (HIDL composer reports
-# no kernel idle timer -> SurfaceFlinger's own set_idle_timer_ms timer) is taken. Offset is specific to this
-# binary, the byte check aborts on any other build.
+# no kernel idle timer -> SurfaceFlinger's own set_idle_timer_ms timer) is taken.
+# Samsung's addition in SurfaceFlinger::getKernelIdleTimerProperties(PhysicalDisplayId):
+#     cmp  x20, x0                      ; displayId == primary display id?
+#     b.ne <AOSP path>                  ; <- patched to `b <AOSP path>`
+#     adrp/add "SurfaceFlinger", adrp/add "Enabling KernelIdleTimer for main display"; __android_log_print
+#     return {KernelIdleTimerController::Sysprop, timeout}
+# Located by pattern, not offset (Fold8 F976B: 0x546d08, S25 S931B: 0x5465a0): the only ADRP+ADD reference to the
+# log string, then the closest preceding `b.ne` (within 8 instructions, directly after a 64-bit `cmp`) that jumps
+# forward past the log call. Anything else aborts.
 SF="$WORK_DIR/system/system/bin/surfaceflinger"
-SF_OFF=$((0x546d08))
 if [ -f "$SF" ]; then
-    if [[ "$(xxd -p -s "$SF_OFF" -l 4 "$SF")" == "10000014" ]]; then
-        :
-    elif [[ "$(xxd -p -s "$SF_OFF" -l 4 "$SF")" == "01020054" ]]; then
-        LOG "- Disabling the kernel idle timer controller in /system/bin/surfaceflinger"
-        printf '\x10\x00\x00\x14' | dd of="$SF" bs=1 seek="$SF_OFF" conv=notrunc status=none
-    else
-        ABORT "surfaceflinger: unexpected bytes at $(printf '0x%x' "$SF_OFF")"
-    fi
+    LOG "- Disabling the kernel idle timer controller in /system/bin/surfaceflinger"
+    python3 - "$SF" << 'PYEOF' || ABORT "Failed to patch the kernel idle timer controller in surfaceflinger"
+import struct, sys
+from array import array
+p = sys.argv[1]
+d = bytearray(open(p, "rb").read())
+MSG = b"Enabling KernelIdleTimer for main display"
+
+def segments():
+    phoff = struct.unpack_from("<Q", d, 0x20)[0]
+    phentsize, phnum = struct.unpack_from("<HH", d, 0x36)
+    for i in range(phnum):
+        p_type, p_flags, off, va, _, filesz, _, _ = struct.unpack_from("<IIQQQQQQ", d, phoff + i * phentsize)
+        if p_type == 1:
+            yield p_flags, off, va, filesz
+
+hits, i = [], -1
+while True:
+    i = d.find(MSG + b"\0", i + 1)
+    if i < 0:
+        break
+    if i == 0 or d[i - 1] == 0:
+        hits.append(i)
+assert len(hits) == 1, "log string: %d copies" % len(hits)
+so = hits[0]
+tva = next(so - off + va for _, off, va, fs in segments() if off <= so < off + fs)
+
+refs = []   # (file offset of ADRP, file offset of ADD)
+for flags, off, va, fs in segments():
+    if not flags & 1:
+        continue
+    n = fs // 4
+    w = array("I", bytes(d[off:off + n * 4]))
+    if sys.byteorder != "little":
+        w.byteswap()
+    for i in range(n):
+        x = w[i]
+        if x & 0x9F000000 != 0x90000000:
+            continue
+        rd = x & 31
+        imm = ((x >> 29) & 3) | (((x >> 5) & 0x7FFFF) << 2)
+        if imm & (1 << 20):
+            imm -= 1 << 21
+        if ((va + 4 * i) & ~0xFFF) + (imm << 12) != tva & ~0xFFF:
+            continue
+        for k in range(i + 1, min(n, i + 16)):
+            y = w[k]
+            if y & 0xFFC00000 == 0x91000000 and (y >> 5) & 31 == rd and (y >> 10) & 0xFFF == tva & 0xFFF:
+                refs.append((off + 4 * i, off + 4 * k))
+            if y & 0x9F00001F == 0x90000000 | rd:
+                break
+assert len(refs) == 1, "references to the log string: %d" % len(refs)
+adrp = refs[0][0]
+
+W = lambda o: struct.unpack_from("<I", d, o)[0]
+site = None
+for k in range(1, 9):
+    o = adrp - 4 * k
+    x = W(o)
+    if x & 0xFF00001F == 0x54000001:                                   # b.ne
+        rel = ((x >> 5) & 0x7FFFF) << 2
+        rel -= (1 << 21) if rel & (1 << 20) else 0
+        site, kind = (o, rel), "bne"
+        break
+    if x & 0xFC000000 == 0x14000000:                                   # b (already patched)
+        rel = (x & 0x3FFFFFF) << 2
+        rel -= (1 << 28) if rel & (1 << 27) else 0
+        site, kind = (o, rel), "b"
+        break
+assert site, "no b.ne before the log string reference at 0x%x" % adrp
+o, rel = site
+assert rel > (adrp - o) + 4, "branch at 0x%x does not skip the log/return block" % o
+assert W(o - 4) & 0xFF20001F == 0xEB00001F, "no `cmp Xn, Xm` before the branch at 0x%x" % o   # subs xzr, Xn, Xm
+if kind == "b":
+    print("already patched at 0x%x" % o)
+else:
+    struct.pack_into("<I", d, o, 0x14000000 | ((rel >> 2) & 0x3FFFFFF))
+    open(p, "wb").write(d)
+    print("b.ne -> b at 0x%x (target +0x%x)" % (o, rel))
+PYEOF
 fi
 
-unset IDLE_TIMER_MS TOUCH_TIMER_MS SF SF_OFF
+unset IDLE_TIMER_MS TOUCH_TIMER_MS SF

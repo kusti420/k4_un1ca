@@ -1,4 +1,4 @@
 id=a52sxq_arcsoft_objectcapture
 name=Galaxy A52s 5G: ArcSoft object capture (lock screen depth effect)
 author=kusti420
-description=The deepsky ObjectCapture SDK (DressRoom lock screen depth effect / clock behind subject, image clipper) falls back to the ArcSoft engine when SRIB DVS (SNPE2/HTP V81 only) is unavailable, but neither the Fold8 nor the A52s firmware ships the ArcSoft libs. Add libobjectcapture{,_jni}.arcsoft.so from the Galaxy S22 (SM-S901E, UN1CA's qssi source) and register them as public libraries. Needs the miracle VIDEO_CLIPPING_MODE gate (no SNPE2 runtime -> key deleted).
+description=The deepsky ObjectCapture SDK (DressRoom lock screen depth effect / clock behind subject, image clipper) falls back to the ArcSoft engine when SRIB DVS (SNPE2/HTP V81 only) is unavailable, but neither the Fold8 nor the A52s firmware ships the ArcSoft libs. Add libobjectcapture{,_jni}.arcsoft.so from the Galaxy S22 (SM-S901E, UN1CA's qssi source) and register them as public libraries. Skipped when the source ships its own copy (S25). Needs the miracle VIDEO_CLIPPING_MODE gate (no SNPE2 runtime -> key deleted).

@@ -848,7 +848,34 @@ _ESE_PORT_ANDROID17_T2S_HIDL_STACK()
     fi
 }
 
-if [[ "$SOURCE_SECURITY_CONFIG_ESE_CHIP_VENDOR" == "NXP" ]] && [[ "$SOURCE_SECURITY_CONFIG_ESE_COS_NAME" =~ ^JCOP(6\.2|7\.2)U$ ]] && \
+# Source eSE combinations whose "disable eSE entirely" path (target has no eSE: none/none) is audited.
+# This branch is not vendor specific: it only blanks the source COS/vendor literals (UtilExtension,
+# SemServiceManager.<clinit>) and flips SEM_DAEMON / isSupportSemService(Manager), all keyed on the
+# SOURCE_* values. The old gate only listed NXP JCOP6.2U/7.2U, so a Gemalto (Thales) source fell
+# through to the eSE-to-eSE branch below, whose Android 17 part is the S942B -> t2s HIDL bridge
+# (aborts for every other device pair).
+# - NXP JCOP6.2U / JCOP7.2U: S22 / Fold8 sources (API 37 path + legacy .patch path).
+# - GEMALTO UT8.3U: Galaxy S25 SM-S931B One UI 9 (S931BXXUCDZIF). API 37 path only (the legacy
+#   0001-Disable-eSE-support.patch was written against NXP smali). Verified on the S25: UtilExtension
+#   <clinit> "UT8.3U", supportEse() "eSE_COS: UT8.3U" / "eSE_Vendor: GEMALTO", ProductPackagesRune
+#   SEM_DAEMON:Z = true, SemServiceManager isSupportSemService:Z = true and <clinit>
+#   const/4 v0, 0x1 + sput-boolean isSupportSemServiceManager + "UT8.3U" / "GEMALTO" (same shape as
+#   the Fold8), sem_daemon/sem_early.rc/privapp xmls/SEMFactoryApp/SamsungSeAgent all present.
+_ESE_SOURCE_DISABLE_AUDITED()
+{
+    if [[ "$SOURCE_SECURITY_CONFIG_ESE_CHIP_VENDOR" == "NXP" ]] && \
+            [[ "$SOURCE_SECURITY_CONFIG_ESE_COS_NAME" =~ ^JCOP(6\.2|7\.2)U$ ]]; then
+        return 0
+    fi
+    if [[ "$SOURCE_SECURITY_CONFIG_ESE_CHIP_VENDOR" == "GEMALTO" ]] && \
+            [[ "$SOURCE_SECURITY_CONFIG_ESE_COS_NAME" == "UT8.3U" ]] && \
+            [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+        return 0
+    fi
+    return 1
+}
+
+if _ESE_SOURCE_DISABLE_AUDITED && \
         [[ "$TARGET_SECURITY_CONFIG_ESE_CHIP_VENDOR" == "none" ]] && [[ "$TARGET_SECURITY_CONFIG_ESE_COS_NAME" == "none" ]]; then
     if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
         # One UI 9 moved the COS literal to v0; blanking it makes mSupportEseHal false
@@ -1012,4 +1039,4 @@ unset -f LOG_MISSING_PATCHES _ESE_ASSERT_SHA256 _ESE_ASSERT_FIXED_COUNT \
     _ESE_ASSERT_BINARY_COUNT _ESE_ASSERT_BINARY_OFFSET _ESE_ASSERT_NEEDED \
     _ESE_ASSERT_INTERPRETER64 \
     _ESE_GET_EXPORTS _ESE_ASSERT_EXPORT_ABI _ESE_ASSERT_CONSUMER_PROVIDER_ABI \
-    _ESE_REPLACE_EXACT_LINE _ESE_PORT_ANDROID17_T2S_HIDL_STACK
+    _ESE_REPLACE_EXACT_LINE _ESE_PORT_ANDROID17_T2S_HIDL_STACK _ESE_SOURCE_DISABLE_AUDITED

@@ -8,11 +8,18 @@
 BSS="system/priv-app/BiometricSetting/BiometricSetting.apk"
 DECODE_APK "system" "$BSS" || ABORT "Failed to decode $BSS"
 DIR="$APKTOOL_DIR/system/${BSS//system\//}"
-CB="$DIR/smali/com/samsung/android/biometrics/app/setting/face/FaceEnrollActivity\$6.smali"
-if [ -f "$CB" ] && grep -q '^\.super Landroid/hardware/face/FaceManager\$EnrollmentCallback;' "$CB"; then
-    LOG "- Rendering the HIDL face HAL preview frames in the enrollment screen"
-    mkdir -p "$DIR/smali/com/k4/face"
-    cp -f "$SRC_DIR/target/$TARGET_CODENAME/patches/face_preview/K4FacePreview.smali" "$DIR/smali/com/k4/face/K4FacePreview.smali"
+# The anonymous callback class is FaceEnrollActivity$6 on the Fold8 and S25 builds; locate it by its superclass so a
+# renumbered class ($5, $7, ...) is still found.
+CB="$(grep -l -x '\.super Landroid/hardware/face/FaceManager\$EnrollmentCallback;' \
+    "$DIR"/smali*/com/samsung/android/biometrics/app/setting/face/FaceEnrollActivity\$*.smali 2> /dev/null)"
+if [ "$(wc -l <<< "$CB")" -gt 1 ]; then
+    ABORT "More than one FaceManager.EnrollmentCallback in FaceEnrollActivity: $CB"
+fi
+if [ -f "$CB" ]; then
+    LOG "- Rendering the HIDL face HAL preview frames in the enrollment screen (${CB##*/})"
+    SMALI_ROOT="${CB%%/com/samsung/*}"
+    mkdir -p "$SMALI_ROOT/com/k4/face"
+    cp -f "$SRC_DIR/target/$TARGET_CODENAME/patches/face_preview/K4FacePreview.smali" "$SMALI_ROOT/com/k4/face/K4FacePreview.smali"
     python3 - "$CB" "$DIR/res/values/public.xml" << 'PYEOF' || ABORT "Failed to patch FaceEnrollActivity\$6"
 import re, sys
 cb, pub = sys.argv[1], sys.argv[2]
@@ -46,6 +53,6 @@ open(cb, "w").write(src.rstrip("\n") + "\n" + method)
 print("  - Added onImageProcessed to %s (face_preview=%s)" % (cls, rid))
 PYEOF
 else
-    LOG "- FaceEnrollActivity\$6 is not the EnrollmentCallback in this source, skipping"
+    LOG "- No FaceManager.EnrollmentCallback in FaceEnrollActivity in this source, skipping"
 fi
-unset BSS DIR CB
+unset BSS DIR CB SMALI_ROOT

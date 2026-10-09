@@ -7,6 +7,12 @@
 # treat the phone as a folded foldable. The framework-res overlay (config_*DeviceStates) is ignored by this
 # property-based code. Hand the provider a single property-less DEFAULT state (identifier 0, exactly what AOSP's
 # default provider creates on non-foldables) through a small helper class, right before the provider is built.
+# Fold sources only: flat sources (S25) already use the AOSP DeviceStateProviderImpl (single DEFAULT state without a device state config)
+if [[ "$(GET_FLOATING_FEATURE_CONFIG "$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/etc/floating_feature.xml" \
+        "SEC_FLOATING_FEATURE_FRAMEWORK_SUPPORT_FOLDABLE_TYPE_FOLD")" != "TRUE" ]]; then
+    LOG "- Source is not a foldable, nothing to do"
+    return 0
+fi
 SVC="system/framework/services.jar"
 DECODE_APK "system" "$SVC" || ABORT "Failed to decode $SVC"
 DIR="$APKTOOL_DIR/system/${SVC//system\//}"

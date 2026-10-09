@@ -7,6 +7,11 @@ set -e
 #[
 source "$SRC_DIR/scripts/utils/module_utils.sh" || exit 1
 
+# Modules locate the extracted source/target firmwares as "$FW_DIR/$SOURCE_FIRMWARE_PATH" (make_rom.sh computes these but
+# does not export them; only the config.sh values are exported)
+[ "$SOURCE_FIRMWARE_PATH" ] || SOURCE_FIRMWARE_PATH="$(cut -d "/" -f 1 -s <<< "$SOURCE_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$SOURCE_FIRMWARE")"
+[ "$TARGET_FIRMWARE_PATH" ] || TARGET_FIRMWARE_PATH="$(cut -d "/" -f 1 -s <<< "$TARGET_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$TARGET_FIRMWARE")"
+
 APPLY_MODULE()
 {
     local MODPATH="$1"

@@ -1,4 +1,4 @@
-# Recents "Close all" on 8 GB A52s units: the Fold8 launcher (TouchWizHome_2017) chooses its RecentTaskRemoveService with
+# Recents "Close all" on 8 GB A52s units: the source launcher (TouchWizHome_2017; same selector on the Fold8 and S25) chooses its RecentTaskRemoveService with
 #   ActivityManagerWrapper.getMaxLongLiveApps() > 0 ? dedicatedRecentTaskRemoveService : internalRecentTaskRemoveService
 # getMaxLongLiveApps() is non-zero only when CoreRune.FW_DEDICATED_MEMORY (Process.getTotalMemory() > 6144 MB), so the 8 GB
 # model gets the "dedicated" remover. For Close all it removes only desktop-divider tasks itself and leaves the rest to

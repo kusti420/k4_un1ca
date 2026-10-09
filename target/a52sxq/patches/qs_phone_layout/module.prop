@@ -1,4 +1,4 @@
 id=a52sxq_qs_phone_layout
 name=Galaxy A52s 5G phone-style quick panel
 author=kusti420
-description=The Fold8 SystemUI compiles SecQsUiDisplayModeInteractor.getDeviceFormFactor() to the constant FOLD, so with the port's single "unfolded" device state the quick panel runs in the WIDE pop-over mode (inset floating card). Return PHONE so the NORMAL edge-to-edge phone panel is used.
+description=The Fold8 SystemUI compiles SecQsUiDisplayModeInteractor.getDeviceFormFactor() to the constant FOLD, so with the port's single "unfolded" device state the quick panel runs in the WIDE pop-over mode (inset floating card). Return PHONE so the NORMAL edge-to-edge phone panel is used. Only applies to foldable sources (SEC_FLOATING_FEATURE_FRAMEWORK_SUPPORT_FOLDABLE_TYPE_FOLD); a no-op on flat sources such as the S25.

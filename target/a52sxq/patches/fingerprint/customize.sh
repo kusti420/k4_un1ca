@@ -26,7 +26,8 @@ done
 #   -> the kernel enters finger-mask HBM at the level stored in mask_brightness and notifies
 #   actual_mask_brightness, which BiometricSetting watches before it releases the queued touch-down
 #   (request 9 -> sehRequest 22).
-# The Fold8 SurfaceFlinger has none of that, so BiometricSetting's UdfpsMaskWindow does it itself: while the
+# The One UI 9 SurfaceFlinger (Fold8 and S25 alike: no "Creating Fingerprint Indisplay Layer") has none of that,
+# so BiometricSetting's UdfpsMaskWindow does it itself: while the
 # mask is shown (and on every turnOnHBM) it attaches a 16x16, alpha 0.01 child layer whose HardwareBuffer
 # carries usage bit 34, and writes the HBM level (331, what SemUdfpsOpticalHelper computes for this panel)
 # to mask_brightness. BiometricSetting is system_app, which may write sysfs_lcd_writable.
@@ -306,17 +307,42 @@ fi
 # the charging text otherwise overlaps the Now Bar card; +36dp keeps the stock 12dp gap above it), bouncer bottom padding
 # = sensor height (both only for a low sensor with fingerprint unlock enabled), and let DeviceType report an
 # in-display sensor (lock screen fingerprint help/error texts, AOD plugin).
+# An in-display source SystemUI (e.g. the ultrasonic Galaxy S25, SECURITY_FINGERPRINT_IN_DISPLAY=true) keeps all of
+# this natively (CentralSurfacesImpl.start() etc. call DeviceState.setInDisplayFingerprintSensorPosition(), the
+# indication/bouncer margins read the sensor height): skip it there. (This patch runs before unica/product_feature,
+# so callers found here are the source's own.)
 SYSTEMUI="priv-app/SystemUI/SystemUI.apk"
+SYSTEMUI_FP_NATIVE=""
 if [ -f "$WORK_DIR/system/system/system_ext/$SYSTEMUI" ] || [ -f "$WORK_DIR/system_ext/$SYSTEMUI" ]; then
     DECODE_APK "system_ext" "$SYSTEMUI" || ABORT "Failed to decode $SYSTEMUI"
+    SYSUI_POS_CALLERS="$(grep -rl -F "Lcom/android/systemui/util/DeviceState;->setInDisplayFingerprintSensorPosition(Landroid/util/DisplayMetrics;)V" \
+        "$APKTOOL_DIR/system_ext/$SYSTEMUI"/smali* | grep -v "/com/android/systemui/util/DeviceState.smali$" || true)"
+    if [ "$SYSUI_POS_CALLERS" ]; then
+        LOG "- SystemUI keeps its in-display fingerprint layout, no lock screen margin restoration needed"
+        SYSTEMUI_FP_NATIVE=true
+    else
+        SYSTEMUI_FP_NATIVE=false
+    fi
+fi
+if [[ "$SYSTEMUI_FP_NATIVE" == "false" ]]; then
     LOG "- Restoring the in-display fingerprint lock screen margins in SystemUI"
     python3 - "$APKTOOL_DIR/system_ext/$SYSTEMUI" << 'PYEOF' || ABORT "Failed to patch the SystemUI fingerprint margins"
-import glob, sys
+import glob, re, sys
 
 def one(pattern):
     hits = glob.glob(sys.argv[1] + "/smali*/" + pattern)
     assert len(hits) == 1, pattern
     return hits[0]
+
+# Resource ids differ between builds: resolve them by name
+pub = open(sys.argv[1] + "/res/values/public.xml").read()
+def dimen(name):
+    m = re.findall(r'<public type="dimen" name="%s" id="(0x[0-9a-f]+)" />' % re.escape(name), pub)
+    assert len(m) == 1, "dimen/" + name
+    return m[0]
+DIMEN_SHORTCUT = dimen("keyguard_indication_margin_shortcut")
+DIMEN_FP_LOW = dimen("keyguard_indication_margin_bottom_fingerprint_low")
+DIMEN_FP_LOW_NOWBAR = dimen("keyguard_indication_margin_bottom_fingerprint_low_with_nowbar")
 
 # DeviceState.getInDisplayFingerprintHeight(): compute the sensor geometry on first use
 f = one("com/android/systemui/util/DeviceState.smali")
@@ -358,7 +384,7 @@ if ":cond_unica_fp_height" not in s:
 f = one("com/android/systemui/statusbar/phone/KeyguardSecBottomAreaView.smali")
 s = open(f).read()
 if ":cond_unica_fp_indication" not in s:
-    anchor = """    const v8, 0x7e0705bb
+    anchor = """    const v8, %s
 
     invoke-virtual {v2, v8}, Landroid/content/res/Resources;->getDimensionPixelSize(I)I
 
@@ -367,7 +393,7 @@ if ":cond_unica_fp_indication" not in s:
     add-int/2addr v8, v4
 
     iput v8, v1, Lcom/android/systemui/statusbar/phone/KeyguardSecBottomAreaView$ConfigurationBasedDimensions;->indicationAreaBottomMargin:I
-"""
+""" % DIMEN_SHORTCUT
     assert s.count(anchor) == 1, "indicationAreaBottomMargin"
     s = s.replace(anchor, anchor + """
     const-class v10, Lcom/android/keyguard/KeyguardUpdateMonitor;
@@ -402,7 +428,7 @@ if ":cond_unica_fp_indication" not in s:
 
     if-eqz v11, :cond_unica_fp_nowbar
 
-    const v11, 0x7e0705b3
+    const v11, %s
 
     invoke-virtual {v2, v11}, Landroid/content/res/Resources;->getDimensionPixelSize(I)I
 
@@ -425,7 +451,7 @@ if ":cond_unica_fp_indication" not in s:
     goto :goto_unica_fp_add
 
     :cond_unica_fp_nowbar
-    const v11, 0x7e0705b2
+    const v11, %s
 
     invoke-virtual {v2, v11}, Landroid/content/res/Resources;->getDimensionPixelSize(I)I
 
@@ -439,7 +465,7 @@ if ":cond_unica_fp_indication" not in s:
     iput v10, v1, Lcom/android/systemui/statusbar/phone/KeyguardSecBottomAreaView$ConfigurationBasedDimensions;->indicationAreaBottomMargin:I
 
     :cond_unica_fp_indication
-""")
+""" % (DIMEN_FP_LOW_NOWBAR, DIMEN_FP_LOW))
     open(f, "w").write(s)
 
 # KeyguardSecSecurityContainerController.updateLayoutMargins(int): bouncer bottom padding = sensor height
@@ -503,4 +529,4 @@ open(p, "wb").write(d)
 PYEOF
 fi
 
-unset OLD_POS NEW_POS SPEC PART FILE DIR SMALI BSS SYSTEMUI LIBUI
+unset OLD_POS NEW_POS SPEC PART FILE DIR SMALI BSS SYSTEMUI SYSTEMUI_FP_NATIVE SYSUI_POS_CALLERS LIBUI

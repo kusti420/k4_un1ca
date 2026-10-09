@@ -28,11 +28,10 @@ lib64/vendor.qti.qccvndhal_aidl-V1-ndk.so
 lib64/vendor.qti.qccvndhal_aidl-V2-ndk.so
 "
 
-# Qualcomm NTN satellite service (vendor.qti.data.ntnsatapp, persistent ".dataservices"): the SM7325 modem has no
-# NTN and telephony never binds it ("Unable to bind to the satellite service because the package is undefined").
+# Qualcomm NTN satellite stack: the SM7325 modem has no NTN. The S25 (SM-S931B) no longer ships the NtnSatApp
+# (vendor.qti.data.ntnsatapp) but still carries its now-orphaned jar/JNI/SDK libs (they only reference each other).
 # android.telephony.satellite (SatelliteClient.jar) is an AOSP shared library apps link against: kept.
 SYSTEM_EXT_DEBLOAT+="
-app/NtnSatApp
 framework/vendor.qti.data.ntn-V1-java.jar
 framework/vendor.qti.data.ntn-V1-java.jar.fsv_meta
 lib64/libNtnJni.so
@@ -40,9 +39,10 @@ lib64/libQmsNtnProto.so
 lib64/libqms_ntnsatellite_sdk.so
 "
 
-# SM8850 (Adreno 840) updatable GPU driver stub, ro.gfx.driver.0 unset (cf. GameDriver-SM8450 in platform/sm7325)
+# SM8750 (Adreno 830) updatable GPU driver (com.samsung.gamedriver.sm8750). Only the S25 vendor sets
+# ro.gfx.driver.0 to it; the A52s vendor doesn't (cf. GameDriver-SM8450 in platform/sm7325)
 SYSTEM_DEBLOAT+="
-system/priv-app/GameDriver-SM8850
+system/priv-app/GameDriver-SM8750
 "
 
 # Knox KPP / NGK audit: run as vendor_ker, an OEM AID the A52s vendor/etc/passwd doesn't define, so init
@@ -54,18 +54,30 @@ system/etc/init/ngk_security_audit_common.rc
 system/lib64/libngkms.so
 "
 
-# Wi-Fi RTT: stock A52s doesn't declare it; SystemServer only starts RttService when the feature is present
-SYSTEM_DEBLOAT+="
+# Galaxy Z Fold8 (SM-F976B / China SM-F9760, still the a52sxq_cn source) leftovers that the S25 (SM-S931B) source
+# doesn't ship. Kept, gated on the Fold8 source, so the a52sxq_cn variant keeps its debloat.
+if [[ "$SOURCE_FIRMWARE" == "SM-F976"* ]]; then
+    # Qualcomm NTN satellite service (vendor.qti.data.ntnsatapp, persistent ".dataservices"): telephony never binds it
+    # ("Unable to bind to the satellite service because the package is undefined")
+    SYSTEM_EXT_DEBLOAT+="
+app/NtnSatApp
+"
+    # SM8850 (Adreno 840) updatable GPU driver stub
+    SYSTEM_DEBLOAT+="
+system/priv-app/GameDriver-SM8850
+"
+    # Wi-Fi RTT: stock A52s doesn't declare it; SystemServer only starts RttService when the feature is present
+    SYSTEM_DEBLOAT+="
 system/etc/permissions/android.hardware.wifi.rtt.xml
 "
-
-# UWB test app + RRO (no UWB on A52s). The com.android.uwb apex (also on stock), com.samsung.android.uwb_extras.jar
-# (BOOTCLASSPATH) and semuwb-service.jar (SYSTEMSERVERCLASSPATH) MUST stay.
-SYSTEM_DEBLOAT+="
+    # UWB test app + RRO (no UWB on A52s). The com.android.uwb apex (also on stock), com.samsung.android.uwb_extras.jar
+    # (BOOTCLASSPATH) and semuwb-service.jar (SYSTEMSERVERCLASSPATH) MUST stay.
+    SYSTEM_DEBLOAT+="
 system/app/UwbTest
 system/etc/permissions/privapp-permissions-com.sec.android.app.uwbtest.xml
 system/etc/init/digitalkey_init_uwb_tss2.rc
 "
-PRODUCT_DEBLOAT+="
+    PRODUCT_DEBLOAT+="
 overlay/UwbRROverlay.apk
 "
+fi

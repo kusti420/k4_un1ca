@@ -1,4 +1,4 @@
 id=a52sxq_hw_features
 name=Galaxy A52s 5G: hide Fold8 features the A52s hardware can't run
 author=kusti420
-description=The Fold8 product/system_ext bring options the A52s can't back: LE Audio / Auracast Bluetooth profiles (stock A52s ships them all disabled), the Wireless DeX quick settings tile (launcher DesktopModeTile, no DeX on A52s), Adaptive color tone (EnvironmentAdaptiveDisplay needs a colour-temperature light sensor; A52s stk31610 has none) and the Gemini Nano / AICore SM8850 hardware config. Restore the A52s values / hide them.
+description=The Fold8 product/system_ext bring options the A52s can't back: LE Audio / Auracast Bluetooth profiles (stock A52s ships them all disabled), the Wireless DeX quick settings tile (launcher DesktopModeTile, no DeX on A52s), Adaptive color tone (EnvironmentAdaptiveDisplay needs a colour-temperature light sensor; A52s stk31610 has none) and the Gemini Nano / AICore source SoC hardware configs (google_aicore_QC_*.xml: SM8850 on the Fold8, SM8750 + SM8850 on the S25). Restore the A52s values / hide them.

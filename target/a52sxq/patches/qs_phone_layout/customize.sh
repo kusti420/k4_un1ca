@@ -2,6 +2,12 @@
 # PHONE -> NORMAL (edge-to-edge, no pop-over), FOLD -> NARROW when folded / WIDE (pop-over card) when unfolded.
 # The Fold8 build compiles getDeviceFormFactor() to the FOLD constant; this device reports a single DEFAULT
 # device state that the interactor counts as "unfolded", so the quick panel came up as the foldable pop-over card.
+# Fold sources only: flat sources (S25) already return PHONE from getDeviceFormFactor()
+if [[ "$(GET_FLOATING_FEATURE_CONFIG "$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/etc/floating_feature.xml" \
+        "SEC_FLOATING_FEATURE_FRAMEWORK_SUPPORT_FOLDABLE_TYPE_FOLD")" != "TRUE" ]]; then
+    LOG "- Source is not a foldable, nothing to do"
+    return 0
+fi
 DECODE_APK "system_ext" "priv-app/SystemUI/SystemUI.apk"
 python3 - "$APKTOOL_DIR/system_ext/priv-app/SystemUI/SystemUI.apk" << 'PYEOF' || ABORT "Failed to apply the phone-style quick panel patch"
 import glob, re, sys
