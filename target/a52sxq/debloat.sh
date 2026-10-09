@@ -54,9 +54,9 @@ system/etc/init/ngk_security_audit_common.rc
 system/lib64/libngkms.so
 "
 
-# Galaxy Z Fold8 (SM-F976B / China SM-F9760, still the a52sxq_cn source) leftovers that the S25 (SM-S931B) source
-# doesn't ship. Kept, gated on the Fold8 source, so the a52sxq_cn variant keeps its debloat.
-if [[ "$SOURCE_FIRMWARE" == "SM-F976"* ]]; then
+# Galaxy Z Fold8 (SM-F976B / China SM-F9760, still the a52sxq_cn source) and Galaxy S26 Ultra (SM-S948B) leftovers that
+# the S25 (SM-S931B) source doesn't ship. Entries a source doesn't have are skipped.
+if [[ "$SOURCE_FIRMWARE" == "SM-F976"* || "$SOURCE_FIRMWARE" == "SM-S948"* ]]; then
     # Qualcomm NTN satellite service (vendor.qti.data.ntnsatapp, persistent ".dataservices"): telephony never binds it
     # ("Unable to bind to the satellite service because the package is undefined")
     SYSTEM_EXT_DEBLOAT+="
@@ -79,5 +79,25 @@ system/etc/init/digitalkey_init_uwb_tss2.rc
 "
     PRODUCT_DEBLOAT+="
 overlay/UwbRROverlay.apk
+"
+fi
+
+# Galaxy S26 Ultra (SM-S948B) only services that can't run on SM7325:
+# - DckTimeSyncService: UWB digital car key time sync (no UWB); no other package uses its library
+# - AIOSKernelService: loads libQnnHtpV81Skel.so (SM8850 Hexagon NPU)
+# - VideoScan: boot-time scan job on SM8850 SNPE models (mediacontextanalyzer/*SM8850*.dlc)
+if [[ "$SOURCE_FIRMWARE" == "SM-S948"* ]]; then
+    SYSTEM_EXT_DEBLOAT+="
+priv-app/DckTimeSyncService
+framework/org.carconnectivity.android.digitalkey.timesync.jar
+"
+    SYSTEM_DEBLOAT+="
+system/etc/permissions/org.carconnectivity.android.digitalkey.timesync.xml
+system/etc/permissions/privapp-permissions-com.samsung.android.dcktimesync.xml
+system/priv-app/AIOSKernelService
+system/etc/permissions/privapp-permissions-com.samsung.android.aioskernelservice.xml
+system/priv-app/VideoScan
+system/etc/permissions/privapp-permissions-com.samsung.videoscan.xml
+system/etc/default-permissions/default-permissions-com.samsung.videoscan.xml
 "
 fi

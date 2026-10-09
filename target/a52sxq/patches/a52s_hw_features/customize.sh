@@ -34,6 +34,14 @@ start, end = method_span(s, ".method public getAvailabilityStatus()I")
 s = s[:start] + UNSUPPORTED + s[end:]
 open(f, "w").write(s)
 
+# SecSettings > Display > Privacy display: S26 Ultra sets config_pd_enable, which gates the page, its search entry, the
+# Pd*SettingsActivity components and the Routines action (the panel feature itself is 0); the S25 ships it false
+f = glob.glob(A + "/**/SecSettings.apk/res/values/bools.xml", recursive=True)
+assert len(f) == 1, "SecSettings bools"; f = f[0]
+s = open(f).read()
+s = s.replace('<bool name="config_pd_enable">true</bool>', '<bool name="config_pd_enable">false</bool>')
+open(f, "w").write(s)
+
 # SecSettings > Display > Continue apps on cover screen: fold sources only hide it on multi-fold models; flat
 # sources (S25) already compile it to a constant UNSUPPORTED_ON_DEVICE
 f = glob.glob(A + "/**/SecSettings.apk/smali*/com/samsung/android/settings/display/controller/FrontScreenAppsPreferenceController.smali", recursive=True)
