@@ -112,6 +112,58 @@ REPLACE_SMALI_METHOD()
     fi
     LOG "- Replacing Android 17 method \"$METHOD\" in ${FILE//$APKTOOL_DIR\//}"
 }
+
+# PATCH_POWER_MANAGER_UTIL_CONST <only|except> <value> <replacement>
+# PowerManagerUtil.<clinit>() holds both the auto-brightness type and the HFR mode as
+# bare one-digit const-strings. A plain SMALI_PATCH "replace" of one value also hits the
+# other when the target value of the first equals the source value of the second (e.g.
+# S25 AUTO_BRIGHTNESS 5->3 followed by HFR_MODE 3->2). "only" replaces the const-string
+# that initialises AUTO_BRIGHTNESS_TYPE, "except" replaces every other matching one.
+PATCH_POWER_MANAGER_UTIL_CONST()
+{
+    local MODE="$1"
+    local VALUE="$2"
+    local REPLACEMENT="$3"
+    local SMALI
+
+    DECODE_APK "system" "system/framework/services.jar" || return 1
+    SMALI="$(cd "$APKTOOL_DIR/system/framework/services.jar" && \
+        find . -path "./smali*/com/android/server/power/PowerManagerUtil.smali" | sed "s|^\./||")"
+    if [ ! "$SMALI" ]; then
+        ABORT "PowerManagerUtil.smali not found in /system/system/framework/services.jar"
+        return 1
+    fi
+
+    LOG "- Replacing $([[ "$MODE" == "only" ]] && echo "AUTO_BRIGHTNESS_TYPE" || echo "non AUTO_BRIGHTNESS_TYPE") value \"$VALUE\" with \"$REPLACEMENT\" in /system/system/framework/services.jar/$SMALI"
+    python3 - "$APKTOOL_DIR/system/framework/services.jar/$SMALI" "$MODE" "$VALUE" "$REPLACEMENT" <<'PYEOF' || \
+        { ABORT "Failed to replace \"$VALUE\" ($MODE AUTO_BRIGHTNESS_TYPE) in PowerManagerUtil.<clinit>()V"; return 1; }
+import re, sys
+path, mode, value, repl = sys.argv[1:5]
+src = open(path).read()
+start = src.find(".method static constructor <clinit>()V\n")
+end = src.find("\n.end method", start)
+if start < 0 or end < 0:
+    sys.exit(1)
+body = src[start:end]
+const = re.compile(r'^(    const-string(?:/jumbo)? (v\d+), )"' + re.escape(value) + r'"$', re.M)
+feeds = re.compile(
+    r'\n\n    invoke-static \{(v\d+)\}, Ljava/lang/Integer;->parseInt\(Ljava/lang/String;\)I\n'
+    r'\n    move-result (v\d+)\n'
+    r'\n    sput \2, Lcom/android/server/power/PowerManagerUtil;->AUTO_BRIGHTNESS_TYPE:I\n')
+out, pos, hits = [], 0, 0
+for m in const.finditer(body):
+    f = feeds.match(body, m.end())
+    is_ab = bool(f) and f.group(1) == m.group(2)
+    if is_ab == (mode == "only"):
+        out.append(body[pos:m.start()] + m.group(1) + '"' + repl + '"')
+        pos = m.end()
+        hits += 1
+out.append(body[pos:])
+if hits == 0 or (mode == "only" and hits != 1):
+    sys.exit(1)
+open(path, "w").write(src[:start] + "".join(out) + src[end:])
+PYEOF
+}
 # ]
 
 # SEC_PRODUCT_FEATURE_BUILD_MAINLINE_API_LEVEL
@@ -419,6 +471,31 @@ if $SOURCE_COMMON_SUPPORT_HDR_EFFECT; then
             # backup/restore helpers, skip the video enhancer reset loop and the hdr_effect default.
             APPLY_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
                 "$MODPATH/mdnie/hdr/api37/SecSettings.apk/0001-Disable-HDR-Settings.patch"
+            # The video enhancer reset loop's labels/registers differ per source build
+            # (Fold8 :goto_1c/v4, S25 :goto_17/v6): anchor on the SemDisplaySolutionManager call.
+            HDR_RESET_SMALI="$(cd "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk" && \
+                find . -path './smali*/com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali' | sed "s|^\./||")"
+            if [ "$HDR_RESET_SMALI" ] && python3 - "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/$HDR_RESET_SMALI" <<'PYEOF'
+import re, sys
+path = sys.argv[1]
+src = open(path).read()
+loop = re.compile(
+    r"(\n    :goto_\w+\n)    if-ge (v\d+), v\d+, (:cond_\w+)\n"
+    r"(\n    aget-object (v\d+), v\d+, \2\n\n"
+    r"    invoke-virtual \{v\d+, \5\}, Lcom/samsung/android/displaysolution/SemDisplaySolutionManager;->getVideoEnhancerSettingState\(Ljava/lang/String;\)I\n)")
+hits = loop.findall(src)
+if len(hits) != 1:
+    sys.exit(1)
+src = loop.sub(lambda m: m.group(1) + "    goto " + m.group(3) + "\n" + m.group(4), src)
+open(path, "w").write(src)
+PYEOF
+            then
+                LOG "- Skipping video enhancer reset loop in /system/system/priv-app/SecSettings/SecSettings.apk/$HDR_RESET_SMALI"
+            else
+                LOGW "Video enhancer reset loop not found in UsefulfeatureReset\$1, skipping"
+                echo "/system/system/priv-app/SecSettings/SecSettings.apk product_feature HDR video enhancer reset loop" >> "$OUT_DIR/skipped_patches.txt"
+            fi
+            unset HDR_RESET_SMALI
             APPLY_PATCH "system" "system/priv-app/SettingsProvider/SettingsProvider.apk" \
                 "$MODPATH/mdnie/hdr/api37/SettingsProvider.apk/0001-Disable-HDR-Settings.patch"
         else
@@ -462,7 +539,277 @@ if [[ "$SOURCE_FINGERPRINT_CONFIG_SENSOR" != "$TARGET_FINGERPRINT_CONFIG_SENSOR"
 
     if [[ "$(GET_FINGERPRINT_SENSOR_TYPE "$SOURCE_FINGERPRINT_CONFIG_SENSOR")" != "$(GET_FINGERPRINT_SENSOR_TYPE "$TARGET_FINGERPRINT_CONFIG_SENSOR")" ]]; then
         if [[ "$(GET_FINGERPRINT_SENSOR_TYPE "$SOURCE_FINGERPRINT_CONFIG_SENSOR")" == "ultrasonic" ]]; then
-            if [[ "$(GET_FINGERPRINT_SENSOR_TYPE "$TARGET_FINGERPRINT_CONFIG_SENSOR")" == "optical" ]]; then
+            if [[ "$(GET_FINGERPRINT_SENSOR_TYPE "$TARGET_FINGERPRINT_CONFIG_SENSOR")" == "optical" ]] && \
+                    [ "$SOURCE_PLATFORM_SDK_VERSION" -ge "37" ]; then
+                # One UI 9 (Android 17) ultrasonic source (Galaxy S25) -> optical under-display target.
+                # One UI 9 still ships the whole optical FOD stack in BiometricSetting (OpticalController,
+                # UdfpsMaskWindow, LightSourceView, HbmController) and services (SemUdfpsOpticalHelper,
+                # SemFpOpticalClient); it is selected at runtime from the HAL sensor type and from
+                # SEC_FLOATING_FEATURE_BIOAUTH_CONFIG_FINGERPRINT_FEATURES (target value is kept). So the source
+                # SurfaceFlinger/libgui/libui/BiometricSetting are kept: the One UI 8 r9q prebuilts and optical_fod
+                # core patches below are Android 16 code and must not be mixed into an Android 17 system.
+                # What is compiled in for an ultrasonic sensor: the HIDL sensor type mapping (in-display ->
+                # ULTRASONIC), Characteristics.getSensorType() and FP_FEATURE_SENSOR_IS_ULTRASONIC = true in
+                # services and BiometricSetting. The SurfaceFlinger fingerprint mask layer (HBM trigger) is handled by
+                # target patches (BiometricSetting attaches the indisplay layer itself, libui allows usage bit 34).
+                DECODE_APK "system" "system/framework/framework.jar"
+                DECODE_APK "system" "system/framework/services.jar"
+                DECODE_APK "system" "system/priv-app/BiometricSetting/BiometricSetting.apk"
+                DECODE_APK "system_ext" "priv-app/SystemUI/SystemUI.apk"
+                python3 - "$APKTOOL_DIR" <<'PYEOF' || ABORT "Failed to apply ultrasonic -> optical fingerprint patches"
+import glob, re, sys
+apk = sys.argv[1]
+def one(pat):
+    hits = glob.glob(apk + "/" + pat)
+    assert len(hits) == 1, pat
+    return hits[0]
+def method(s, sig):
+    m = re.search(r"\.method [^\n]*?\b%s\n.*?\n\.end method" % re.escape(sig), s, re.S)
+    assert m, sig
+    return m
+
+# HIDL -> AIDL sensor type: position 2 (in-display) is compiled as UNDER_DISPLAY_ULTRASONIC (2); the A52s HIDL
+# sensor is UNDER_DISPLAY_OPTICAL (3). BiometricSetting/SystemUI/services pick the optical paths from isOpticalType()
+f = one("system/framework/framework.jar/smali*/android/hardware/fingerprint/HidlFingerprintSensorConfig.smali")
+s = open(f).read()
+m = method(s, "mapHidlToAidlSensorConfiguration(Landroid/content/Context;)V")
+body = m.group(0)
+assert "Landroid/hardware/fingerprint/FingerprintManager;->semGetSensorPosition()I" in body, "HidlFingerprintSensorConfig position source"
+pm = re.search(r"\n    const/4 (v\d+), 0x2\n\n    if-eq (v\d+), \1, (:cond_\w+)\n", body)
+assert pm and len(re.findall(r"\n    const/4 v\d+, 0x2\n\n    if-eq ", body)) == 1, "HidlFingerprintSensorConfig in-display branch"
+reg, pos, lbl = pm.groups()
+st = "Landroid/hardware/fingerprint/HidlFingerprintSensorConfig;->sensorType:B"
+assert re.search(r"\n    %s\n    iput-byte %s, p0, %s\n" % (re.escape(lbl), reg, re.escape(st)), body), "HidlFingerprintSensorConfig ultrasonic mapping"
+assert "\n    :goto_0\n" in body, "HidlFingerprintSensorConfig goto_0"
+body = body[:pm.start()] + """
+    const/4 %s, 0x2
+
+    if-ne %s, %s, :cond_unica_not_udfps
+
+    const/4 %s, 0x3
+
+    iput-byte %s, p0, %s
+
+    goto :goto_0
+
+    :cond_unica_not_udfps
+""" % (reg, pos, reg, reg, reg, st) + body[pm.end():]
+open(f, "w").write(s[:m.start()] + body + s[m.end():])
+
+# The in-display position must stay 2 (it already is on an in-display source)
+f = one("system/framework/framework.jar/smali*/android/hardware/fingerprint/FingerprintManager.smali")
+s = open(f).read()
+s, n = re.subn(r"(\.method public static (?:\w+ )*semGetSensorPosition\(\)I\n\s+\.locals 1\n\n\s+)const/4 v0, 0x\d", r"\1const/4 v0, 0x2", s)
+assert n == 1, "FingerprintManager.semGetSensorPosition"
+open(f, "w").write(s)
+
+# Samsung sensor type: 1 = side, 2 = optical, 3 = ultrasonic
+f = one("system/framework/framework.jar/smali*/com/samsung/android/bio/fingerprint/SemFingerprintManager$Characteristics.smali")
+s = open(f).read()
+s, n = re.subn(r"(\.method public (?:\w+ )*getSensorType\(\)I\n\s+\.locals 0\n\n\s+)const/4 p0, 0x3\n", r"\1const/4 p0, 0x2\n", s)
+assert n == 1, "Characteristics.getSensorType"
+open(f, "w").write(s)
+
+# services: FP_FEATURE_SENSOR_IS_ULTRASONIC is compiled in as true while FP_FEATURE_SENSOR_IS_OPTICAL is read
+# from the floating feature; read the ultrasonic flag from the feature string the same way
+f = one("system/framework/services.jar/smali*/com/android/server/biometrics/SemBiometricFeature.smali")
+s = open(f).read()
+cls = "Lcom/android/server/biometrics/SemBiometricFeature;"
+pat = (r"\n    const-string/jumbo (v\d+), \"optical\"\n\n"
+       r"(?:    const-string/jumbo v\d+, \"SEC_FLOATING_FEATURE_BIOAUTH_CONFIG_FINGERPRINT_FEATURES\"\n\n)?"
+       r"    invoke-static \{(v\d+), \1\}, (L[^;]+;->m\(Ljava/lang/String;Ljava/lang/String;\)Z)\n\n"
+       r"    move-result \1\n\n    sput-boolean \1, %s->FP_FEATURE_SENSOR_IS_OPTICAL:Z\n\n    sput-boolean v\d+, %s->FP_FEATURE_SENSOR_IS_ULTRASONIC:Z\n") % (re.escape(cls), re.escape(cls))
+def services_ultrasonic(m):
+    r, key, helper = m.groups()
+    # the helper reads the floating feature named by the key register: make sure it is the fingerprint feature
+    writes = re.findall(r"\n    ([\w/-]+ %s, [^\n]*)" % key, s[:m.start()] + m.group(0))
+    assert writes and writes[-1] == "const-string/jumbo %s, \"SEC_FLOATING_FEATURE_BIOAUTH_CONFIG_FINGERPRINT_FEATURES\"" % key, \
+        "SemBiometricFeature feature key register"
+    return m.group(0)[:m.group(0).rindex("    sput-boolean")] + """    const-string/jumbo %s, "ultrasonic"
+
+    invoke-static {%s, %s}, %s
+
+    move-result %s
+
+    sput-boolean %s, %s->FP_FEATURE_SENSOR_IS_ULTRASONIC:Z
+""" % (r, key, r, helper, r, r, cls)
+s, n = re.subn(pat, services_ultrasonic, s)
+assert n == 1, "SemBiometricFeature.FP_FEATURE_SENSOR_IS_ULTRASONIC"
+open(f, "w").write(s)
+
+# BiometricSetting: same for Utils$Config (FP_FEATURE_SENSOR_IS_ULTRASONIC = true, OPTICAL read from the feature)
+f = one("system/priv-app/BiometricSetting/BiometricSetting.apk/smali*/com/samsung/android/biometrics/app/setting/Utils$Config.smali")
+s = open(f).read()
+cls = "Lcom/samsung/android/biometrics/app/setting/Utils$Config;"
+pat = (r"\n    sput-boolean v\d+, %s->FP_FEATURE_SENSOR_IS_ULTRASONIC:Z\n\n    const-string (v\d+), \"optical\"\n\n"
+       r"    invoke-virtual \{(v\d+), \1\}, Ljava/lang/String;->contains\(Ljava/lang/CharSequence;\)Z\n") % re.escape(cls)
+def bss_ultrasonic(m):
+    r, feat = m.groups()
+    return """
+    const-string %s, "ultrasonic"
+
+    invoke-virtual {%s, %s}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result %s
+
+    sput-boolean %s, %s->FP_FEATURE_SENSOR_IS_ULTRASONIC:Z
+""" % (r, feat, r, r, r, cls) + m.group(0)[m.group(0).index("\n    const-string"):]
+s, n = re.subn(pat, bss_ultrasonic, s)
+assert n == 1, "Utils$Config.FP_FEATURE_SENSOR_IS_ULTRASONIC"
+open(f, "w").write(s)
+
+# On screen-on, UdfpsKeyguardClient.onDisplayStateChanged only shows the lock screen icon of an optical sensor
+# when HBM is already on, i.e. when the screen was woken by a finger on the sensor: after a power-key wake the
+# icon stays hidden until the sensor is touched. Show it whenever the display turns on during keyguard auth.
+f = one("system/priv-app/BiometricSetting/BiometricSetting.apk/smali*/com/samsung/android/biometrics/app/setting/fingerprint/UdfpsKeyguardClient.smali")
+s = open(f).read()
+s, n = re.subn(r"(invoke-virtual \{p1\}, Lcom/samsung/android/biometrics/app/setting/DisplayStateManager;->isEnabledHbm\(\)Z\n\n\s+move-result p1\n\n\s+if-nez p1, (:cond_\d+)\n\n\s+)goto :goto_\d+\n",
+               lambda m: m.group(1) + "goto " + m.group(2) + "\n", s)
+assert n == 1, "UdfpsKeyguardClient.onDisplayStateChanged"
+open(f, "w").write(s)
+
+sysui = "system_ext/priv-app/SystemUI/SystemUI.apk/smali*/"
+# AuthController.updateUdfpsLocation() builds the UDFPS bounds from DeviceState's sensor geometry, which
+# CentralSurfacesImpl.start() fills from /sys/class/fingerprint/fingerprint/position. The HIDL sensor can register
+# before that runs; (re)compute the geometry whenever the bounds are recomputed. The setter is idempotent.
+f = one(sysui + "com/android/systemui/biometrics/AuthController.smali")
+s = open(f).read()
+cls = "Lcom/android/systemui/biometrics/AuthController;"
+assert "Lcom/android/systemui/util/DeviceState;->getInDisplayFingerprintHeight()I" in method(s, "updateUdfpsLocation()V").group(0), "updateUdfpsLocation geometry source"
+s, n = re.subn(r"(\.method public final updateUdfpsLocation\(\)V\n\s+\.locals [1-9]\d*\n)", lambda m: m.group(1) + """
+    move-object/from16 v0, p0
+
+    iget-object v0, v0, %s->mContext:Landroid/content/Context;
+
+    invoke-virtual {v0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/content/res/Resources;->getDisplayMetrics()Landroid/util/DisplayMetrics;
+
+    move-result-object v0
+
+    invoke-static {v0}, Lcom/android/systemui/util/DeviceState;->setInDisplayFingerprintSensorPosition(Landroid/util/DisplayMetrics;)V
+""" % cls, s)
+assert n == 1, "AuthController.updateUdfpsLocation"
+assert "\n.field public final mContext:Landroid/content/Context;\n" in s, "AuthController.mContext"
+
+# AuthController.isUdfpsEnrolled() only reads mUdfpsEnrolledForUser, which handleEnrollmentsChanged() fills when
+# the enrollment broadcast finds the sensor in mFpProps. With a HIDL sensor the broadcast lands before the
+# "all authenticators registered" callback sets mFpProps, so the flag stays false. Fall back to FingerprintManager
+# and cache a positive answer.
+m = method(s, "isUdfpsEnrolled(I)Z")
+old = m.group(0)
+assert "mUdfpsEnrolledForUser" in old and "mUdfpsController" in old and old.count("\n    return") == 2, "isUdfpsEnrolled shape"
+assert "\n.field public final mFingerprintManager:Landroid/hardware/fingerprint/FingerprintManager;\n" in s, "AuthController.mFingerprintManager"
+s = s[:m.start()] + """.method public final isUdfpsEnrolled(I)Z
+    .locals 2
+
+    iget-object v0, p0, Lcom/android/systemui/biometrics/AuthController;->mUdfpsController:Lcom/android/systemui/biometrics/UdfpsController;
+
+    if-nez v0, :unica_no_udfps
+
+    const/4 p0, 0x0
+
+    return p0
+
+    :unica_no_udfps
+    iget-object v0, p0, Lcom/android/systemui/biometrics/AuthController;->mUdfpsEnrolledForUser:Landroid/util/SparseBooleanArray;
+
+    invoke-virtual {v0, p1}, Landroid/util/SparseBooleanArray;->get(I)Z
+
+    move-result v1
+
+    if-eqz v1, :unica_ask_fpm
+
+    return v1
+
+    :unica_ask_fpm
+    iget-object p0, p0, Lcom/android/systemui/biometrics/AuthController;->mFingerprintManager:Landroid/hardware/fingerprint/FingerprintManager;
+
+    invoke-virtual {p0, p1}, Landroid/hardware/fingerprint/FingerprintManager;->hasEnrolledTemplates(I)Z
+
+    move-result p0
+
+    if-eqz p0, :unica_done
+
+    const/4 v1, 0x1
+
+    invoke-virtual {v0, p1, v1}, Landroid/util/SparseBooleanArray;->put(IZ)V
+
+    :unica_done
+    return p0
+.end method""" + s[m.end():]
+open(f, "w").write(s)
+
+# Keyguard keeps fingerprint listening (and the FOD icon shown) while an incoming call or the secure camera occludes
+# the lock screen. While occluded, listen only if the bouncer is coming up, the occluding app asked for fingerprint,
+# or the device is dreaming (AOSP's UDFPS rule).
+f = one(sysui + "com/android/keyguard/KeyguardSecUpdateMonitorImpl.smali")
+s = open(f).read()
+assert "\n.method public final isKeyguardOccluded()Z\n" in s, "KeyguardSecUpdateMonitorImpl.isKeyguardOccluded"
+kum = open(one(sysui + "com/android/keyguard/KeyguardUpdateMonitor.smali")).read()
+for fld in ("mPrimaryBouncerIsOrWillBeShowing:Z", "mOccludingAppRequestingFp:Z", "mIsDreaming:Z"):
+    assert re.search(r"\n\.field public [^\n]*?\b%s\n" % re.escape(fld), kum), "KeyguardUpdateMonitor." + fld
+guard = """
+    invoke-virtual {p0}, Lcom/android/keyguard/KeyguardSecUpdateMonitorImpl;->isKeyguardOccluded()Z
+
+    move-result v0
+
+    if-eqz v0, :unica_occlusion_ok
+
+    iget-boolean v0, p0, Lcom/android/keyguard/KeyguardUpdateMonitor;->mPrimaryBouncerIsOrWillBeShowing:Z
+
+    if-nez v0, :unica_occlusion_ok
+
+    iget-boolean v0, p0, Lcom/android/keyguard/KeyguardUpdateMonitor;->mOccludingAppRequestingFp:Z
+
+    if-nez v0, :unica_occlusion_ok
+
+    iget-boolean v0, p0, Lcom/android/keyguard/KeyguardUpdateMonitor;->mIsDreaming:Z
+
+    if-nez v0, :unica_occlusion_ok
+
+    const-string v0, "KeyguardFingerprint"
+
+    const-string v1, "shouldListenForFingerprint ( return false, keyguard occluded and sensor is under the display )"
+
+    invoke-static {v0, v1}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
+
+    const/4 v0, 0x0
+
+    return v0
+
+    :unica_occlusion_ok
+"""
+s, n = re.subn(r"(\.method public final shouldListenForFingerprint\(Z\)Z\n\s+\.locals (?:[2-9]|\d\d+)\n)",
+               lambda m: m.group(1) + guard, s)
+assert n == 1, "KeyguardSecUpdateMonitorImpl.shouldListenForFingerprint"
+open(f, "w").write(s)
+PYEOF
+                # Stock optical One UI: lighter keyguard blur and no keyguard scrim over the sensor with fingerprint
+                # unlock enabled (compiled out as false on the ultrasonic source)
+                SMALI_PATCH "system_ext" "priv-app/SystemUI/SystemUI.apk" \
+                    "smali_classes4/com/android/systemui/util/DeviceType.smali" "return" \
+                    "isOpticalFingerprintSupported()Z" "true"
+                LOG "- Applied ultrasonic -> optical fingerprint patches (Android 17)"
+
+                if [[ "$TARGET_FINGERPRINT_CONFIG_SENSOR" == *"no_delay_in_screen_off"* ]]; then
+                    LOGW "FP_FEATURE_NO_DELAY_IN_SCREEN_OFF is not ported to the Android 17 BiometricSetting, skipping"
+                fi
+
+                if [[ "$TARGET_FINGERPRINT_CONFIG_SENSOR" == *"transition_effect_on"* ]]; then
+                    SMALI_PATCH "system" "system/framework/framework.jar" \
+                        "smali_classes2/android/hardware/fingerprint/FingerprintManager.smali" "return" \
+                        "semGetTransitionEffectValue()I" \
+                        "1"
+                elif [[ "$TARGET_FINGERPRINT_CONFIG_SENSOR" == *"transition_effect_off"* ]]; then
+                    SMALI_PATCH "system" "system/framework/framework.jar" \
+                        "smali_classes2/android/hardware/fingerprint/FingerprintManager.smali" "return" \
+                        "semGetTransitionEffectValue()I" \
+                        "0"
+                fi
+            elif [[ "$(GET_FINGERPRINT_SENSOR_TYPE "$TARGET_FINGERPRINT_CONFIG_SENSOR")" == "optical" ]]; then
                 SOURCE_FINGERPRINT_CONFIG_SENSOR="google_touch_display_optical,settings=3"
 
                 if [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "qssi" ]]; then
@@ -804,9 +1151,7 @@ fi
 if [[ "$SOURCE_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS" != "$TARGET_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS" ]]; then
     SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS" "$TARGET_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS"
 
-    SMALI_PATCH "system" "system/framework/services.jar" \
-        "smali_classes2/com/android/server/power/PowerManagerUtil.smali" "replace" \
-        "<clinit>()V" \
+    PATCH_POWER_MANAGER_UTIL_CONST "only" \
         "$SOURCE_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS" \
         "$TARGET_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS"
     SMALI_PATCH "system" "system/framework/ssrm.jar" \
@@ -978,9 +1323,8 @@ if [[ "$SOURCE_LCD_CONFIG_HFR_MODE" != "$TARGET_LCD_CONFIG_HFR_MODE" ]]; then
         "smali/com/samsung/android/hardware/secinputdev/utils/SemInputFeaturesExtra.smali" "replaceall" \
         "\\\"$SOURCE_LCD_CONFIG_HFR_MODE\\\"" \
         "\\\"$TARGET_LCD_CONFIG_HFR_MODE\\\""
-    SMALI_PATCH "system" "system/framework/services.jar" \
-        "smali_classes2/com/android/server/power/PowerManagerUtil.smali" "replace" \
-        "<clinit>()V" \
+    # Must not touch the (possibly already rewritten) AUTO_BRIGHTNESS_TYPE const-string
+    PATCH_POWER_MANAGER_UTIL_CONST "except" \
         "$SOURCE_LCD_CONFIG_HFR_MODE" \
         "$TARGET_LCD_CONFIG_HFR_MODE"
     SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
@@ -1951,4 +2295,4 @@ elif $SOURCE_WLAN_SUPPORT_WIFI_TO_CELLULAR && ! $TARGET_WLAN_SUPPORT_WIFI_TO_CEL
 fi
 
 unset TARGET_FIRMWARE_PATH
-unset -f GET_FINGERPRINT_SENSOR_TYPE LOG_MISSING_PATCHES REQUIRE_FIXED_COUNT REQUIRE_METHOD_FIXED_COUNT REPLACE_SMALI_METHOD
+unset -f GET_FINGERPRINT_SENSOR_TYPE LOG_MISSING_PATCHES REQUIRE_FIXED_COUNT REQUIRE_METHOD_FIXED_COUNT REPLACE_SMALI_METHOD PATCH_POWER_MANAGER_UTIL_CONST

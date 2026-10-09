@@ -4,25 +4,11 @@ Date: Tue, 7 Oct 2026 18:00:00 +0300
 Subject: [PATCH] Disable HDR Settings (SDK 37)
 
 ---
- .../com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali   |   2 +-
  .../com/samsung/android/settings/usefulfeature/UsefulfeatureUtils.smali     | 366 +-----------------------------------
  .../videoenhancer/SecBrightenUpVideoPreferenceController.smali              |  15 +-
  .../usefulfeature/videoenhancer/VideoEnhancerPreferenceController.smali     |  15 +-
- 4 files changed, 5 insertions(+), 393 deletions(-)
+ 3 files changed, 4 insertions(+), 392 deletions(-)
 
-diff --git a/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali b/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali
-index 09e5f20..b9cce60 100644
---- a/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali
-+++ b/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureReset$1.smali
-@@ -1547,7 +1547,7 @@
-     move v4, v5
- 
-     :goto_1c
--    if-ge v4, v8, :cond_37
-+    goto :cond_37
- 
-     aget-object v7, v9, v4
- 
 diff --git a/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureUtils.smali b/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureUtils.smali
 index b115230..0aff498 100644
 --- a/smali_classes3/com/samsung/android/settings/usefulfeature/UsefulfeatureUtils.smali

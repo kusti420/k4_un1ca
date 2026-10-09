@@ -89,15 +89,33 @@ SMALI_PATCH "system" "system/framework/services.jar" \
     "smali/com/android/server/StorageManagerService.smali" "return" \
     'isRootedDevice()Z' 'false'
 
-# One UI 9 replaced KnoxGuardSeService with KnoxGuard30Service. Match the
-# upstream KnoxPatch behavior at the new constructor boundary: throw after
-# the Binder stub is initialised so SystemServer's existing catch path skips
-# registration without entering the missing KG30 vendor AIDL path.
-SMALI_PATCH "system" "system/framework/services.jar" \
-    "smali_classes2/com/samsung/android/knoxguard30/service/KnoxGuard30Service.smali" "replace" \
-    '<init>(Landroid/content/Context;)V' \
-    'sput-object p1, Lcom/samsung/android/knoxguard30/service/KnoxGuard30Service;->mContext:Landroid/content/Context;' \
-    '    new-instance v0, Ljava/lang/UnsupportedOperationException;\n\n    const-string v1, "KnoxGuard 3.0 is unsupported on this port"\n\n    invoke-direct {v0, v1}, Ljava/lang/UnsupportedOperationException;-><init>(Ljava/lang/String;)V\n\n    throw v0'
+# Match the upstream KnoxPatch behavior at the KnoxGuard service constructor
+# boundary: throw right after the Binder stub is initialised so SystemServer's
+# existing catch path ("Failed to add KnoxGuardService.") skips registration.
+# Depending on the source, SystemServer instantiates either KnoxGuard30Service
+# (e.g. Fold8 One UI 9) or the legacy KnoxGuardSeService (e.g. S25 One UI 9).
+# Only p1 (already consumed) and v0 are used, so .locals stays untouched.
+DECODE_APK "system" "system/framework/services.jar"
+for KG_CLASS in \
+    "com/samsung/android/knoxguard30/service/KnoxGuard30Service" \
+    "com/samsung/android/knoxguard/service/KnoxGuardSeService"
+do
+    KG_SMALI="$(cd "$APKTOOL_DIR/system/framework/services.jar" && \
+        find . -path "./smali*/$KG_CLASS.smali" | sed "s|^\./||")"
+    [ "$KG_SMALI" ] || continue
+    grep -q -F "L$KG_CLASS;-><init>(Landroid/content/Context;)V" \
+        "$APKTOOL_DIR/system/framework/services.jar/smali/com/android/server/SystemServer.smali" || continue
+    SMALI_PATCH "system" "system/framework/services.jar" \
+        "$KG_SMALI" "replace" \
+        '<init>(Landroid/content/Context;)V' \
+        "sput-object p1, L$KG_CLASS;->mContext:Landroid/content/Context;" \
+        '    new-instance v0, Ljava/lang/UnsupportedOperationException;\n\n    const-string p1, "KnoxGuard is unsupported on this port"\n\n    invoke-direct {v0, p1}, Ljava/lang/UnsupportedOperationException;-><init>(Ljava/lang/String;)V\n\n    throw v0'
+    KG_PATCHED=true
+done
+if [ "$KG_PATCHED" != "true" ]; then
+    ABORT "No KnoxGuard service constructor instantiated by SystemServer was found"
+fi
+unset KG_CLASS KG_SMALI KG_PATCHED
 
 # Knox Matrix 3.x verifies parsed attestation objects through FabricCertUtil.
 # Patch the decision points as well as the value-object accessors used by its

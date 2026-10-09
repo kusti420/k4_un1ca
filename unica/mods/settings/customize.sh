@@ -122,22 +122,72 @@ SMALI_PATCH "system" "system/framework/services.jar" \
     'verifyReplacingVersionCode(Landroid/content/pm/PackageInfoLite;JI)Landroid/util/Pair;' \
     'invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;' \
     'invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;\n\n    iget-object v12, v2, Lcom/android/server/pm/InstallPackageHelper;->mContext:Landroid/content/Context;\n\n    invoke-virtual {v12}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;\n\n    move-result-object v12\n\n    const-string v13, "unica_allow_downgrade"\n\n    const/4 v14, 0x0\n\n    invoke-static {v12, v13, v14}, Landroid/provider/Settings$System;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I\n\n    move-result v12\n\n    if-eqz v12, :unica_allow_downgrade\n\n    const v12, 0x100080\n\n    or-int/2addr v3, v12\n\n    :unica_allow_downgrade'
-SMALI_PATCH "system" "system/framework/services.jar" \
-    "smali_classes2/com/android/server/pm/InstallPackageHelper.smali" "replace" \
-    'preparePackage(Lcom/android/server/pm/InstallRequest;)V' \
-    '.locals 43' \
-    '.locals 46'
-SMALI_PATCH "system" "system/framework/services.jar" \
-    "smali_classes2/com/android/server/pm/InstallPackageHelper.smali" "replace" \
-    'preparePackage(Lcom/android/server/pm/InstallRequest;)V' \
-    'if-nez v0, :cond_19' \
-       'if-nez v0, :cond_19\n\n    iget-object v0, v1, Lcom/android/server/pm/InstallPackageHelper;->mContext:Landroid/content/Context;\n\n    invoke-virtual {v0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;\n\n    move-result-object v43\n\n    const-string v44, "unica_allow_sdkbypass"\n\n    const/16 v45, 0x0\n\n    invoke-static/range {v43 .. v45}, Landroid/provider/Settings$System;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I\n\n    move-result v43\n\n    if-nez v43, :cond_19'
+# Allow installing apps below MIN_INSTALLABLE_TARGET_SDK when "unica_allow_sdkbypass" is set.
+# Registers/labels differ per source build: anchor on the MIN_INSTALLABLE_TARGET_SDK check,
+# append three registers past .locals and resolve the low register holding "this".
+INSTALL_HELPER_SMALI="$(cd "$APKTOOL_DIR/system/framework/services.jar" && \
+    find . -path "./smali*/com/android/server/pm/InstallPackageHelper.smali" | sed "s|^\./||")"
+if [ ! "$INSTALL_HELPER_SMALI" ] || ! python3 - "$APKTOOL_DIR/system/framework/services.jar/$INSTALL_HELPER_SMALI" <<'PYEOF'
+import re, sys
+path = sys.argv[1]
+src = open(path).read()
+sig = ".method public final preparePackage(Lcom/android/server/pm/InstallRequest;)V\n"
+start = src.find(sig)
+end = src.find("\n.end method", start)
+if start < 0 or end < 0 or src.count(sig) != 1:
+    sys.exit("preparePackage(InstallRequest) not found")
+body = src[start:end]
+if "unica_allow_sdkbypass" in body:
+    sys.exit(0)
+locals_m = re.search(r"\n    \.locals (\d+)\n", body)
+this_m = re.search(r"\n    move-object(?:/from16)? (v\d+), p0\n", body)
+gate = re.compile(
+    r"\n    if-nez (v\d+), (:cond_\w+)\n"
+    r"(?=\n    invoke-interface \{v\d+\}, Lcom/android/internal/pm/parsing/pkg/ParsedPackage;->getTargetSdkVersion\(\)I\n"
+    r"\n    move-result \1\n"
+    r"\n    sget v\d+, Lcom/android/server/pm/PackageManagerService;->MIN_INSTALLABLE_TARGET_SDK:I\n)")
+hits = gate.findall(body)
+if not locals_m or not this_m or len(hits) != 1:
+    sys.exit("unexpected preparePackage shape (locals=%s this=%s gates=%d)" % (bool(locals_m), bool(this_m), len(hits)))
+n = int(locals_m.group(1))
+flag, label = hits[0]
+this = this_m.group(1)
+if int(flag[1:]) > 15 or int(this[1:]) > 15:
+    sys.exit("preparePackage registers out of iget-object range")
+r0, r1, r2 = "v%d" % n, "v%d" % (n + 1), "v%d" % (n + 2)
+hook = (
+    "\n    if-nez %(flag)s, %(label)s\n"
+    "\n    iget-object %(flag)s, %(this)s, Lcom/android/server/pm/InstallPackageHelper;->mContext:Landroid/content/Context;\n"
+    "\n    invoke-virtual {%(flag)s}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;\n"
+    "\n    move-result-object %(r0)s\n"
+    "\n    const-string %(r1)s, \"unica_allow_sdkbypass\"\n"
+    "\n    const/16 %(r2)s, 0x0\n"
+    "\n    invoke-static/range {%(r0)s .. %(r2)s}, Landroid/provider/Settings$System;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I\n"
+    "\n    move-result %(r0)s\n"
+    "\n    if-nez %(r0)s, %(label)s\n"
+) % dict(flag=flag, label=label, this=this, r0=r0, r1=r1, r2=r2)
+body = gate.sub(lambda m: hook, body, count=1)
+body = body.replace("\n    .locals %d\n" % n, "\n    .locals %d\n" % (n + 3), 1)
+open(path, "w").write(src[:start] + body + src[end:])
+print("    - Patched SDK bypass in preparePackage (.locals %d -> %d, gate %s/%s)" % (n, n + 3, flag, label))
+PYEOF
+then
+    ABORT "Failed to patch InstallPackageHelper.preparePackage SDK bypass"
+fi
+unset INSTALL_HELPER_SMALI
 
 ASKS_SMALI="$APKTOOL_DIR/system/framework/services.jar/smali/com/android/server/asks/ASKSManagerService.smali"
 ASKS_POLICY_METHOD='getUnknownAppsDataFromXML(ILjava/util/ArrayList;Ljava/util/HashMap;Z)V'
 if ! sed -n '/^\.method.*getUnknownAppsDataFromXML(/,/^\.end method/p' "$ASKS_SMALI" | \
         grep -q 'ro.build.official.release'; then
     ASKS_POLICY_METHOD='getPolicyFilePath(IZ)Ljava/lang/String;'
+fi
+# Some One UI 9 builds (e.g. S25) moved the body of refreshInstalledUnknownList_NEW()
+# into a locked refreshInstalledUnknownList_NEWInner() helper
+ASKS_REFRESH_METHOD='refreshInstalledUnknownList_NEW()V'
+if ! sed -n '/^\.method.* refreshInstalledUnknownList_NEW()V/,/^\.end method/p' "$ASKS_SMALI" | \
+        grep -q 'ro.build.official.release'; then
+    ASKS_REFRESH_METHOD='refreshInstalledUnknownList_NEWInner()V'
 fi
 
 SMALI_PATCH "system" "system/framework/services.jar" \
@@ -152,12 +202,12 @@ SMALI_PATCH "system" "system/framework/services.jar" \
     'true'
 SMALI_PATCH "system" "system/framework/services.jar" \
     "smali/com/android/server/asks/ASKSManagerService.smali" "replace" \
-    'refreshInstalledUnknownList_NEW()V' \
+    "$ASKS_REFRESH_METHOD" \
     'ro.build.official.release' \
     'persist.sys.unica.asks'
 SMALI_PATCH "system" "system/framework/services.jar" \
     "smali/com/android/server/asks/ASKSManagerService.smali" "replace" \
-    'refreshInstalledUnknownList_NEW()V' \
+    "$ASKS_REFRESH_METHOD" \
     'false' \
     'true'
 SMALI_PATCH "system" "system/framework/services.jar" \
@@ -170,7 +220,7 @@ SMALI_PATCH "system" "system/framework/services.jar" \
     'verifyASKStokenForPackage(Ljava/lang/String;Ljava/lang/String;J[Landroid/content/pm/Signature;Ljava/lang/String;Ljava/lang/String;Z)I' \
     'invoke-static {v6}, Landroid/os/SystemProperties;->get(Ljava/lang/String;)Ljava/lang/String;' \
     'const-string/jumbo v10, "true"\n\n    invoke-static {v6, v10}, Landroid/os/SystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;'
-unset ASKS_SMALI ASKS_POLICY_METHOD
+unset ASKS_SMALI ASKS_POLICY_METHOD ASKS_REFRESH_METHOD
 
 LOG_STEP_IN "- Adding UN1CA Settings"
 
@@ -201,6 +251,32 @@ while IFS= read -r f; do
         EVAL "sed -i \"$PATCH_INST $CONTENT\" \"$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/$f\""
     fi
 done < <(find "$MODPATH/SecSettings.apk" -type f)
+
+# The SecDisplayUtils refresh-rate helpers take a Context on some One UI 9 builds (Fold8)
+# but not on others (S25): match the ForceMaxRefreshRate controller calls to the source.
+SEC_DISPLAY_UTILS="$(cd "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk" && \
+    find . -path "./smali*/com/samsung/android/settings/display/SecDisplayUtils.smali" | sed "s|^\./||")"
+FORCE_MAX_RR="$(cd "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk" && \
+    find . -path "./smali*/io/mesalabs/unica/settings/ui/ForceMaxRefreshRatePreferenceController.smali" | sed "s|^\./||")"
+if [ "$SEC_DISPLAY_UTILS" ] && [ "$FORCE_MAX_RR" ]; then
+    SEC_DISPLAY_UTILS="$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/$SEC_DISPLAY_UTILS"
+    FORCE_MAX_RR="$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/$FORCE_MAX_RR"
+    if ! grep -q "^\.method.* getHighRefreshRateSeamlessType(Landroid/content/Context;I)I" "$SEC_DISPLAY_UTILS" && \
+            grep -q "^\.method.* getHighRefreshRateSeamlessType(I)I" "$SEC_DISPLAY_UTILS"; then
+        LOG "- Using getHighRefreshRateSeamlessType(I)I in ForceMaxRefreshRatePreferenceController"
+        EVAL "sed -i 's|invoke-static {p2, p1}, Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateSeamlessType(Landroid/content/Context;I)I|invoke-static {p1}, Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateSeamlessType(I)I|' \"$FORCE_MAX_RR\""
+    fi
+    if ! grep -q "^\.method.* getHighRefreshRateMaxValue(Landroid/content/Context;)I" "$SEC_DISPLAY_UTILS" && \
+            grep -q "^\.method.* getHighRefreshRateMaxValue()I" "$SEC_DISPLAY_UTILS"; then
+        LOG "- Using getHighRefreshRateMaxValue()I in ForceMaxRefreshRatePreferenceController"
+        EVAL "sed -i 's|invoke-static {p2}, Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateMaxValue(Landroid/content/Context;)I|invoke-static {}, Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateMaxValue()I|' \"$FORCE_MAX_RR\""
+    fi
+    for SDU_CALL in $(grep -o "SecDisplayUtils;->[A-Za-z0-9_]*([^)]*)[^ ]*" "$FORCE_MAX_RR" | sed "s/SecDisplayUtils;->//" | sort -u); do
+        grep -q -F -- " $SDU_CALL" <(grep "^\.method" "$SEC_DISPLAY_UTILS") || \
+            ABORT "SecDisplayUtils;->$SDU_CALL used by ForceMaxRefreshRatePreferenceController is missing in the source SecSettings"
+    done
+fi
+unset SEC_DISPLAY_UTILS FORCE_MAX_RR SDU_CALL
 
 # Add UN1CA Settings SearchIndexableData registrations
 LOG "- Patching \"smali_classes2/com/android/settings/search/SearchFeatureProviderImpl\$\$ExternalSyntheticLambda0.smali\" in /system/system/priv-app/SecSettings.apk"
