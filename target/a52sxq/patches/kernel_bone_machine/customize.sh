@@ -1,6 +1,3 @@
-# 2026-10-09: kernel switched to the community "ghost" kernel (5.4.302-Ghost, clang 22, ReSukiSU 4.2.0-rc3, built 2026-09-29) at the
-# user's request. NOTE: ghost has no CONFIG_DEBUG_INFO_BTF, so Android 17 per-app CPU time (battery usage per app) is broken
-# until a BTF build is used (see prebuilts/kernel/bone-machine/k4-source, k4-patches 0005). The bone-machine BTF build stays in prebuilts.
 # Swap the stock A528BXXU5FWK4 kernel (5.4.233, Nov 2023) for bone-machine's One UI kernel 5.4.302 (see module.prop).
 # The release zip ships boot.img, vendor_boot.img and dtbo.img meant to be flashed over stock One UI 6 on the A528B:
 # - boot.img: only its kernel Image is used. Our boot.img keeps its ramdisk, cmdline and header, including the
@@ -10,9 +7,9 @@
 #   stale 5.4.233 copies in /vendor/lib/modules are never needed (their symbol CRCs do not match this kernel).
 # - dtbo.img: used as is (target/a52sxq/installer/customize.sh skips the A528N dtbo while this patch is enabled).
 # AVB footers are added later by the normal packaging step (images are unsigned here).
-KZIP="$SRC_DIR/prebuilts/kernel/ghost/ghost_2026-09-29_One-UI_ReSukiSU-v4.2.0-rc3_a52sxq_726c36de7.zip"
-KSHA="0c7e2fb69775fab41912e05d7fe571740940999bde31a12826867f3145b0620f"
-KVER="5.4.302-Ghost"
+KZIP="$SRC_DIR/prebuilts/kernel/bone-machine/bone-machine_k4btf_a52sxq.zip"
+KSHA="ca625587a1722edffb0d1f47ed0dcf40cdb0ddd855e80941bf18027d1e42c039"
+KVER="5.4.302-bone-machine-qgki"
 [ -f "$KZIP" ] || ABORT "kernel_bone_machine: $KZIP not found"
 [ "$(sha256sum "$KZIP" | cut -d " " -f 1)" = "$KSHA" ] || ABORT "kernel_bone_machine: sha256 mismatch for $KZIP"
 for f in boot.img vendor_boot.img dtbo.img; do

@@ -1,2 +1,0 @@
-Community "ghost" kernel for a52sxq: 5.4.302-Ghost, clang 22.0.2 (r596125), ReSukiSU v4.2.0-rc3, built 2026-09-29 (file from Telegram).
-sha256 0c7e2fb69775fab41912e05d7fe571740940999bde31a12826867f3145b0620f. No BTF (per-app CPU time broken). GPU table stock-like.
