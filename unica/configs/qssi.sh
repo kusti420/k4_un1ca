@@ -104,14 +104,14 @@ SOURCE_RIL_SIM_CONFIG_MULTISIM_TRAYCOUNT="1"
 # telephony-common UiccController "waterproof" extra = 0x1
 SOURCE_RIL_SUPPORT_WATERPROOF_SIM_TRAY_MSG=true
 # semwifi-service SemWifiInjector.<init> ConnectionPersonalizer gate "2"; SecSettings BtmController "2"
-SOURCE_WLAN_CONFIG_CONNECTION_PERSONALIZATION="2"
+SOURCE_WLAN_CONFIG_CONNECTION_PERSONALIZATION="3"
 # SemFrameworkFacade.getBoosterThresholds parses "0" for all three
 SOURCE_WLAN_CONFIG_CPU_CSTATE_DISABLE_THRESHOLD="0"
 # SemWifiCoexManager CUSTOM_BACKOFF_TYPE
 SOURCE_WLAN_CONFIG_CUSTOM_BACKOFF="CAM_BACK -1 -1 -1 -1 14 13 UWB_5G_CX 36 177 UWB_6G_CX 1 233 UWB_CX_CH 2 5 9 UWB_CX_TYPE 1 1"
 SOURCE_WLAN_CONFIG_DATA_ACTIVITY_AFFINITY_BOOSTER_THRESHOLD="0"
 # SemWifiInjector.<init> SemWifiResourceManager gate "7"; SemWifiResourceManager.<init> "7"
-SOURCE_WLAN_CONFIG_DYNAMIC_SWITCH="7"
+SOURCE_WLAN_CONFIG_DYNAMIC_SWITCH="5"
 SOURCE_WLAN_CONFIG_L1SS_DISABLE_THRESHOLD="0"
 # SemSoftApConfiguration SPF_* diagnostics, SemFrameworkFacade / SemWifiServiceImpl feature methods
 SOURCE_WLAN_SUPPORT_80211AX=true
