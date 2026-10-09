@@ -164,6 +164,45 @@ if hits == 0 or (mode == "only" and hits != 1):
 open(path, "w").write(src[:start] + "".join(out) + src[end:])
 PYEOF
 }
+
+# Forces static boolean fields that a source firmware hardcodes in <clinit>()V (e.g. CoreRune) to false. Each matching
+# sput-boolean is redirected to a fresh zeroed register, so the code that computed the original value is left untouched.
+FORCE_STATIC_BOOLEAN_FALSE()
+{
+    local PARTITION="$1"
+    local FILE="$2"
+    local CLASS="$3"
+    shift 3
+    local SMALI
+
+    DECODE_APK "$PARTITION" "$FILE" || return 1
+    SMALI="$(cd "$APKTOOL_DIR/$FILE" && find . -path "./smali*/$CLASS.smali" | sed "s|^\./||" | head -n 1)"
+    if [ ! "$SMALI" ]; then
+        ABORT "$CLASS.smali not found in /$PARTITION/$FILE"
+        return 1
+    fi
+
+    LOG "- Forcing $* to false in /$PARTITION/$FILE/$SMALI"
+    python3 - "$APKTOOL_DIR/$FILE/$SMALI" "$CLASS" "$@" <<'PYEOF' || \
+        { ABORT "Failed to force $* to false in $CLASS"; return 1; }
+import re, sys
+path, cls, fields = sys.argv[1], sys.argv[2], sys.argv[3:]
+src = open(path).read()
+m = re.search(r'^\.method static constructor (?:\S+ )?<clinit>\(\)V\n    \.locals (\d+)\n', src, re.M)
+if not m:
+    sys.exit(1)
+end = src.find("\n.end method", m.end())
+reg = "v%d" % int(m.group(1))
+body = src[m.end():end]
+for field in fields:
+    sput = re.compile(r'^    sput-boolean v\d+, L' + re.escape(cls) + ';->' + re.escape(field) + r':Z$', re.M)
+    body, n = sput.subn("    const/16 %s, 0x0\n\n    sput-boolean %s, L%s;->%s:Z" % (reg, reg, cls, field), body)
+    if n != 1:
+        sys.exit(1)
+head = src[:m.start()] + src[m.start():m.end()].replace(".locals " + m.group(1), ".locals %d" % (int(m.group(1)) + 1))
+open(path, "w").write(head + body + src[end:])
+PYEOF
+}
 # ]
 
 # SEC_PRODUCT_FEATURE_BUILD_MAINLINE_API_LEVEL
@@ -461,8 +500,28 @@ open(f, "w").write(s)
 PYEOF
         LOG "- Hid Settings > Display > Screen resolution (fixed-resolution target)"
         unset SR_SMALI
+        # These sources also hardcode the multi-resolution/density-mapping runes on in CoreRune (the inverse of
+        # 0001-Enable-FW_SUPPORT_MULTI_RESOLUTION.patch), which keeps the framework scaling for a WQHD panel.
+        FORCE_STATIC_BOOLEAN_FALSE "system" "system/framework/framework.jar" "com/samsung/android/rune/CoreRune" \
+            "FW_SUPPORT_MULTI_RESOLUTION" "FW_MULTI_RESOLUTION_POLICY" "FW_DENSITY_MAPPING" "FW_RESOLUTION_VOTE_FOR_BLOCK_APP"
     fi
 fi
+
+# SEC_FLOATING_FEATURE_LCD_CONFIG_PRIVACY_DISPLAY
+# Privacy Display sources (e.g. Galaxy S26 Ultra) hardcode the feature on in CoreRune and PowerManagerUtil regardless of
+# the floating feature, which __floating_feature already sets to 0 for the target panel.
+SOURCE_PRIVACY_DISPLAY="$(GET_FLOATING_FEATURE_CONFIG \
+    "$FW_DIR/$(cut -d "/" -f 1 -s <<< "$SOURCE_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$SOURCE_FIRMWARE")/system/system/etc/floating_feature.xml" \
+    "SEC_FLOATING_FEATURE_LCD_CONFIG_PRIVACY_DISPLAY")"
+if [ "$SOURCE_PRIVACY_DISPLAY" ] && [[ "$SOURCE_PRIVACY_DISPLAY" != "0" ]]; then
+    if [[ "$(GET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_LCD_CONFIG_PRIVACY_DISPLAY")" == "0" ]]; then
+        FORCE_STATIC_BOOLEAN_FALSE "system" "system/framework/framework.jar" "com/samsung/android/rune/CoreRune" \
+            "FW_PRIVACY_DISPLAY" "FW_PARTIAL_PRIVACY_DISPLAY"
+        FORCE_STATIC_BOOLEAN_FALSE "system" "system/framework/services.jar" "com/android/server/power/PowerManagerUtil" \
+            "SEC_FEATURE_SUPPORT_PRIVACY_DISPLAY"
+    fi
+fi
+unset SOURCE_PRIVACY_DISPLAY
 
 # SEC_PRODUCT_FEATURE_COMMON_SUPPORT_EMBEDDED_SIM
 if $SOURCE_COMMON_SUPPORT_EMBEDDED_SIM; then
