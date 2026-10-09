@@ -1,0 +1,4 @@
+id=a52sxq_gphotos_features
+name=Galaxy A52s 5G: Google Photos Pixel features
+author=kusti420
+description=UN1CA's Google Photos toggle only spoofs Build.* to a Pixel XL for com.google.android.apps.photos; Photos also requires the com.google.android.apps.photos.NEXUS_PRELOAD / nexus_preload system features (as declared by Pixel/custom ROMs that get unlimited backup) before it offers unlimited storage. Declare them.

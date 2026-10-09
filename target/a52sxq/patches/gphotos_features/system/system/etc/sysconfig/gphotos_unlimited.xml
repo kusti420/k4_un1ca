@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Google Photos "Pixel 1" unlimited backup: Photos checks these features in addition to the device identity.
+     The identity part (Pixel XL / marlin) is spoofed per-app by SamsungPropsHooks when the UN1CA
+     "Unlimited Google Photos storage" toggle (persist.sys.unica.gphotos) is on. Only Google Photos reads them. -->
+<config>
+    <feature name="com.google.android.apps.photos.NEXUS_PRELOAD" />
+    <feature name="com.google.android.apps.photos.nexus_preload" />
+</config>
