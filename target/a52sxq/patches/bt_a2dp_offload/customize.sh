@@ -6,9 +6,9 @@
 # container signed with ../tethering/keys/container.*). The inner APK is signed with security/aosp_platform like every other
 # system app of this build. Must be regenerated whenever the source firmware (and thus Bluetooth.apk) changes.
 #
-# Current prebuilt: regenerated 2026-10-09 from the Galaxy S25 SM-S931B One UI 9 S931BXXUCDZIF (CP2A.260605.016)
-#   source com.android.bt.apex sha256 e5ff03d5e8e5b0a35cf5d483570ed0edcf0595669067ef22aca1ed80bb7d879b (version 370399999)
-#   shipped  com.android.bt.apex sha256 b5c70b90f4de8db4247a3be7f66a7a9a6192b05210815c9138ab430faf9c5332
+# Current prebuilt: regenerated 2026-10-09 from the Galaxy S26 Ultra SM-S948B One UI 9 S948BXXS4BZIG (S25 S931B before) (CP2A.260605.016)
+#   source com.android.bt.apex sha256 bb4b11e1c82b98edf60450a5005a7e0bd91977c5c2fa0a10235a1fb3495e2bde (version 370399999)
+#   shipped  com.android.bt.apex sha256 8b34a72029d0304aeb4bfd05d821ae552d7e38dcfde2f66ee1ccf396606746a6
 # Verified: only app/Bluetooth@CP2A.260605.016/Bluetooth.apk differs from the S25 payload; the smali diff (2 files of code:
 # the 3-codec guard in isOffloadSupportedCodec and "const/4 v6, 0x0" after checkHqCodecState) is byte-identical to the
 # Fold8 (F976BXXU1AZFW, source sha256 da4f2353...) prebuilt's diff; same AVB key/algorithm, container cert and inner cert.
@@ -16,14 +16,14 @@
 # bluetooth.hfp.swb.supported=true as the Fold8, so the prop overrides below are still needed.
 # The guard pins the exact source APEX: any other source (or another S25 build) must re-run rebuild_apex.sh and update
 # BT_A2DP_SOURCE_APEX_SHA256.
-BT_A2DP_SOURCE_APEX_SHA256="e5ff03d5e8e5b0a35cf5d483570ed0edcf0595669067ef22aca1ed80bb7d879b"
+BT_A2DP_SOURCE_APEX_SHA256="bb4b11e1c82b98edf60450a5005a7e0bd91977c5c2fa0a10235a1fb3495e2bde"
 BT_A2DP_SOURCE_APEX="$FW_DIR/$(cut -d "/" -f 1 -s <<< "$SOURCE_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$SOURCE_FIRMWARE")/system/system/apex/com.android.bt.apex"
-if [[ "$SOURCE_FIRMWARE" != "SM-S931B/"* ]] || [[ "$(GET_PROP "system" "ro.build.id")" != "CP2A.260605.016" ]]; then
-    ABORT "bt_a2dp_offload: prebuilt com.android.bt.apex was made for SM-S931B CP2A.260605.016; run rebuild_apex.sh for this source"
+if [[ "$SOURCE_FIRMWARE" != "SM-S948B/"* ]] || [[ "$(GET_PROP "system" "ro.build.id")" != "CP2A.260605.016" ]]; then
+    ABORT "bt_a2dp_offload: prebuilt com.android.bt.apex was made for SM-S948B CP2A.260605.016; run rebuild_apex.sh for this source"
 fi
 if [ ! -f "$BT_A2DP_SOURCE_APEX" ] || \
         [[ "$(sha256sum "$BT_A2DP_SOURCE_APEX" | cut -d " " -f 1)" != "$BT_A2DP_SOURCE_APEX_SHA256" ]]; then
-    ABORT "bt_a2dp_offload: source com.android.bt.apex is not the S931BXXUCDZIF one the prebuilt was made from; run rebuild_apex.sh for this source"
+    ABORT "bt_a2dp_offload: source com.android.bt.apex is not the S948BXXS4BZIG one the prebuilt was made from; run rebuild_apex.sh for this source"
 fi
 unset BT_A2DP_SOURCE_APEX_SHA256 BT_A2DP_SOURCE_APEX
 DELETE_FROM_WORK_DIR "system" "system/apex/com.android.bt.apex"

@@ -4,8 +4,9 @@
 # UN1CA configuration file for Snapdragon devices (qssi)
 
 # Galaxy S25 (Snapdragon) (One UI 9.0)
-# SM-S931B EUX S931BXXUCDZIF (CP2A.260605.016, SDK 37). The IMEI field is only a TAC (samloader completes it);
-# the firmware is pre-downloaded/extracted in out/fw/SM-S931B_EUX.
+# Galaxy S26 Ultra SM-S948B EUX S948BXXS4BZIG (CP2A.260605.016, SDK 37; switched from the S25 SM-S931B on 2026-10-09:
+# same Android build, values re-checked against out/fw/SM-S948B_EUX floating_feature/build.prop). The IMEI field is only a TAC (samloader completes it);
+# the firmware is pre-downloaded/extracted in out/fw/SM-S948B_EUX.
 #
 # Every SOURCE_* value below was re-derived on 2026-10-09 from out/fw/SM-S931B_EUX: the literal the consuming
 # SMALI_PATCH/REQUIRE_* searches for was read from the S25 smali (framework.jar, services.jar, ssrm.jar,
@@ -23,15 +24,15 @@
 #   WifiDriverFeatureProvider is identical to the Fold8 one -> kept true.
 # - SOURCE_FRAMEWORK_SUPPORT_FOLDABLE_TYPE_FOLD / HALF_FOLDED_MODE, SOURCE_LCD_CONFIG_SUB_HFR_*, SOURCE_CAMERA_APP_FLAVOR:
 #   not consumed by any script; set from the S25 floating_feature.xml / SamsungCamera.apk (hal3-release).
-SOURCE_FIRMWARE="SM-S931B/EUX/35003251"
+SOURCE_FIRMWARE="SM-S948B/EUX/35003251"
 SOURCE_EXTRA_FIRMWARES=()
 # system/build.prop ro.build.version.sdk=37
 SOURCE_PLATFORM_SDK_VERSION=37
 # vendor/build.prop ro.product.first_api_level=35; "35" in EsecommAdapter, HdmSakManager, TAProxy, SystemServer
 # ("MAINLINE_API_LEVEL: 35"), PowerManagerUtil, EngmodeService$EngmodeTimeThread
-SOURCE_PRODUCT_SHIPPING_API_LEVEL=35
+SOURCE_PRODUCT_SHIPPING_API_LEVEL=36
 # vendor/build.prop ro.board.api_level=202404 (Android 15 vendor API)
-SOURCE_BOARD_API_LEVEL=35
+SOURCE_BOARD_API_LEVEL=36
 
 # SEC Product Feature
 # framework.jar SemMultiMicManager.isSupported()/isSupported(I)
@@ -74,7 +75,7 @@ SOURCE_COMMON_SUPPORT_HDR_EFFECT=true
 # ssrm.jar Feature.<clinit> "dvfs_policy_default"; SDHMS <clinit> + <init>(Context) "dvfs_policy_default"
 SOURCE_DVFSAPP_CONFIG_DVFS_POLICY_FILENAME="dvfs_policy_default"
 # ssrm.jar Feature.<clinit> + SDHMS <clinit> "siop_pa1q_sm8750"; floating SYSTEM_CONFIG_SIOP_POLICY_FILENAME
-SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME="siop_pa1q_sm8750"
+SOURCE_DVFSAPP_CONFIG_SSRM_POLICY_FILENAME="siop_m3q_sm8850"
 # framework.jar SemFingerprintManager getMaxTemplateNumberFromSPF/getProductFeatureValue + $Characteristics
 SOURCE_FINGERPRINT_CONFIG_SENSOR="google_touch_display_ultrasonic"
 SOURCE_LCD_CONFIG_COLOR_WEAKNESS_SOLUTION="3"
@@ -84,9 +85,9 @@ SOURCE_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS="5"
 SOURCE_LCD_CONFIG_HFR_DEFAULT_REFRESH_RATE="120"
 # "3" in RefreshRateConfig dumpProductFeature/getMainInstance, SemImsRune, CoreRune, SemInputFeatures(+Extra),
 # PowerManagerUtil, SecDisplayUtils, SettingsProvider, SystemUI BasicRune/LsRune; floating HFR_MODE=3
-SOURCE_LCD_CONFIG_HFR_MODE="3"
+SOURCE_LCD_CONFIG_HFR_MODE="4"
 # RefreshRateConfig, SecDisplayUtils, SystemUI KeyguardViewMediatorHelperImpl$$ExternalSyntheticLambda0
-SOURCE_LCD_CONFIG_HFR_SUPPORTED_REFRESH_RATE="24,10,30,48,60,80,120"
+SOURCE_LCD_CONFIG_HFR_SUPPORTED_REFRESH_RATE="1,60,120"
 # RefreshRateConfig.getMainInstance passes "" for NS and both brightness thresholds (no floating keys)
 SOURCE_LCD_CONFIG_HFR_SUPPORTED_REFRESH_RATE_NS="none"
 SOURCE_LCD_CONFIG_SEAMLESS_BRT="none"
