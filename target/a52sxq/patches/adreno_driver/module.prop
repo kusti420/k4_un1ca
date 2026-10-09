@@ -1,0 +1,4 @@
+id=a52sxq_adreno_driver
+name=Galaxy A52s 5G: Adreno V@0849 GPU driver
+author=kusti420
+description=The A14 vendor ships the Adreno 642L userspace driver V@0530 (Nov 2021). Replace the 64-bit GL/Vulkan/OpenCL stack with V@0849 (from the community "Qualcomm Adreno Drivers" module by @sudami, kernel 5.4+ build) plus its a660 SQE microcode; testers report it fixes Instagram/Facebook video artifacts. The system is 64-bit only and no 32-bit process uses the GPU, so the 32-bit V@0530 libs stay. Vulkan feature xmls are left at the vendor's 1.1 until the reported API version is verified.

@@ -43,3 +43,4 @@ target/*/patches/tethering/netbpfload_a52* binary
 prebuilts/kernel/** binary
 *.zip binary
 *.apk binary
+target/a52sxq/patches/adreno_driver/vendor/** binary
