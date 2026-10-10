@@ -1,0 +1,4 @@
+id=a52sxq_statusbar_icon_size
+name=Galaxy A52s 5G slightly larger status bar icons
+author=kusti420
+description=SystemUI IndicatorScaleGardener scales the status bar by min(smallestWidth/411, maxRatio); on the A52s (384dp, 88px bar, 33px camera top margin) that is 0.86 for the clock, battery and icon slots alike (only Fold8 q8q* product names bypass it with 1.0). Without touching that ratio (clock and text keep their size): scale the samsung_status_bar_battery_icon_* dimens by 15.5/14 (battery 33px -> 38px tall) and raise the IconManager icon slot height by 9/8 (36px -> 40px) so the 14dp Wi-Fi, mobile signal and network type drawables draw at their native 39px instead of being squeezed to 36px.
