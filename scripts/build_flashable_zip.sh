@@ -57,7 +57,7 @@ PREPARE_SCRIPT()
         EVAL "unzip -p \"$TARGET_ZIP\" \"build_info.txt\"" || exit 1
         TARGET_BUILD_INFO="$(unzip -p "$TARGET_ZIP" "build_info.txt")"
 
-        OUTPUT_FILE="$OUT_DIR/UN1CA_"
+        OUTPUT_FILE="$OUT_DIR/K4_UN1CA_"
         OUTPUT_FILE+="$(grep "^version" <<< "$TARGET_BUILD_INFO" | cut -d "=" -f 2 -s)"
         OUTPUT_FILE+="_"
         OUTPUT_FILE+="$(date -d "@$(grep "^timestamp" <<< "$TARGET_BUILD_INFO" | cut -d "=" -f 2 -s)" "+%Y%m%d")"

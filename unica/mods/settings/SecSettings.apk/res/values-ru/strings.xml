@@ -49,11 +49,11 @@
     <string name="unica_pif_update_title">Обновить Play Integrity Fix</string>
     <string name="unica_rom_version_title">Версия прошивки</string>
     <string name="unica_secure_ss_title">Разрешить делать скриншот, если запрещено безопасностью</string>
-    <string name="unica_settings_title">Настройки UN1CA</string>
+    <string name="unica_settings_title">Настройки K4_UN1CA</string>
     <string name="unica_ss_detection_title">Отключить обнаружение захвата экрана</string>
     <string name="unica_spoof_settings_title">Настройки подмены</string>
     <string name="unica_ui_settings_title">Настройки пользовательского интерфейса</string>
-    <string name="unica_updates_title">Обновления UN1CA</string>
+    <string name="unica_updates_title">Обновления K4_UN1CA</string>
     <string name="unica_vulkan_summary">Это нестабильно и может вызвать проблемы!</string>
     <string name="unica_vulkan_title">Включить рендерер Vulkan</string>
 </resources>

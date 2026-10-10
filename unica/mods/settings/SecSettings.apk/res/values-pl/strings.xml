@@ -49,11 +49,11 @@
     <string name="unica_pif_update_title">Zaktualizuj Play Integrity Fix</string>
     <string name="unica_rom_version_title">Wersja ROMu</string>
     <string name="unica_secure_ss_title">Zezwól na poufne zrzuty ekranu</string>
-    <string name="unica_settings_title">Ustawienia UN1CA</string>
+    <string name="unica_settings_title">Ustawienia K4_UN1CA</string>
     <string name="unica_ss_detection_title">Wyłącz wykrywanie przechwytywania ekranu</string>
     <string name="unica_spoof_settings_title">Ustawienia spoofingu</string>
     <string name="unica_ui_settings_title">Ustawienia interfejsu</string>
-    <string name="unica_updates_title">Aktualizacje UN1CA</string>
+    <string name="unica_updates_title">Aktualizacje K4_UN1CA</string>
     <string name="unica_vulkan_summary">Niestabilne i może powodować problemy!</string>
     <string name="unica_vulkan_title">Włącz renderowanie Vulkan</string>
 </resources>

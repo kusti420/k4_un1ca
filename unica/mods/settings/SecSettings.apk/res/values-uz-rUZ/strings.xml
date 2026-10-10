@@ -49,11 +49,11 @@
     <string name="unica_pif_update_title">Play Integrity Fix yangilash</string>
     <string name="unica_rom_version_title">Sistema versiyasi</string>
     <string name="unica_secure_ss_title">Yashirincha skrinshotga ruxsat</string>
-    <string name="unica_settings_title">UN1CA Sozlamalari</string>
+    <string name="unica_settings_title">K4_UN1CA Sozlamalari</string>
     <string name="unica_ss_detection_title">"Ekran yozuvini aniqlashni o'chirish"</string>
     <string name="unica_spoof_settings_title">Yashirish sozlamalari</string>
     <string name="unica_ui_settings_title">UI sozlamalari</string>
-    <string name="unica_updates_title">UN1CA Yangilanishlari</string>
+    <string name="unica_updates_title">K4_UN1CA Yangilanishlari</string>
     <string name="unica_vulkan_summary">Bu stabil emas va buzilishlarga olib kelishi mumkin!</string>
     <string name="unica_vulkan_title">Vulkan renderini yoqish</string>
 </resources>

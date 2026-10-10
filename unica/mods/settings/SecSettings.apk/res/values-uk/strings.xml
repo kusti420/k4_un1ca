@@ -47,13 +47,13 @@
     <string name="unica_pif_toast_up_to_date">"Ви використовуєте останню версію."</string>
     <string name="unica_pif_toast_updated">Оновлення успішно завершено.</string>
     <string name="unica_pif_update_title">Оновити Play Integrity Fix</string>
-    <string name="unica_rom_version_title">Версія UN1CA</string>
+    <string name="unica_rom_version_title">Версія K4_UN1CA</string>
     <string name="unica_secure_ss_title">Вимкнути заборону знімку екрана в додатках</string>
-    <string name="unica_settings_title">Налаштування UN1CA</string>
+    <string name="unica_settings_title">Налаштування K4_UN1CA</string>
     <string name="unica_ss_detection_title">Вимкнути виявлення захоплення екрана</string>
     <string name="unica_spoof_settings_title">Налаштування виявлення</string>
     <string name="unica_ui_settings_title">Налаштування інтерфейсу</string>
-    <string name="unica_updates_title">Оновлення UN1CA</string>
+    <string name="unica_updates_title">Оновлення K4_UN1CA</string>
     <string name="unica_vulkan_summary">Це нестабільно і може спричинити проблеми!</string>
     <string name="unica_vulkan_title">Увімкнути графічний api Vulkan</string>
 </resources>

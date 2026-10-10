@@ -49,11 +49,11 @@
     <string name="unica_pif_update_title">Mettre à jour Play Integrity Fix</string>
     <string name="unica_rom_version_title">Version de la ROM</string>
     <string name="unica_secure_ss_title">"Autoriser la capture d'écran sécurisée"</string>
-    <string name="unica_settings_title">Paramètres UN1CA</string>
+    <string name="unica_settings_title">Paramètres K4_UN1CA</string>
     <string name="unica_ss_detection_title">"Désactiver la détection de capture d'écran"</string>
     <string name="unica_spoof_settings_title">"Paramètres d'usurpation"</string>
     <string name="unica_ui_settings_title">"Paramètres de l'interface utilisateur"</string>
-    <string name="unica_updates_title">Mises à jour UN1CA</string>
+    <string name="unica_updates_title">Mises à jour K4_UN1CA</string>
     <string name="unica_vulkan_summary">Ceci est instable et pourrait causer des problèmes !</string>
     <string name="unica_vulkan_title">Activer le moteur de rendu Vulkan</string>
 </resources>
