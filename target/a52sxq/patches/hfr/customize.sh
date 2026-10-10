@@ -1,7 +1,17 @@
+# Adaptive motion smoothness is driven by SurfaceFlinger's own scheduler on this port: the One UI 9 (S26 Ultra)
+# SurfaceFlinger ignores Samsung's HFR/passive mode hint (SurfaceComposerAIDL::notifyHFRmode only logs
+# "VRR/HFR feature is not supported at SF, hfrMode : %d" and returns), so the stock "keep the rate stable at low
+# brightness / low lux" protection never reaches the display and every 60 <-> 120 Hz switch is visible on the
+# A52s AMOLED as a brightness/gamma flicker. With the old 250 ms idle / 300 ms touch timers SurfaceFlinger switched
+# down after every short pause and back up on the next touch or frame, i.e. several times per scroll.
+# Touch timer: every touch (PowerManagerService user activity -> SurfaceFlinger::notifyPowerBoost(INTERACTION) ->
+# Scheduler::onTouchHint) boosts to the panel maximum (120 Hz) and keeps it for 3 s after the last touch.
+# Idle timer: once nothing has been drawn for 3 s the scheduler drops to the policy minimum (60 Hz).
+# So the panel switches at most once up per touch session and once down 3 s after it, instead of per gesture.
 # https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r2/services/surfaceflinger/Scheduler/RefreshRateSelector.h#314
-IDLE_TIMER_MS=250
+IDLE_TIMER_MS=3000
 # https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r2/services/surfaceflinger/sysprop/SurfaceFlingerProperties.sysprop#346
-TOUCH_TIMER_MS=300
+TOUCH_TIMER_MS=3000
 
 SET_PROP "vendor" "ro.surface_flinger.use_content_detection_for_refresh_rate" "true"
 LOG "- Adding \"ro.surface_flinger.set_idle_timer_ms\" prop with \"$IDLE_TIMER_MS\" in /vendor/default.prop"
