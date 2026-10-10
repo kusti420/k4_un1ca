@@ -7,7 +7,8 @@
 #   regen.py <tethering_compressed.apex> <out_dir> <keys_dir> <android_host_out>
 #
 # Produces in out_dir: netbpfload_a52, netbpfload_a52b, libbpf.so, libbasB.so, libbpB.so, libcBB.so, netd_a52.o,
-# com.google.android.tethering.apex (re-signed with keys_dir, inner APKs PRESIGNED).
+# netd_a52rb.o (default build: + ringbuf maps on 5.4), com.google.android.tethering.apex (re-signed with keys_dir, inner
+# APKs PRESIGNED; only shipped with TARGET_TETHERING_RESIGN_APEX=true).
 import os, re, struct, subprocess, sys, tempfile, zipfile
 from elftools.elf.elffile import ELFFile
 from elftools.elf.relocation import RelocationSection
@@ -131,6 +132,28 @@ for v, name in want.items():
     assert maxa < 65536, (name, maxa); struct.pack_into("<i", nd, off, 65536)
     print(f"netd.o: {name} max_api {maxa} -> 65536 @ {off:#x}")
 open(os.path.join(OUT, "netd_a52.o"), "wb").write(nd)
+
+# --- netd_a52rb.o: same, plus the BPF_MAP_TYPE_RINGBUF maps created on our 5.4 kernel ------------------------------
+# AOSP's DEFINE_BPF_RINGBUF_EXT hard-codes min_kver KVER_5_10, so netbpfload (prepareLoadMaps) sets autocreate=false
+# for them on 5.4 and system_server's libservice-connectivity.so later abort()s opening the missing pins. Our kernel
+# backports the map type (k4-patches/0006: create/mmap/poll; no BPF-side helpers), so lower min_kver to 5.4.0: the
+# loader itself then creates, pins (create_location /sys/fs/bpf/net_shared/tmp -> rename to the netd_shared pin, i.e.
+# label fs_bpf_net_shared), chmods and chowns them exactly as on a 5.10 device. Only the 5.10+ program variants
+# reference these maps (and they still are not loaded on 5.4), so the rings stay empty - consumers just never get
+# events. struct bpf_map_def: type@0 ... uid@20 gid@24 mode@28 min_api@32 max_api@36 min_kver@40 max_kver@44.
+M_SZ, KV = 192, lambda a, b, c: (a << 24) | (b << 16) | c
+with open(J("netd.o"), "rb") as f:
+    e = ELFFile(f); s = e.get_section_by_name(".android_maps"); base = s["sh_offset"]
+    idx = [k for k, x in enumerate(e.iter_sections()) if x.name == ".android_maps"][0]
+    rbs = {sym["st_value"]: sym.name for sym in e.get_section_by_name(".symtab").iter_symbols()
+           if sym["st_shndx"] == idx and sym["st_size"] == M_SZ and struct.unpack_from("<I", nd, base + sym["st_value"])[0] == 27}
+assert len(rbs) >= 2, rbs
+for v, name in sorted(rbs.items()):
+    off = base + v; uid, gid, mode, mina, maxa, mink, maxk = struct.unpack_from("<3I2i2I", nd, off + 20)
+    assert mink == KV(5, 10, 0), (name, hex(mink)); struct.pack_into("<I", nd, off + 40, KV(5, 4, 0))
+    pin = nd[off + 118:off + 188].split(b"\0")[0].decode()
+    print(f"netd.o: {name} min_kver 5.10 -> 5.4 ({pin} {uid}:{gid} {mode:04o} api {mina}-{maxa})")
+open(os.path.join(OUT, "netd_a52rb.o"), "wb").write(nd)
 
 # --- libservice-connectivity.so: no BPF ringbuf on 5.4 ------------------------------------------------------------
 lsc = J("libservice-connectivity.so"); ldata = open(lsc, "rb").read(); ledits = []

@@ -138,6 +138,12 @@ fi
 #     If set to true, the original AVB/Samsung signature footer is kept in the target device kernel images.
 #     Defaults to false.
 #
+#   TARGET_TETHERING_RESIGN_APEX
+#     a52sxq only (target/a52sxq/patches/tethering). If set to true, the source Tethering APEX is replaced by our
+#     re-signed copy with the BPF ringbuf users stubbed (for kernels without BPF_MAP_TYPE_RINGBUF). Google Play system
+#     updates cannot replace a re-signed Tethering APEX, so this is a rollback switch only.
+#     Defaults to false.
+#
 #   TARGET_BOOT_PARTITION_SIZE
 #     Integer containing the size in bytes of the target device boot partition size.
 #
@@ -494,6 +500,7 @@ fi
     GET_BUILD_VAR "TARGET_INCLUDE_PATCHED_VBMETA" "false"
     GET_BUILD_VAR "TARGET_BOOT_SEANDROID_MAGIC" "true"
     GET_BUILD_VAR "TARGET_KEEP_ORIGINAL_SIGN" "false"
+    GET_BUILD_VAR "TARGET_TETHERING_RESIGN_APEX" "false"
     GET_BUILD_VAR "TARGET_BOOT_PARTITION_SIZE" "none"
     GET_BUILD_VAR "TARGET_DTBO_PARTITION_SIZE" "none"
     GET_BUILD_VAR "TARGET_INIT_BOOT_PARTITION_SIZE" "none"

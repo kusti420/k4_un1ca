@@ -49,3 +49,7 @@ TARGET_RIL_SUPPORT_WATERPROOF_SIM_TRAY_MSG=true
 
 # Bootloader rejects SEANDROIDENFORCE with a zeroed sig AND vbmeta directly after the image (boot_recovery=1); 16 zero bytes boot
 TARGET_BOOT_SEANDROID_MAGIC=false
+
+# Ship Google's original Tethering APEX (Play system updates work; needs the k4 ringbuf kernel). true = old re-signed
+# APEX with the ringbuf users stubbed, see target/a52sxq/patches/tethering/customize.sh
+TARGET_TETHERING_RESIGN_APEX=false

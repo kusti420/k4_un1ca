@@ -1,4 +1,4 @@
 id=a52sxq_tethering
 name=Galaxy A52s 5G netbpfload kernel 5.4 gate
 author=kusti420
-description=Google's Tethering APEX netbpfload refuses kernels < 5.10 (25Q4) / 5.15 (26Q4) and its services have reboot_on_failure -> bootloop. Run a copy with those two gates branched over (5.4 floor kept) from /system, keeping Google's signed APEX (IchthysOS-built modules carry SDK codename "Baklava" and are rejected by REL builds).
+description=Google's Tethering APEX netbpfload refuses kernels < 5.10 (25Q4) / 5.15 (26Q4) and its services have reboot_on_failure -> bootloop. Run a copy with those two gates branched over (5.4 floor kept) from /system with a frozen netd.o (5.4 stats programs allowed at API >= 3610, BPF ringbuf maps created on 5.4 - needs the k4 ringbuf kernel). Google's original signed Tethering APEX ships untouched, so Google Play system updates can update it (IchthysOS-built modules carry SDK codename "Baklava" and are rejected by REL builds). TARGET_TETHERING_RESIGN_APEX=true restores the old re-signed APEX with the ringbuf users stubbed (kernels without ringbuf).
