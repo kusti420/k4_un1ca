@@ -1,0 +1,507 @@
+From: k4 <k4@local>
+Date: Sat, 10 Oct 2026 14:30:00 +0300
+Subject: [PATCH] bpf: backport BPF_MAP_TYPE_RINGBUF (user-space side) to 5.4
+
+Android 17's Tethering mainline module (libservice-connectivity.so:
+LocalNetEventListener / LoopbackEventHandler) opens pinned BPF ring buffer
+maps, checks the map type, mmap()s the consumer page (rw) and the producer +
+data pages (ro) and epoll()s the fd; without the map type system_server
+aborts. This adds the map type with upstream semantics:
+
+- uapi: BPF_MAP_TYPE_STRUCT_OPS (26, placeholder, not implemented) and
+  BPF_MAP_TYPE_RINGBUF (27) so the numbering matches upstream v5.8+, plus the
+  BPF_RINGBUF_{BUSY_BIT,DISCARD_BIT,HDR_SZ} record-header constants.
+- kernel/bpf/ringbuf.c from upstream 457f44363a88 (v5.8): allocation
+  (max_entries power of 2 and page aligned, key/value size 0, only
+  BPF_F_NUMA_NODE), data pages double-mapped via vmap(), mmap() and poll().
+  Includes upstream fixes 04ea3086c4d7 (v5.13, CVE-2021-3489: only the
+  consumer page may be mapped writable, VM_MAYWRITE cleared otherwise) and
+  b293dcc473d2 (VM_MAP instead of VM_ALLOC for the vmap area).
+- bpf_map_ops gains ->map_mmap() and ->map_poll(); bpf_map_fops gains
+  .mmap/.poll (bpf_map_mmap()/bpf_map_poll() from upstream fc9702273e2e
+  v5.5 and 457f44363a88): MAP_SHARED only, VM_MAYEXEC dropped, read-only
+  mappings cannot be mprotect()ed writable, maps without ->map_poll() return
+  EPOLLERR like upstream. Only ringbuf implements ->map_mmap() (array mmap /
+  BPF_F_MMAPABLE is not backported), so the writecnt/freeze_mutex bookkeeping
+  of fc9702273e2e is not needed; a frozen map still refuses PROT_WRITE.
+- The new enum values and bpf_map_ops members are hidden from genksyms
+  (#ifndef __GENKSYMS__) and appended at the end, so no exported symbol CRC
+  (CONFIG_MODVERSIONS) and no existing struct member offset changes.
+
+Not backported: the BPF-side producer helpers bpf_ringbuf_output/reserve/
+submit/discard/query and their verifier support. The verifier rejects every
+helper call on a ringbuf map, so programs cannot touch it and the ring stays
+empty on this kernel (readers never get EPOLLIN).
+
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index a120c58a4..306832f52 100755
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -23,6 +23,8 @@ struct sock;
+ struct seq_file;
+ struct btf;
+ struct btf_type;
++struct vm_area_struct;
++struct poll_table_struct;
+ 
+ extern struct idr btf_idr;
+ extern spinlock_t btf_idr_lock;
+@@ -64,6 +66,15 @@ struct bpf_map_ops {
+ 				     u64 *imm, u32 off);
+ 	int (*map_direct_value_meta)(const struct bpf_map *map,
+ 				     u64 imm, u32 *off);
++#ifndef __GENKSYMS__
++	/* k4 backport (upstream v5.5 fc9702273e2e / v5.8 457f44363a88):
++	 * appended at the end and hidden from genksyms so the layout of the
++	 * existing members and the CRCs of exported symbols do not change.
++	 */
++	int (*map_mmap)(struct bpf_map *map, struct vm_area_struct *vma);
++	__poll_t (*map_poll)(struct bpf_map *map, struct file *filp,
++			     struct poll_table_struct *pts);
++#endif
+ };
+ 
+ struct bpf_map_memory {
+diff --git a/include/linux/bpf_types.h b/include/linux/bpf_types.h
+index 36a9c2325..77a1f059a 100755
+--- a/include/linux/bpf_types.h
++++ b/include/linux/bpf_types.h
+@@ -78,3 +78,4 @@ BPF_MAP_TYPE(BPF_MAP_TYPE_REUSEPORT_SOCKARRAY, reuseport_array_ops)
+ #endif
+ BPF_MAP_TYPE(BPF_MAP_TYPE_QUEUE, queue_map_ops)
+ BPF_MAP_TYPE(BPF_MAP_TYPE_STACK, stack_map_ops)
++BPF_MAP_TYPE(BPF_MAP_TYPE_RINGBUF, ringbuf_map_ops)
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index a3e56509d..ec610f173 100755
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -136,6 +136,14 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_STACK,
+ 	BPF_MAP_TYPE_SK_STORAGE,
+ 	BPF_MAP_TYPE_DEVMAP_HASH,
++#ifndef __GENKSYMS__
++	/* k4 backport: values must match upstream (STRUCT_OPS = 26 is a
++	 * placeholder only, not implemented here; RINGBUF = 27). Hidden from
++	 * genksyms so the CRCs of exported symbols do not change.
++	 */
++	BPF_MAP_TYPE_STRUCT_OPS,
++	BPF_MAP_TYPE_RINGBUF,
++#endif
+ };
+ 
+ /* Note that tracing related programs such as
+@@ -3148,6 +3156,13 @@ struct bpf_tcp_sock {
+ 	__u32 icsk_retransmits;	/* Number of unrecovered [RTO] timeouts */
+ };
+ 
++/* BPF ring buffer constants (BPF_MAP_TYPE_RINGBUF record header) */
++enum {
++	BPF_RINGBUF_BUSY_BIT		= (1U << 31),
++	BPF_RINGBUF_DISCARD_BIT		= (1U << 30),
++	BPF_RINGBUF_HDR_SZ		= 8,
++};
++
+ struct bpf_sock_tuple {
+ 	union {
+ 		struct {
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+index b0d78bc0b..e4843efa6 100755
+--- a/kernel/bpf/Makefile
++++ b/kernel/bpf/Makefile
+@@ -8,7 +8,7 @@ CFLAGS_core.o += $(call cc-disable-warning, override-init) $(cflags-nogcse-yy)
+ 
+ obj-$(CONFIG_BPF_SYSCALL) += syscall.o verifier.o inode.o helpers.o tnum.o
+ obj-$(CONFIG_BPF_SYSCALL) += hashtab.o arraymap.o percpu_freelist.o bpf_lru_list.o lpm_trie.o map_in_map.o
+-obj-$(CONFIG_BPF_SYSCALL) += local_storage.o queue_stack_maps.o
++obj-$(CONFIG_BPF_SYSCALL) += local_storage.o queue_stack_maps.o ringbuf.o
+ obj-$(CONFIG_BPF_SYSCALL) += disasm.o
+ obj-$(CONFIG_BPF_SYSCALL) += btf.o
+ ifeq ($(CONFIG_NET),y)
+diff --git a/kernel/bpf/ringbuf.c b/kernel/bpf/ringbuf.c
+new file mode 100644
+index 000000000..189d79516
+--- /dev/null
++++ b/kernel/bpf/ringbuf.c
+@@ -0,0 +1,297 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * BPF_MAP_TYPE_RINGBUF for Linux 5.4 (k4 backport).
++ *
++ * Ported from upstream kernel/bpf/ringbuf.c, commit 457f44363a88
++ * ("bpf: Implement BPF ring buffer and verifier support for it", v5.8), with
++ * the upstream fixes that apply to the parts carried here:
++ *   04ea3086c4d7 ("bpf: Prevent writable memory-mapping of read-only ringbuf
++ *                  pages", v5.13; CVE-2021-3489)
++ *   b293dcc473d2 ("bpf: Use VM_MAP instead of VM_ALLOC for ringbuf", v6.3)
++ *
++ * Only the user-space side of the map is backported: map creation (same
++ * size/flag rules as upstream), mmap() of the consumer page (read-write) and
++ * of the producer page plus the double-mapped data pages (read-only),
++ * poll()/epoll() readiness and the generic BPF map fd semantics.
++ *
++ * The BPF-side producer helpers (bpf_ringbuf_output/reserve/submit/discard/
++ * query) and their verifier support (PTR_TO_MEM, ARG_PTR_TO_ALLOC_MEM, ...)
++ * are NOT backported. The verifier rejects every helper call on a ringbuf map,
++ * so on this kernel no BPF program can write to it and the buffer stays empty.
++ */
++#include <linux/bpf.h>
++#include <linux/err.h>
++#include <linux/kmemleak.h>
++#include <linux/log2.h>
++#include <linux/mm.h>
++#include <linux/poll.h>
++#include <linux/slab.h>
++#include <linux/spinlock.h>
++#include <linux/vmalloc.h>
++#include <linux/wait.h>
++
++#define RINGBUF_CREATE_FLAG_MASK (BPF_F_NUMA_NODE)
++
++/* non-mmap()'able part of bpf_ringbuf (everything up to consumer page) */
++#define RINGBUF_PGOFF \
++	(offsetof(struct bpf_ringbuf, consumer_pos) >> PAGE_SHIFT)
++/* consumer page and producer page */
++#define RINGBUF_POS_PAGES 2
++
++#define RINGBUF_MAX_DATA_SZ \
++	(((1ULL << 24) - RINGBUF_POS_PAGES - RINGBUF_PGOFF) * PAGE_SIZE)
++
++struct bpf_ringbuf {
++	wait_queue_head_t waitq;
++	u64 mask;
++	struct page **pages;
++	int nr_pages;
++	/* serializes producers (kept for layout parity with upstream) */
++	spinlock_t spinlock ____cacheline_aligned_in_smp;
++	/* Consumer and producer counters are put into separate pages to allow
++	 * mapping consumer page as r/w, but restrict producer page to r/o.
++	 * This protects producer position from being modified by user-space
++	 * application and ruining in-kernel position tracking.
++	 */
++	unsigned long consumer_pos __aligned(PAGE_SIZE);
++	unsigned long producer_pos __aligned(PAGE_SIZE);
++	char data[] __aligned(PAGE_SIZE);
++};
++
++struct bpf_ringbuf_map {
++	struct bpf_map map;
++	struct bpf_ringbuf *rb;
++};
++
++static struct bpf_ringbuf *bpf_ringbuf_area_alloc(size_t data_sz, int numa_node)
++{
++	const gfp_t flags = GFP_KERNEL | __GFP_RETRY_MAYFAIL | __GFP_NOWARN |
++			    __GFP_ZERO;
++	int nr_meta_pages = RINGBUF_PGOFF + RINGBUF_POS_PAGES;
++	int nr_data_pages = data_sz >> PAGE_SHIFT;
++	int nr_pages = nr_meta_pages + nr_data_pages;
++	struct page **pages, *page;
++	struct bpf_ringbuf *rb;
++	size_t array_size;
++	int i;
++
++	/* Each data page is mapped twice to allow "virtual"
++	 * continuous read of samples wrapping around the end of ring
++	 * buffer area:
++	 * ------------------------------------------------------
++	 * | meta pages |  real data pages  |  same data pages  |
++	 * ------------------------------------------------------
++	 * |            | 1 2 3 4 5 6 7 8 9 | 1 2 3 4 5 6 7 8 9 |
++	 * ------------------------------------------------------
++	 * |            | TA             DA | TA             DA |
++	 * ------------------------------------------------------
++	 *                               ^^^^^^^
++	 *                                  |
++	 * Here, no need to worry about special handling of wrapped-around
++	 * data due to double-mapped data pages. This works both in kernel and
++	 * when mmap()'ed in user-space, simplifying both kernel and
++	 * user-space implementations significantly.
++	 */
++	array_size = (nr_meta_pages + 2 * nr_data_pages) * sizeof(*pages);
++	pages = bpf_map_area_alloc(array_size, numa_node);
++	if (!pages)
++		return NULL;
++
++	for (i = 0; i < nr_pages; i++) {
++		page = alloc_pages_node(numa_node, flags, 0);
++		if (!page) {
++			nr_pages = i;
++			goto err_free_pages;
++		}
++		pages[i] = page;
++		if (i >= nr_meta_pages)
++			pages[nr_data_pages + i] = page;
++	}
++
++	rb = vmap(pages, nr_meta_pages + 2 * nr_data_pages,
++		  VM_MAP | VM_USERMAP, PAGE_KERNEL);
++	if (rb) {
++		/* the only reference to pages[] lives inside the vmap area,
++		 * which kmemleak does not scan
++		 */
++		kmemleak_not_leak(pages);
++		rb->pages = pages;
++		rb->nr_pages = nr_pages;
++		return rb;
++	}
++
++err_free_pages:
++	for (i = 0; i < nr_pages; i++)
++		__free_page(pages[i]);
++	bpf_map_area_free(pages);
++	return NULL;
++}
++
++static struct bpf_ringbuf *bpf_ringbuf_alloc(size_t data_sz, int numa_node)
++{
++	struct bpf_ringbuf *rb;
++
++	rb = bpf_ringbuf_area_alloc(data_sz, numa_node);
++	if (!rb)
++		return ERR_PTR(-ENOMEM);
++
++	spin_lock_init(&rb->spinlock);
++	init_waitqueue_head(&rb->waitq);
++
++	rb->mask = data_sz - 1;
++	rb->consumer_pos = 0;
++	rb->producer_pos = 0;
++
++	return rb;
++}
++
++static struct bpf_map *ringbuf_map_alloc(union bpf_attr *attr)
++{
++	struct bpf_ringbuf_map *rb_map;
++	u64 cost;
++	int err;
++
++	if (attr->map_flags & ~RINGBUF_CREATE_FLAG_MASK)
++		return ERR_PTR(-EINVAL);
++
++	if (attr->key_size || attr->value_size ||
++	    !is_power_of_2(attr->max_entries) ||
++	    !PAGE_ALIGNED(attr->max_entries))
++		return ERR_PTR(-EINVAL);
++
++#ifdef CONFIG_64BIT
++	/* on 32-bit arch, it's impossible to overflow record's hdr->pgoff */
++	if ((u64)attr->max_entries > RINGBUF_MAX_DATA_SZ)
++		return ERR_PTR(-E2BIG);
++#endif
++
++	rb_map = kzalloc(sizeof(*rb_map), GFP_USER);
++	if (!rb_map)
++		return ERR_PTR(-ENOMEM);
++
++	bpf_map_init_from_attr(&rb_map->map, attr);
++
++	cost = sizeof(struct bpf_ringbuf_map) +
++	       sizeof(struct bpf_ringbuf) +
++	       attr->max_entries;
++	err = bpf_map_charge_init(&rb_map->map.memory, cost);
++	if (err)
++		goto err_free_map;
++
++	rb_map->rb = bpf_ringbuf_alloc(attr->max_entries, rb_map->map.numa_node);
++	if (IS_ERR(rb_map->rb)) {
++		err = PTR_ERR(rb_map->rb);
++		goto err_uncharge;
++	}
++
++	return &rb_map->map;
++
++err_uncharge:
++	bpf_map_charge_finish(&rb_map->map.memory);
++err_free_map:
++	kfree(rb_map);
++	return ERR_PTR(err);
++}
++
++static void bpf_ringbuf_free(struct bpf_ringbuf *rb)
++{
++	/* copy pages pointer and nr_pages to local variable, as we are going
++	 * to unmap rb itself with vunmap() below
++	 */
++	struct page **pages = rb->pages;
++	int i, nr_pages = rb->nr_pages;
++
++	vunmap(rb);
++	for (i = 0; i < nr_pages; i++)
++		__free_page(pages[i]);
++	bpf_map_area_free(pages);
++}
++
++static void ringbuf_map_free(struct bpf_map *map)
++{
++	struct bpf_ringbuf_map *rb_map;
++
++	/* at this point bpf_prog->aux->refcnt == 0 and this map->refcnt == 0,
++	 * so the programs (can be more than one that used this map) were
++	 * disconnected from map. Wait for outstanding critical sections in
++	 * these programs to complete
++	 */
++	synchronize_rcu();
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	bpf_ringbuf_free(rb_map->rb);
++	kfree(rb_map);
++}
++
++static void *ringbuf_map_lookup_elem(struct bpf_map *map, void *key)
++{
++	return ERR_PTR(-ENOTSUPP);
++}
++
++static int ringbuf_map_update_elem(struct bpf_map *map, void *key, void *value,
++				   u64 flags)
++{
++	return -ENOTSUPP;
++}
++
++static int ringbuf_map_delete_elem(struct bpf_map *map, void *key)
++{
++	return -ENOTSUPP;
++}
++
++static int ringbuf_map_get_next_key(struct bpf_map *map, void *key,
++				    void *next_key)
++{
++	return -ENOTSUPP;
++}
++
++static int ringbuf_map_mmap(struct bpf_map *map, struct vm_area_struct *vma)
++{
++	struct bpf_ringbuf_map *rb_map;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++
++	if (vma->vm_flags & VM_WRITE) {
++		/* allow writable mapping for the consumer_pos only */
++		if (vma->vm_pgoff != 0 || vma->vm_end - vma->vm_start != PAGE_SIZE)
++			return -EPERM;
++	} else {
++		vma->vm_flags &= ~VM_MAYWRITE;
++	}
++	/* remap_vmalloc_range() checks size and offset constraints */
++	return remap_vmalloc_range(vma, rb_map->rb,
++				   vma->vm_pgoff + RINGBUF_PGOFF);
++}
++
++static unsigned long ringbuf_avail_data_sz(struct bpf_ringbuf *rb)
++{
++	unsigned long cons_pos, prod_pos;
++
++	cons_pos = smp_load_acquire(&rb->consumer_pos);
++	prod_pos = smp_load_acquire(&rb->producer_pos);
++	return prod_pos - cons_pos;
++}
++
++static __poll_t ringbuf_map_poll(struct bpf_map *map, struct file *filp,
++				 struct poll_table_struct *pts)
++{
++	struct bpf_ringbuf_map *rb_map;
++
++	rb_map = container_of(map, struct bpf_ringbuf_map, map);
++	poll_wait(filp, &rb_map->rb->waitq, pts);
++
++	if (ringbuf_avail_data_sz(rb_map->rb))
++		return EPOLLIN | EPOLLRDNORM;
++	return 0;
++}
++
++const struct bpf_map_ops ringbuf_map_ops = {
++	.map_alloc = ringbuf_map_alloc,
++	.map_free = ringbuf_map_free,
++	.map_mmap = ringbuf_map_mmap,
++	.map_poll = ringbuf_map_poll,
++	.map_lookup_elem = ringbuf_map_lookup_elem,
++	.map_update_elem = ringbuf_map_update_elem,
++	.map_delete_elem = ringbuf_map_delete_elem,
++	.map_get_next_key = ringbuf_map_get_next_key,
++};
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index de788761b..3511f2de5 100755
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -9,6 +9,8 @@
+ #include <linux/slab.h>
+ #include <linux/sched/signal.h>
+ #include <linux/vmalloc.h>
++#include <linux/mm.h>
++#include <linux/poll.h>
+ #include <linux/mmzone.h>
+ #include <linux/anon_inodes.h>
+ #include <linux/fdtable.h>
+@@ -428,6 +430,44 @@ static ssize_t bpf_dummy_write(struct file *filp, const char __user *buf,
+ 	return -EINVAL;
+ }
+ 
++/* mmap()/poll() of map fds, backported from upstream v5.5 fc9702273e2e
++ * ("bpf: Add mmap() support for BPF_MAP_TYPE_ARRAY") and v5.8 457f44363a88
++ * ("bpf: Implement BPF ring buffer and verifier support for it"). Only
++ * BPF_MAP_TYPE_RINGBUF implements ->map_mmap() here; array maps are not
++ * mmap()able on this kernel (no BPF_F_MMAPABLE), so the upstream writecnt /
++ * freeze_mutex bookkeeping that protects frozen mmap()ed arrays is not needed.
++ */
++static int bpf_map_mmap(struct file *filp, struct vm_area_struct *vma)
++{
++	struct bpf_map *map = filp->private_data;
++
++	if (!map->ops->map_mmap || map_value_has_spin_lock(map))
++		return -ENOTSUPP;
++
++	if (!(vma->vm_flags & VM_SHARED))
++		return -EINVAL;
++
++	if ((vma->vm_flags & VM_WRITE) && READ_ONCE(map->frozen))
++		return -EPERM;
++
++	vma->vm_flags &= ~VM_MAYEXEC;
++	if (!(vma->vm_flags & VM_WRITE))
++		/* disallow re-mapping with PROT_WRITE */
++		vma->vm_flags &= ~VM_MAYWRITE;
++
++	return map->ops->map_mmap(map, vma);
++}
++
++static __poll_t bpf_map_poll(struct file *filp, struct poll_table_struct *pts)
++{
++	struct bpf_map *map = filp->private_data;
++
++	if (map->ops->map_poll)
++		return map->ops->map_poll(map, filp, pts);
++
++	return EPOLLERR;
++}
++
+ const struct file_operations bpf_map_fops = {
+ #ifdef CONFIG_PROC_FS
+ 	.show_fdinfo	= bpf_map_show_fdinfo,
+@@ -435,6 +475,8 @@ const struct file_operations bpf_map_fops = {
+ 	.release	= bpf_map_release,
+ 	.read		= bpf_dummy_read,
+ 	.write		= bpf_dummy_write,
++	.mmap		= bpf_map_mmap,
++	.poll		= bpf_map_poll,
+ };
+ 
+ int bpf_map_new_fd(struct bpf_map *map, int flags)
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 6ac53da0f..fe5695186 100755
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -3592,6 +3592,13 @@ static int check_map_func_compatibility(struct bpf_verifier_env *env,
+ 		if (func_id != BPF_FUNC_sk_select_reuseport)
+ 			goto error;
+ 		break;
++	case BPF_MAP_TYPE_RINGBUF:
++		/* k4 backport: only the user-space side of ringbuf maps exists
++		 * on this kernel (no bpf_ringbuf_* helpers); keep programs from
++		 * using them with any helper, e.g. map_lookup_elem() would hand
++		 * back an ERR_PTR as a map value.
++		 */
++		goto error;
+ 	case BPF_MAP_TYPE_QUEUE:
+ 	case BPF_MAP_TYPE_STACK:
+ 		if (func_id != BPF_FUNC_map_peek_elem &&

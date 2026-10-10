@@ -4,6 +4,11 @@
 #
 #   ./k4_build.sh                 # exact release reproduction
 #   K4_BACKPORTS=1 ./k4_build.sh  # same, plus k4-patches/*.patch (Android 17 kernel-feature backports)
+#   K4_STOCK=1 ./k4_build.sh      # "stock mode": k4-patches/*.patch + k4-patches/stock/*.patch, and the kernel
+#                                 # config is the community stock-kernel5.4.302 config (k4-patches/stock/
+#                                 # stock_kernel.config, IKCONFIG of 5.4.302-qgki-g7e297f4af6a3) with ReSukiSU,
+#                                 # BTF, NoMount and Baseband-Guard forced on (see stock_mode_defconfig below).
+#                                 # Artifacts are copied to k4-out/stockmode/.
 #
 # Pins (from the release notes of build-20261004-122005 and the workflow file at main 6806314d69):
 #   kernel source   resukisu-oneui @ 93b49d0ccd89ee2de118f34b5d51862d9c6cb2dd (branch tip at run time)
@@ -28,6 +33,13 @@ CACHE="${K4_CACHE:-$HOME/toolchains/k4-kernel-cache}"
 DEFCONFIG=arch/arm64/configs/vendor/a52sxq_kor_single_defconfig
 
 log() { printf '\033[1;36m[k4]\033[0m %s\n' "$*"; }
+
+K4_STOCK="${K4_STOCK:-0}"
+if [ "$K4_STOCK" = "1" ]; then
+    K4_BACKPORTS=1   # stock mode keeps the k4-patches code changes (caps, GPU/NAP reverts, KGSL 80 ms, BTF)
+    STOCK_CONFIG="$ROOT/k4-patches/stock/stock_kernel.config"
+    [ -s "$STOCK_CONFIG" ] || { echo "missing $STOCK_CONFIG"; exit 1; }
+fi
 
 # 1. Pristine source at the release commit on a branch named like the CI matrix branch (the build script derives
 #    the One UI variant and ReSukiSU root solution from the branch name).
@@ -116,6 +128,10 @@ if [ "${K4_UNICODE:-1}" = "1" ]; then
 fi
 
 # Release build stamp (uname -v) so the image matches the release as closely as possible
+# (stock mode is not a release reproduction: stamp it with the real build time)
+if [ "$K4_STOCK" = "1" ]; then
+    export KBUILD_BUILD_TIMESTAMP="${KBUILD_BUILD_TIMESTAMP:-$(LC_ALL=C date -u)}"
+fi
 export KBUILD_BUILD_TIMESTAMP="${KBUILD_BUILD_TIMESTAMP:-Sun Oct 4 12:00:42 UTC 2026}"
 
 # 5. Optional Android 17 kernel-feature backports
@@ -126,6 +142,59 @@ if [ "${K4_BACKPORTS:-0}" = "1" ]; then
         git apply --check "$p"
         git apply "$p"
     done
+fi
+
+# 5b. Stock mode: stock-only source patches, then replace the defconfig with the stock kernel's config + overrides
+set_cfg() { # file SYMBOL value  (value: y|m|n|"string"|number); drops any earlier line for the symbol
+    sed -i -e "/^CONFIG_$2=/d" -e "/^# CONFIG_$2 is not set$/d" "$1"
+    if [ "$3" = "n" ]; then echo "# CONFIG_$2 is not set" >> "$1"; else echo "CONFIG_$2=$3" >> "$1"; fi
+}
+stock_mode_defconfig() {
+    local f="$DEFCONFIG"
+    cp "$STOCK_CONFIG" "$f"
+    {
+        echo
+        echo "# ---- k4 stock-mode overrides (k4_build.sh K4_STOCK=1) ----"
+    } >> "$f"
+    # ReSukiSU: same options as the resukisu-oneui release config (manual hooks, multi-manager, no SUSFS)
+    set_cfg "$f" KSU y
+    set_cfg "$f" KSU_MANUAL_HOOK y
+    set_cfg "$f" KSU_MANUAL_HOOK_AUTO_INPUT_HOOK n
+    set_cfg "$f" KSU_MANUAL_HOOK_AUTO_SETUID_HOOK n
+    set_cfg "$f" KSU_MANUAL_HOOK_AUTO_INITRC_HOOK n
+    set_cfg "$f" KSU_TRACEPOINT_HOOK n
+    set_cfg "$f" KSU_MULTI_MANAGER_SUPPORT y
+    set_cfg "$f" KSU_SUSFS n
+    set_cfg "$f" KSU_DEBUG n
+    set_cfg "$f" KSU_TOOLKIT_SUPPORT n
+    set_cfg "$f" KSU_DISABLE_MANAGER n
+    set_cfg "$f" KSU_DISABLE_POLICY n
+    set_cfg "$f" KSU_FULL_NAME_FORMAT '"%TAG_NAME%-%COMMIT_SHA%@%REPO_NAME%"'
+    # BTF for Android 17's bpfloader (pahole kinds restricted by k4-patches/0005)
+    set_cfg "$f" DEBUG_INFO y
+    set_cfg "$f" DEBUG_INFO_REDUCED n
+    set_cfg "$f" DEBUG_INFO_SPLIT n
+    set_cfg "$f" DEBUG_INFO_DWARF4 y
+    set_cfg "$f" DEBUG_INFO_BTF y
+    # Root stack of the resukisu-oneui build: NoMount + Baseband-Guard (BLOCK_* off so flashing keeps working)
+    set_cfg "$f" NOMOUNT y
+    set_cfg "$f" BBG y
+    set_cfg "$f" BBG_BLOCK_BOOT n
+    set_cfg "$f" BBG_BLOCK_RECOVERY n
+    set_cfg "$f" LSM '"lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor,baseband_guard"'
+    # Knox/Samsung security: OFF (stock already has these off; pinned so a Kconfig default can never flip them)
+    for s in UH RKP KDP SECURITY_DEFEX PROCA FIVE SECURITY_DSMS; do set_cfg "$f" "$s" n; done
+    set_cfg "$f" NET_ACT_BPF y
+}
+if [ "$K4_STOCK" = "1" ]; then
+    for p in "$ROOT"/k4-patches/stock/*.patch; do
+        [ -e "$p" ] || continue
+        log "Stock-mode patch: $(basename "$p")"
+        git apply --check "$p"
+        git apply "$p"
+    done
+    stock_mode_defconfig
+    log "Stock-mode defconfig written from $(basename "$STOCK_CONFIG") ($(wc -l < "$DEFCONFIG") lines)"
 fi
 
 # 6. Toolchain: the CI's clang-r530567 release, placed where build_kernel_zip.sh looks for it
@@ -141,6 +210,12 @@ if [ ! -x toolchain/clang/bin/clang ]; then
 fi
 export PATH="$ROOT/toolchain/clang/bin:$PATH"
 clang --version | head -1
+if [ "$K4_STOCK" = "1" ]; then
+    # build_kernel_zip.sh runs "make <defconfig>" without CC=clang, so Kconfig sees gcc and silently drops every
+    # clang-only option (LTO_CLANG/THINLTO, CFI_CLANG, SHADOW_CALL_STACK). The stock config has them on; make the
+    # defconfig step (and the final olddefconfig below) evaluate with the LLVM toolchain via the environment.
+    export LLVM=1 LLVM_IAS=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+fi
 
 # 7. Build exactly like the CI step "Build kernel"
 log "Building (logs: out/../k4_build.log)"
@@ -154,4 +229,20 @@ make -C . O=out ARCH=arm64 olddefconfig
 grep -q '^CONFIG_NOMOUNT=y' out/.config
 grep -q '^CONFIG_BBG=y' out/.config
 if grep -q '^CONFIG_KSU_SUSFS=y' out/.config; then echo "resukisu-oneui must not enable SUSFS"; exit 1; fi
-log "Done: $(ls -t "$ROOT"/bone-machine_*_One-UI_*.zip | head -1)"
+RELZIP="$(ls -t "$ROOT"/bone-machine_*_One-UI_*.zip | head -1)"
+if [ "$K4_STOCK" = "1" ]; then
+    for s in KSU=y DEBUG_INFO_BTF=y LTO_CLANG=y CFI_CLANG=y SHADOW_CALL_STACK=y NOMOUNT=y BBG=y; do
+        grep -qx "CONFIG_$s" out/.config || { echo "stock mode: CONFIG_$s missing from out/.config"; exit 1; }
+    done
+    SM="$ROOT/k4-out/stockmode"
+    rm -rf "$SM"; mkdir -p "$SM/images"
+    cp "$RELZIP" "$SM/bone-machine_k4stock_a52sxq.zip"
+    unzip -q -o -j "$SM/bone-machine_k4stock_a52sxq.zip" 'images/*' -d "$SM/images"
+    cp out/arch/arm64/boot/Image out/System.map "$SM/"
+    scripts/extract-ikconfig out/arch/arm64/boot/Image > "$SM/config"   # the config actually built into the Image
+    cp "$STOCK_CONFIG" "$SM/stock_kernel.config"
+    ( cd "$SM" && sha256sum bone-machine_k4stock_a52sxq.zip images/boot.img images/vendor_boot.img images/dtbo.img \
+        Image config > SHA256SUMS )
+    RELZIP="$SM/bone-machine_k4stock_a52sxq.zip"
+fi
+log "Done: $RELZIP"

@@ -31,3 +31,11 @@ File:     ReSukiSU_v4.2.0-rc3_35222-arm64-v8a-release.apk  (upstream file name B
 SHA-256:  29516aa9f4f72a688722f0e21ae0784cbd6b1aa255f76f27b459df0d18a7c66e
 Source:   official CI, Baka-SU/BakaSU Build Manager run 37924502987 (main, push, 5b76b884c7), artifact Manager-release
 Signer:   same as 35203, cert SHA-256 d3469712b6214462764a1d8d3e5cbe1d6819a0b629791b9f4101867821f1df64; package com.resukisu.resukisu
+
+2026-10-10: kernel rebuilt with two more k4 patches (same K4_BACKPORTS=1 BTF recipe, same config):
+  0006 bpf: backport BPF_MAP_TYPE_RINGBUF (=27) with mmap/poll from 5.8 (+ CVE-2021-3489 and VM_MAP fixes; no
+       ringbuf helpers/verifier support) - lets the ROM ship Google's original Tethering APEX (Play system trains)
+  0007 ksu: hook native newfstatat and statx for sucompat (64-bit stat() was unhooked -> "su: not found" for granted apps)
+File:     bone-machine_k4btf_ringbuf_su_a52sxq.zip
+SHA-256:  885b9b082e747d3470ea6eaed25c6781edadb3d3e3b26134afa2d627951caee2
+Verified on R5CTA0ESFTF: boots, Wi-Fi/NFC/cameras/audio/touch/FP, rbtest 24/24 PASS, su -c id -> uid=0 (ksu:s0), BTF timeInState loads.

@@ -1,0 +1,48 @@
+From: k4 <k4@local>
+Date: Sat, 10 Oct 2026 16:00:00 +0300
+Subject: [PATCH] ksu: hook the native arm64 newfstatat and statx syscalls
+
+The ReSukiSU manual hooks ("kernel: add ReSukiSU manual hooks", 2649a3036)
+put ksu_handle_stat() into sys_fstatat64 (32-bit) and
+compat_sys_newfstatat (not even wired into the arm64 compat table), but
+not into the native SYSCALL_DEFINE4(newfstatat) that every 64-bit bionic
+stat()/lstat()/fstatat() uses on arm64 (SYSCALLS.TXT:
+"fstatat64|fstatat:newfstatat(...) lp64").
+
+mksh's search_access() does stat(fn) first and only then access(fn) /
+execve(fn); with the stat unhooked, stat("/system/bin/su") returns ENOENT
+and the shell prints "su: inaccessible or not found" (exit 127) before
+the hooked faccessat/execve paths are ever reached, so sucompat never
+fires for 64-bit callers (adb shell, terminal apps, root checkers) and no
+KernelSU log line is printed.
+
+Hook the native newfstatat like upstream's manual-integration guide does,
+and statx as well (toybox stat, Rust std::fs::metadata and other statx
+users) so they see /system/bin/su too.
+---
+diff --git a/fs/stat.c b/fs/stat.c
+index 3c948c044..8e73211af 100755
+--- a/fs/stat.c
++++ b/fs/stat.c
+@@ -375,6 +375,10 @@ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
+ 	struct kstat stat;
+ 	int error;
+ 
++#ifdef CONFIG_KSU_MANUAL_HOOK // 64-bit su: bionic stat()/lstat()/fstatat() on arm64
++	ksu_handle_stat(&dfd, &filename, &flag);
++#endif
++
+ 	error = vfs_fstatat(dfd, filename, &stat, flag);
+ 	if (error)
+ 		return error;
+@@ -603,6 +607,10 @@ SYSCALL_DEFINE5(statx,
+ 	if ((flags & AT_STATX_SYNC_TYPE) == AT_STATX_SYNC_TYPE)
+ 		return -EINVAL;
+ 
++#ifdef CONFIG_KSU_MANUAL_HOOK // statx() users (toybox stat, Rust std::fs::metadata, ...)
++	ksu_handle_stat(&dfd, &filename, (int *)&flags);
++#endif
++
+ 	error = vfs_statx(dfd, filename, flags, &stat, mask);
+ 	if (error)
+ 		return error;
