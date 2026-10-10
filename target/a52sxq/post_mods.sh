@@ -17,3 +17,9 @@ SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GENAI_CONFIG_FOUNDATION_MODEL"
 # Time/weather AI wallpaper (SpriteWallpaper "magician", any value but V1/None): generated through SamsungAiCore's
 # LVM (LVMInterface.RunWallpaperMix* on QNN HTP V81), on-device only. "None" is the __floating_feature fallback.
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GENAI_SUPPORT_TIME_WEATHER_WALLPAPER" "None"
+
+# Game Booster: the ROM reports itself as SM-S948B, so server-side game policies (resolution/fps/perf targets per
+# model) would be the S26 Ultra's for a far weaker SoC. Stock A52s has no policy queries and no default game frame
+# rate (games start at 60); the __floating_feature fallback derives 120 from the panel's default refresh rate.
+SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_SUPPORT_GAME_SERVER_POLICY_QUERIES" --delete
+SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_CONFIG_GAME_DEFAULT_FRAMERATE" "60"
