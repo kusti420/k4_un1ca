@@ -4,18 +4,30 @@
 # and every edit asserts the original instruction shape first. Not run by the build: run it by hand after a base
 # switch, then update TETH_SRC's sha256 in customize.sh.
 #
-#   regen.py <tethering_compressed.apex> <out_dir> <keys_dir> <android_host_out>
+#   regen.py <tethering_compressed.apex> <out_dir> <keys_dir> <android_host_out> [<train tethering .apex | netd.o>...]
 #
 # Produces in out_dir: netbpfload_a52, netbpfload_a52b, libbpf.so, libbasB.so, libbpB.so, libcBB.so, netd_a52.o,
-# netd_a52rb.o (default build: + ringbuf maps on 5.4), com.google.android.tethering.apex (re-signed with keys_dir, inner
-# APKs PRESIGNED; only shipped with TARGET_TETHERING_RESIGN_APEX=true).
-import os, re, struct, subprocess, sys, tempfile, zipfile
+# netd_a52rb.o (default build: + ringbuf maps on 5.4, + the maps of every extra Tethering APEX given, see below),
+# com.google.android.tethering.apex (re-signed with keys_dir, inner APKs PRESIGNED; only shipped with
+# TARGET_TETHERING_RESIGN_APEX=true).
+#
+# The extra arguments are Google Play train Tethering APEXes (as pulled from /data/apex/active, or their
+# etc/bpf/mainline/netd.o). Their userspace must find every map pin it opens, but our loader only ever loads our
+# frozen a52_netd.o: bpf_union.py adds each map that a train's netd.o defines and ours does not (programs untouched).
+# Current shipped netd_a52rb.o: + com.google.android.tethering 372038420
+#   (apex sha256 6e1d70ee4d41b8537245c13564eb7f43c9948115a7aae9e5edf7527d29c480f4,
+#    netd.o sha256 44151790d74e159bc7c3bc3c06a1219a993a153ff4cd7d44d7da7998193bccf2)
+import hashlib, io, os, re, struct, subprocess, sys, tempfile, zipfile
 from elftools.elf.elffile import ELFFile
 from elftools.elf.relocation import RelocationSection
 from capstone import Cs, CS_ARCH_ARM64, CS_MODE_ARM
 from capstone.arm64 import ARM64_OP_IMM
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from bpf_union import union
 
 SRC, OUT, KEYS, HOST = sys.argv[1:5]
+TRAINS = sys.argv[5:]
 os.makedirs(OUT, exist_ok=True)
 W = tempfile.mkdtemp(prefix="teth-regen-", dir=OUT)
 md = Cs(CS_ARCH_ARM64, CS_MODE_ARM); md.detail = True
@@ -133,7 +145,31 @@ for v, name in want.items():
     print(f"netd.o: {name} max_api {maxa} -> 65536 @ {off:#x}")
 open(os.path.join(OUT, "netd_a52.o"), "wb").write(nd)
 
-# --- netd_a52rb.o: same, plus the BPF_MAP_TYPE_RINGBUF maps created on our 5.4 kernel ------------------------------
+# --- netd_a52rb.o: same, plus the maps newer Tethering trains need, plus the ringbuf maps created on our 5.4 kernel ---
+# Union: the default build keeps Google's original Tethering APEX, so a Play train replaces system_server's / netd's
+# BPF users while our loader keeps loading this one object. 372038420 e.g. opens map_netd_loopback_permission_enabled_map
+# (abort -> system_server crash loop without it) and no longer the five permission-migration maps the factory code
+# needs; one object with both sets serves both. The programs stay the factory's: with a newer train's userspace they
+# fall back to their legacy branches (uid_migration/permission_propagation/loopback_checks flags never set -> INTERNET
+# permission, local-network and loopback restrictions not enforced = fail-open), whereas a train's programs under the
+# factory userspace could fail closed (chunk-map ACCESS_LOCAL_NETWORK bits, which the factory code - per AOSP 26Q2
+# BpfNetMaps - only writes behind its permission_map_uid_migration flag). Maps both define must be identical
+# (bpf_union asserts; only 5.10+ ones such as sk_storage may differ).
+def train_netd(path):
+    with open(path, "rb") as f: head = f.read(4)
+    if head == b"\x7fELF": return open(path, "rb").read()
+    d = tempfile.mkdtemp(dir=W); z = zipfile.ZipFile(path)
+    if "original_apex" in z.namelist():
+        z.extract("original_apex", d); z = zipfile.ZipFile(os.path.join(d, "original_apex"))
+    z.extract("apex_payload.img", d)
+    dbg("dump /etc/bpf/mainline/netd.o " + os.path.join(d, "netd.o"), os.path.join(d, "apex_payload.img"))
+    return open(os.path.join(d, "netd.o"), "rb").read()
+donors = []
+for t in TRAINS:
+    b = train_netd(t); donors.append((os.path.basename(t), b))
+    print(f"netd.o: union input {t} (netd.o sha256 {hashlib.sha256(b).hexdigest()})")
+nd, added = union(bytes(nd), donors, log=print)
+nd = bytearray(nd)
 # AOSP's DEFINE_BPF_RINGBUF_EXT hard-codes min_kver KVER_5_10, so netbpfload (prepareLoadMaps) sets autocreate=false
 # for them on 5.4 and system_server's libservice-connectivity.so later abort()s opening the missing pins. Our kernel
 # backports the map type (k4-patches/0006: create/mmap/poll; no BPF-side helpers), so lower min_kver to 5.4.0: the
@@ -142,7 +178,7 @@ open(os.path.join(OUT, "netd_a52.o"), "wb").write(nd)
 # reference these maps (and they still are not loaded on 5.4), so the rings stay empty - consumers just never get
 # events. struct bpf_map_def: type@0 ... uid@20 gid@24 mode@28 min_api@32 max_api@36 min_kver@40 max_kver@44.
 M_SZ, KV = 192, lambda a, b, c: (a << 24) | (b << 16) | c
-with open(J("netd.o"), "rb") as f:
+with io.BytesIO(bytes(nd)) as f:
     e = ELFFile(f); s = e.get_section_by_name(".android_maps"); base = s["sh_offset"]
     idx = [k for k, x in enumerate(e.iter_sections()) if x.name == ".android_maps"][0]
     rbs = {sym["st_value"]: sym.name for sym in e.get_section_by_name(".symtab").iter_symbols()

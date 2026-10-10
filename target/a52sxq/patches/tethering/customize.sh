@@ -13,12 +13,21 @@
 # Two modes (TARGET_TETHERING_RESIGN_APEX, scripts/internal/gen_config_file.sh):
 # - false (default): Google's ORIGINAL, Google-signed com.google.android.tethering_compressed.apex stays untouched, so
 #   Google Play system update trains can update Tethering. Needs a kernel with BPF_MAP_TYPE_RINGBUF (bone-machine k4
-#   patch 0006, checked below): /system/etc/bpf/a52_netd.o is netd_a52rb.o, i.e. the netd.o above plus the three ringbuf
-#   maps' min_kver lowered 5.10 -> 5.4 (3 bytes, see regen.py). The loader then creates and pins them itself like on a
-#   5.10 device, before bpf.progs_loaded=1 and therefore before netd/system_server start:
-#     /sys/fs/bpf/netd_shared/map_netd_packet_trace_ringbuf       32 KiB  root:system      0060
-#     /sys/fs/bpf/netd_shared/map_netd_local_net_note_op_ringbuf   4 KiB  root:net_bw_acct 0060
-#     /sys/fs/bpf/netd_shared/map_netd_loopback_access_ringbuf     8 KiB  root:system      0060
+#   patch 0006, checked below): /system/etc/bpf/a52_netd.o is netd_a52rb.o, i.e. the netd.o above plus
+#   * the maps only the Play train Tethering 372038420's netd.o defines (regen.py extra input, bpf_union.py; programs
+#     untouched), so that train's userspace finds its pins too - it aborts system_server without
+#       /sys/fs/bpf/netd_shared/map_netd_loopback_permission_enabled_map   ARRAY u32->bool  root:net_bw_acct 0460
+#     (netd_readonly create location -> fs_bpf_netd_readonly, like the factory loopback_checks_enabled_map it replaces),
+#     while the factory userspace keeps its five maps that 372038420 dropped (uid_permission_map, uid_migration_enabled,
+#     permission_propagation_enabled, local_net_blocked_uid, loopback_checks_enabled). Under the train's userspace the
+#     factory programs take their legacy branches: INTERNET-permission / local-network / loopback checks fail open;
+#   * all ringbuf maps' min_kver lowered 5.10 -> 5.4 (see regen.py). The loader then creates and pins them itself like
+#     on a 5.10 device, before bpf.progs_loaded=1 and therefore before netd/system_server start:
+#     /sys/fs/bpf/netd_shared/map_netd_packet_trace_ringbuf       32 KiB  root:system          0060
+#     /sys/fs/bpf/netd_shared/map_netd_local_net_note_op_ringbuf   4 KiB  root:net_bw_acct     0060
+#     /sys/fs/bpf/netd_shared/map_netd_loopback_access_ringbuf     8 KiB  root:system          0060
+#     /sys/fs/bpf/netd_shared/map_netd_tcp_metrics_ringbuf         8 KiB  root:system          0060  (372038420)
+#     /sys/fs/bpf/netd_shared/map_netd_test_ringbuf                4 KiB  root:network_stack   0060  (372038420)
 #   all created as /sys/fs/bpf/net_shared/tmp and renamed, so labelled u:object_r:fs_bpf_net_shared:s0 (plat policy
 #   already allows bpfloader to create/rename and system_server to read/write those; no sepolicy change). Nothing else
 #   creates these pins, so the loader's "pin already exists" failure path cannot trigger. Only the 5.10+ program
@@ -32,7 +41,8 @@
 # Play train updates Tethering, the new APEX's own netbpfload/netd.o are not used (offload.o, clatd.o, dscpPolicy.o
 # are still read from the live APEX), while its new libservice-connectivity.so/libnetd_updatable.so may expect maps or
 # programs that only a newer netd.o defines -> netd/system_server abort -> bootloop (bpfloader and netd have
-# reboot_on_failure). Reading the live APEX netd.o instead is not done on purpose: the 5.4 stats max_api relaxation is
+# reboot_on_failure). Covered up to Tethering 372038420 (map union above); a later train that adds maps again needs
+# regen.py rerun with that train's APEX as an extra input. Reading the live APEX netd.o instead is not done on purpose: the 5.4 stats max_api relaxation is
 # name-specific (a newer netd.o may rename the variants or add its own 5.4 ones, which would then collide on the same
 # pin path) and a newer object may need a newer loader (bpfloader_min_ver). After every Tethering train: check
 # `logcat -b all | grep -iE "netbpfload|LibBpfLoader|bpf map|ringbuf"` and the stats/maps pins; when Google's netd.o
