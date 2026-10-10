@@ -9,8 +9,8 @@ fi
 # kernel's allowlist; a copy in /system/app is never recognised. Samsung's PrePackageInstaller installs every APK in
 # /system/preload/<dir>/ as a regular user app on first boot, after an upgrade and whenever the build fingerprint
 # changes (every flash of this ROM), skipping it when a higher version is already installed.
-KSU_APK="$SRC_DIR/prebuilts/kernel/bone-machine/ReSukiSU_v4.2.0-rc3_35203-arm64-v8a-release.apk"
-KSU_SHA="8c760adde1a256202e9b6e7c0523219f0b7af71c4f5306bd3b564875d8d70dad"
+KSU_APK="$SRC_DIR/prebuilts/kernel/bone-machine/ReSukiSU_v4.2.0-rc3_35222-arm64-v8a-release.apk"
+KSU_SHA="29516aa9f4f72a688722f0e21ae0784cbd6b1aa255f76f27b459df0d18a7c66e"
 [ -f "$KSU_APK" ] || ABORT "knox_kernel_compat: $KSU_APK not found"
 [ "$(sha256sum "$KSU_APK" | cut -d " " -f 1)" = "$KSU_SHA" ] || ABORT "knox_kernel_compat: sha256 mismatch for $KSU_APK"
 # unica/patches/_debloat deletes /system/preload after the target patches run, so stage the APK outside the
@@ -21,5 +21,5 @@ mkdir -p "$WORK_DIR/.extra_preload/ReSukiSU"
 # throne_tracker only matches files named exactly base.apk: as ReSukiSU.apk the kernel never recognised the manager,
 # so its seccomp was never lifted ("KernelSU driver install syscall was blocked by seccomp") and root was dead.
 cp -f "$KSU_APK" "$WORK_DIR/.extra_preload/ReSukiSU/base.apk"
-LOG "- ReSukiSU v4.2.0-rc3 (35203) manager staged for /system/preload (installed as a user app on first boot)"
+LOG "- ReSukiSU v4.2.0-rc3 (35222) manager staged for /system/preload (installed as a user app on first boot)"
 unset KSU_APK KSU_SHA

@@ -25,3 +25,9 @@ Signer:   CN=ReSukiSU, O=ReSukiSU, L=Shantou, ST=Guangdong, C=CN; cert SHA-256 d
 2026-10-08 (evening): rebuilt with k4-patches 0005 (CONFIG_DEBUG_INFO_BTF; link-vmlinux.sh pahole --btf_features_strict=var so only BTF kinds 5.4 understands are emitted).
   Exposes /sys/kernel/btf/vmlinux -> Android 17 BpfLoader loads cputimeinstate/timeInState.bpf (per-UID CPU time / battery usage per app). Device-tested on R5CTA0ESFTF: boots, timeInState loads, per-app cpu power non-zero.
   file: bone-machine_k4btf_a52sxq.zip sha256 ca625587a1722edffb0d1f47ed0dcf40cdb0ddd855e80941bf18027d1e42c039
+
+2026-10-10: manager updated to 35222 (kernel driver stays 35203; verified on device: KernelSU "Working", 0 errors)
+File:     ReSukiSU_v4.2.0-rc3_35222-arm64-v8a-release.apk  (upstream file name BakaSU_v4.2.0-rc3_35222-arm64-v8a-release.apk)
+SHA-256:  29516aa9f4f72a688722f0e21ae0784cbd6b1aa255f76f27b459df0d18a7c66e
+Source:   official CI, Baka-SU/BakaSU Build Manager run 37924502987 (main, push, 5b76b884c7), artifact Manager-release
+Signer:   same as 35203, cert SHA-256 d3469712b6214462764a1d8d3e5cbe1d6819a0b629791b9f4101867821f1df64; package com.resukisu.resukisu
