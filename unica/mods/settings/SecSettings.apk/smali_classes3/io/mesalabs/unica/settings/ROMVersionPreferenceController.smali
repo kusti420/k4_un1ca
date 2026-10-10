@@ -75,7 +75,7 @@
 .method public getSummary()Ljava/lang/CharSequence;
     .locals 3
 
-    # k4: "<ro.k4.rom_name> (UN1CA <ro.unica.version>, <codename>)" when the target sets ro.k4.rom_name,
+    # k4: "<ro.k4.rom_name> (<ro.k4.commit>, <codename>)" when the target sets ro.k4.rom_name,
     # otherwise upstream's "<ro.unica.version> (<codename>)"
     const-string v0, "ro.unica.version"
 
@@ -114,13 +114,20 @@
     goto :k4_codename
 
     :k4_name
+    # the version is already in ro.k4.rom_name: show only the commit (falls back to ro.unica.version)
+    const-string v2, "ro.k4.commit"
+
+    invoke-static {v2, v0}, Landroid/os/SemSystemProperties;->get(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
     new-instance v2, Ljava/lang/StringBuilder;
 
     invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
 
     invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    const-string p0, " (K4_UN1CA "
+    const-string p0, " ("
 
     invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
