@@ -1,0 +1,2 @@
+/android:key=.sec_screen_size.[[:space:]]/a
+    <SecPreference android:title="@string/unica_screen_resolution_title" android:key="unica_screen_resolution" android:summary="@string/summary_placeholder" settings:controller="io.mesalabs.unica.settings.display.ScreenResolutionPreferenceController" settings:keywords="@string/keywords_unica_screen_resolution" />

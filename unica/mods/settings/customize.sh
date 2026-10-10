@@ -279,6 +279,19 @@ if [ "$SEC_DISPLAY_UTILS" ] && [ "$FORCE_MAX_RR" ]; then
 fi
 unset SEC_DISPLAY_UTILS FORCE_MAX_RR SDU_CALL
 
+# Settings > Display > Screen resolution (io.mesalabs.unica.settings.display): Samsung's Screen zoom only has
+# WQHD/FHD/HD density ladders, so at 540p it would offer the HD+ densities (UI 4/3 too big). Swallow the
+# Screen zoom click there with a toast; at Native/HD+ its ladders match our width-scaled densities.
+if ! grep -q -r "ScreenResolutionUtils;->blockScreenZoomClick" \
+        "$APKTOOL_DIR/system/priv-app/SecSettings/SecSettings.apk/"smali*/com/samsung/android/settings/display/controller/SecScreenSizePreferenceController.smali; then
+    SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
+        "smali_classes3/com/samsung/android/settings/display/controller/SecScreenSizePreferenceController.smali" "replace" \
+        'handlePreferenceTreeClick(Landroidx/preference/Preference;)Z' \
+        'invoke-virtual {p0}, Lcom/android/settings/core/BasePreferenceController;->getPreferenceKey()Ljava/lang/String;' \
+        '    invoke-static {p0, p1}, Lio/mesalabs/unica/settings/display/ScreenResolutionUtils;->blockScreenZoomClick(Lcom/android/settings/core/BasePreferenceController;Landroidx/preference/Preference;)Z\n\n    move-result v0\n\n    if-eqz v0, :unica_screen_zoom_allowed\n\n    const/4 p0, 0x1\n\n    return p0\n\n    :unica_screen_zoom_allowed\n    invoke-virtual {p0}, Lcom/android/settings/core/BasePreferenceController;->getPreferenceKey()Ljava/lang/String;' \
+        > /dev/null
+fi
+
 # Add UN1CA Settings SearchIndexableData registrations
 LOG "- Patching \"smali_classes2/com/android/settings/search/SearchFeatureProviderImpl\$\$ExternalSyntheticLambda0.smali\" in /system/system/priv-app/SecSettings.apk"
 SMALI_PATCH "system" "system/priv-app/SecSettings/SecSettings.apk" \
