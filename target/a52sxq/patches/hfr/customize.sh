@@ -213,4 +213,220 @@ print("  - refresh_rate_mode 2 -> 1 for the touch IC")
 PYEOF
 fi
 
-unset IDLE_TIMER_MS TOUCH_TIMER_MS SF SERVICES INPUTDEV
+# Settings > Display > Motion smoothness: HighRefreshRateFragment shows one "high" radio button next to Standard -
+# "High" (sec_high_refresh_rate_powerful_on, mode 2) on switchable panels, "Adaptive"
+# (sec_high_refresh_rate_adaptive_on, mode 1) on seamless ones. Show the hidden High button on seamless panels too,
+# so the page offers High (locked 120 Hz) / Adaptive / Standard (locked 60 Hz). The Display page summary
+# (HighRefreshRatePreferenceController) already names mode 2 "High", and the Apply button writes
+# refresh_rate_mode through SecDisplayUtils.putIntRefreshRate as before.
+SECSETTINGS="system/priv-app/SecSettings/SecSettings.apk"
+DECODE_APK "system" "$SECSETTINGS" || ABORT "Failed to decode $SECSETTINGS"
+LOG "- Adding the High (locked max refresh rate) option to Motion smoothness"
+python3 - "$APKTOOL_DIR/system/${SECSETTINGS//system\//}" << 'PYEOF' || ABORT "Failed to patch HighRefreshRateFragment"
+import glob, re, sys
+root = sys.argv[1]
+hits = glob.glob(root + "/smali*/com/samsung/android/settings/display/HighRefreshRateFragment.smali")
+assert len(hits) == 1, "HighRefreshRateFragment: %d" % len(hits)
+f = hits[0]
+s = orig = open(f).read()
+if "unicaSyncHighMode" in s:
+    print("  - already patched"); sys.exit(0)
+pub = open(root + "/res/values/public.xml").read()
+rid = re.search(r'<public type="string" name="sec_high_refresh_rate_best_display_pd_summary" id="(0x[0-9a-f]+)" />', pub)
+assert rid, "string/sec_high_refresh_rate_best_display_pd_summary"
+rid = rid.group(1)
+
+C = "Lcom/samsung/android/settings/display/HighRefreshRateFragment;"
+R = "Lcom/samsung/android/settings/widget/SecRadioButtonPreference;"
+L = "Lcom/samsung/android/settings/widget/SecRadioButtonPreference$OnClickListener;"
+for fld in ("mPowerfulMode:" + R, "mSeamless:I", "mMode:I", "mFlags:I", "mContext:Landroid/content/Context;"):
+    assert re.search(r"^\.field public " + re.escape(fld) + "$", s, re.M), fld
+assert "%s->mListener:%s" % (R, L) in s, "SecRadioButtonPreference.mListener"
+find = re.search(r"invoke-virtual \{p0, v\d+\}, (L[^;]+;->findPreference\(Ljava/lang/CharSequence;\)Landroidx/preference/Preference;)", s).group(1)
+refresh = re.findall(r"^\.method public final (refreshUI\S*)\(\)V$", s, re.M)
+assert len(refresh) == 1, "refreshUI: %s" % refresh
+refresh = refresh[0]
+maxrr = set(re.findall(r"Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateMaxValue\(((?:Landroid/content/Context;)?)\)I", s))
+assert len(maxrr) == 1, "getHighRefreshRateMaxValue: %s" % maxrr
+maxrr = maxrr.pop()
+if maxrr:
+    maxcall = "iget-object v3, p0, %s->mContext:Landroid/content/Context;\n\n    invoke-static {v3}, Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateMaxValue(Landroid/content/Context;)I" % C
+else:
+    maxcall = "invoke-static {}, Lcom/samsung/android/settings/display/SecDisplayUtils;->getHighRefreshRateMaxValue()I"
+
+# 1. field
+anchor = ".field public mPowerfulMode:%s\n" % R
+s = s.replace(anchor, anchor + "\n.field public mUnicaHighMode:%s\n" % R)
+
+# 2. initUI: register the High button right after mPowerfulMode got its listener
+init = re.search(r"(    iput-object p0, v\d+, " + re.escape(R + "->mListener:" + L) + r"\n\n)(    const-string v\d+, \"sec_high_refresh_rate_standard_off\"\n)", s)
+assert init and s.count('"sec_high_refresh_rate_standard_off"') == 1, "initUI anchor"
+s = s[:init.end(1)] + "    invoke-virtual {p0}, %s->unicaInitHighMode()V\n\n" % C + s[init.end(1):]
+
+# 3. onRadioButtonClicked: the High button selects mode 2
+click = re.search(r"^\.method public final onRadioButtonClicked\(" + re.escape(R) + r"\)V\n    \.locals ([1-9]\d*)\n", s, re.M)
+assert click, "onRadioButtonClicked"
+s = s[:click.end()] + """
+    invoke-virtual {p0, p1}, %s->unicaOnHighClicked(%s)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_unica_hrr_click
+
+    return-void
+
+    :cond_unica_hrr_click
+""" % (C, R) + s[click.end():]
+
+# 4. refreshUI: after the checked state is set, sync the High button (checked / enabled / summary)
+m = re.search(r"^\.method public final " + re.escape(refresh) + r"\(\)V\n.*?^\.end method\n", s, re.M | re.S)
+body = m.group(0)
+hs60 = re.search(r"\n(    invoke-static \{v\d+\}, Lcom/samsung/android/settings/display/SecDisplayUtils;->isSupportMaxHS60RefreshRate\()", body)
+assert hs60 and body.count("isSupportMaxHS60RefreshRate(") == 1, "refreshUI anchor"
+body = body[:hs60.start(1)] + "    invoke-virtual {p0}, %s->unicaSyncHighMode()V\n\n" % C + body[hs60.start(1):]
+s = s[:m.start()] + body + s[m.end():]
+
+s = s.rstrip("\n") + "\n" + """
+# k4_un1ca: High (refresh_rate_mode 2, locked max refresh rate) on seamless panels too
+.method public final unicaInitHighMode()V
+    .locals 2
+
+    iget v0, p0, %(C)s->mSeamless:I
+
+    const/4 v1, 0x1
+
+    if-eq v0, v1, :cond_0
+
+    const-string v0, "sec_high_refresh_rate_powerful_on"
+
+    invoke-virtual {p0, v0}, %(find)s
+
+    move-result-object v0
+
+    check-cast v0, %(R)s
+
+    if-eqz v0, :cond_0
+
+    iput-object v0, p0, %(C)s->mUnicaHighMode:%(R)s
+
+    invoke-virtual {v0, v1}, Landroidx/preference/Preference;->setVisible(Z)V
+
+    iput-object p0, v0, %(R)s->mListener:%(L)s
+
+    :cond_0
+    return-void
+.end method
+
+.method public final unicaOnHighClicked(%(R)s)Z
+    .locals 1
+
+    iget-object v0, p0, %(C)s->mUnicaHighMode:%(R)s
+
+    if-eqz v0, :cond_0
+
+    invoke-virtual {p1, v0}, Ljava/lang/Object;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_0
+
+    const/4 v0, 0x2
+
+    iput v0, p0, %(C)s->mMode:I
+
+    invoke-virtual {p0}, %(C)s->%(refresh)s()V
+
+    const/4 v0, 0x1
+
+    return v0
+
+    :cond_0
+    const/4 v0, 0x0
+
+    return v0
+.end method
+
+.method public final unicaSyncHighMode()V
+    .locals 4
+
+    iget-object v0, p0, %(C)s->mUnicaHighMode:%(R)s
+
+    if-eqz v0, :cond_0
+
+    invoke-virtual {p0}, %(C)s->getRefreshRateMode()I
+
+    move-result v1
+
+    const/4 v2, 0x2
+
+    if-ne v1, v2, :cond_1
+
+    iget-object v1, p0, %(C)s->mPowerfulMode:%(R)s
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v1, v2}, Landroidx/preference/TwoStatePreference;->setChecked(Z)V
+
+    const/4 v2, 0x1
+
+    invoke-virtual {v0, v2}, Landroidx/preference/TwoStatePreference;->setChecked(Z)V
+
+    :cond_1
+    iget v1, p0, %(C)s->mFlags:I
+
+    const v2, 0xffff
+
+    and-int/2addr v1, v2
+
+    if-nez v1, :cond_2
+
+    const/4 v1, 0x1
+
+    goto :goto_0
+
+    :cond_2
+    const/4 v1, 0x0
+
+    :goto_0
+    invoke-virtual {v0, v1}, Landroidx/preference/Preference;->setEnabled(Z)V
+
+    iget-object v1, p0, %(C)s->mContext:Landroid/content/Context;
+
+    const v2, %(rid)s
+
+    invoke-virtual {v1, v2}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+
+    move-result-object v1
+
+    %(maxcall)s
+
+    move-result v2
+
+    invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+
+    move-result-object v2
+
+    filled-new-array {v2}, [Ljava/lang/Object;
+
+    move-result-object v2
+
+    invoke-static {v1, v2}, Ljava/lang/String;->format(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Landroidx/preference/Preference;->setSummary(Ljava/lang/CharSequence;)V
+
+    :cond_0
+    return-void
+.end method
+""" % dict(C=C, R=R, L=L, find=find, refresh=refresh, rid=rid, maxcall=maxcall)
+# Everything the new methods call is already used by the stock fragment (the shrunk androidx keeps it)
+assert re.search(r"^\.method public final getRefreshRateMode\(\)I$", orig, re.M), "getRefreshRateMode()I"
+for need in ("Landroidx/preference/TwoStatePreference;->setChecked(Z)V", "Landroidx/preference/Preference;->setEnabled(Z)V",
+             "Landroidx/preference/Preference;->setVisible(Z)V", "Landroidx/preference/Preference;->setSummary(Ljava/lang/CharSequence;)V"):
+    assert need in orig, need
+open(f, "w").write(s)
+print("  - High/Adaptive/Standard (pd_summary=%s, %s)" % (rid, refresh))
+PYEOF
+
+unset IDLE_TIMER_MS TOUCH_TIMER_MS SF SERVICES INPUTDEV SECSETTINGS
