@@ -4,7 +4,8 @@
 # and every edit asserts the original instruction shape first. Not run by the build: run it by hand after a base
 # switch, then update TETH_SRC's sha256 in customize.sh.
 #
-#   regen.py <tethering_compressed.apex> <out_dir> <keys_dir> <android_host_out> [<train tethering .apex | netd.o>...]
+#   regen.py <tethering_compressed.apex> <out_dir> <keys_dir> <android_host_out> [--train-progs]
+#            [<train tethering .apex | netd.o>...]
 #
 # Produces in out_dir: netbpfload_a52, netbpfload_a52b, libbpf.so, libbasB.so, libbpB.so, libcBB.so, netd_a52.o,
 # netd_a52rb.o (default build: + ringbuf maps on 5.4, + the maps of every extra Tethering APEX given, see below),
@@ -14,6 +15,7 @@
 # The extra arguments are Google Play train Tethering APEXes (as pulled from /data/apex/active, or their
 # etc/bpf/mainline/netd.o). Their userspace must find every map pin it opens, but our loader only ever loads our
 # frozen a52_netd.o: bpf_union.py adds each map that a train's netd.o defines and ours does not (programs untouched).
+# --train-progs also writes netd_a52rb_train.o: the reverse union (newest train's programs + maps, + the factory's).
 # Current shipped netd_a52rb.o: + com.google.android.tethering 372038420
 #   (apex sha256 6e1d70ee4d41b8537245c13564eb7f43c9948115a7aae9e5edf7527d29c480f4,
 #    netd.o sha256 44151790d74e159bc7c3bc3c06a1219a993a153ff4cd7d44d7da7998193bccf2)
@@ -27,7 +29,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bpf_union import union
 
 SRC, OUT, KEYS, HOST = sys.argv[1:5]
-TRAINS = sys.argv[5:]
+TRAIN_PROGS = "--train-progs" in sys.argv[5:]
+TRAINS = [a for a in sys.argv[5:] if a != "--train-progs"]
+assert TRAINS or not TRAIN_PROGS, "--train-progs needs a train APEX"
 os.makedirs(OUT, exist_ok=True)
 W = tempfile.mkdtemp(prefix="teth-regen-", dir=OUT)
 md = Cs(CS_ARCH_ARM64, CS_MODE_ARM); md.detail = True
@@ -149,12 +153,13 @@ open(os.path.join(OUT, "netd_a52.o"), "wb").write(nd)
 # Union: the default build keeps Google's original Tethering APEX, so a Play train replaces system_server's / netd's
 # BPF users while our loader keeps loading this one object. 372038420 e.g. opens map_netd_loopback_permission_enabled_map
 # (abort -> system_server crash loop without it) and no longer the five permission-migration maps the factory code
-# needs; one object with both sets serves both. The programs stay the factory's: with a newer train's userspace they
-# fall back to their legacy branches (uid_migration/permission_propagation/loopback_checks flags never set -> INTERNET
-# permission, local-network and loopback restrictions not enforced = fail-open), whereas a train's programs under the
-# factory userspace could fail closed (chunk-map ACCESS_LOCAL_NETWORK bits, which the factory code - per AOSP 26Q2
-# BpfNetMaps - only writes behind its permission_map_uid_migration flag). Maps both define must be identical
-# (bpf_union asserts; only 5.10+ ones such as sk_storage may differ).
+# needs; one object with both sets serves both. The programs stay the factory's. Their permission checks are gated by
+# flag maps only the factory userspace sets (it sets uid_migration_enabled, permission_propagation_enabled and
+# loopback_checks_enabled to 1 on our system: permission_map_uid_migration is a READ_ONLY ENABLED aconfig flag compiled
+# to `return true`, the android.permission.flags ones are forced true for SDK >= 37). Under a train's userspace those
+# maps stay 0, so the factory programs take their legacy branches (uid_permission_map / local_net_blocked_uid_map,
+# both never written) = INTERNET-permission and local-network checks fail open. See netd_a52rb_train.o below for the
+# alternative. Maps both define must be identical (bpf_union asserts; only 5.10+ ones such as sk_storage may differ).
 def train_netd(path):
     with open(path, "rb") as f: head = f.read(4)
     if head == b"\x7fELF": return open(path, "rb").read()
@@ -178,18 +183,57 @@ nd = bytearray(nd)
 # reference these maps (and they still are not loaded on 5.4), so the rings stay empty - consumers just never get
 # events. struct bpf_map_def: type@0 ... uid@20 gid@24 mode@28 min_api@32 max_api@36 min_kver@40 max_kver@44.
 M_SZ, KV = 192, lambda a, b, c: (a << 24) | (b << 16) | c
-with io.BytesIO(bytes(nd)) as f:
-    e = ELFFile(f); s = e.get_section_by_name(".android_maps"); base = s["sh_offset"]
-    idx = [k for k, x in enumerate(e.iter_sections()) if x.name == ".android_maps"][0]
-    rbs = {sym["st_value"]: sym.name for sym in e.get_section_by_name(".symtab").iter_symbols()
-           if sym["st_shndx"] == idx and sym["st_size"] == M_SZ and struct.unpack_from("<I", nd, base + sym["st_value"])[0] == 27}
-assert len(rbs) >= 2, rbs
-for v, name in sorted(rbs.items()):
-    off = base + v; uid, gid, mode, mina, maxa, mink, maxk = struct.unpack_from("<3I2i2I", nd, off + 20)
-    assert mink == KV(5, 10, 0), (name, hex(mink)); struct.pack_into("<I", nd, off + 40, KV(5, 4, 0))
-    pin = nd[off + 118:off + 188].split(b"\0")[0].decode()
-    print(f"netd.o: {name} min_kver 5.10 -> 5.4 ({pin} {uid}:{gid} {mode:04o} api {mina}-{maxa})")
-open(os.path.join(OUT, "netd_a52rb.o"), "wb").write(nd)
+def relax_ringbufs(nd):
+    with io.BytesIO(bytes(nd)) as f:
+        e = ELFFile(f); s = e.get_section_by_name(".android_maps"); base = s["sh_offset"]
+        idx = [k for k, x in enumerate(e.iter_sections()) if x.name == ".android_maps"][0]
+        rbs = {sym["st_value"]: sym.name for sym in e.get_section_by_name(".symtab").iter_symbols()
+               if sym["st_shndx"] == idx and sym["st_size"] == M_SZ and struct.unpack_from("<I", nd, base + sym["st_value"])[0] == 27}
+    assert len(rbs) >= 2, rbs
+    for v, name in sorted(rbs.items()):
+        off = base + v; uid, gid, mode, mina, maxa, mink, maxk = struct.unpack_from("<3I2i2I", nd, off + 20)
+        assert mink == KV(5, 10, 0), (name, hex(mink)); struct.pack_into("<I", nd, off + 40, KV(5, 4, 0))
+        pin = nd[off + 118:off + 188].split(b"\0")[0].decode()
+        print(f"netd.o: {name} min_kver 5.10 -> 5.4 ({pin} {uid}:{gid} {mode:04o} api {mina}-{maxa})")
+    return nd
+open(os.path.join(OUT, "netd_a52rb.o"), "wb").write(relax_ringbufs(nd))
+
+# --- netd_a52rb_train.o (--train-progs; not installed by customize.sh): the reverse union -------------------------
+# The newest train's netd.o, programs included, + every map only the factory netd.o (and older trains) define, so
+# the factory userspace still finds its five permission-migration maps. 5.4 relaxations: ringbufs as above, and per
+# stats program pin the min_kver-5.4 variant with the largest max_api gets max_api 65536 (372038420: *_stats_5_4_t,
+# api 3300-3610; Google ships no 5.4 stats program for api >= 3610 any more). That variant is the T-era program: it
+# references no local_net_* map, i.e. on 5.4 these programs do no local-network-protection filtering at all.
+# INTERNET permission (cgroupsock/inet_create$4_14_t) reads only uid_permission_chunk_map, which both userspaces fill
+# with the same UidPermissionChunk layout (NO_INTERNET bit), so it is enforced under either. Loopback checks only
+# exist in 5.10+ programs (sk_storage), on 5.4 neither object has them.
+def relax_stats_5_4(nd):
+    P_SZ = 180
+    with io.BytesIO(bytes(nd)) as f:
+        e = ELFFile(f); s = e.get_section_by_name(".android_progs"); base = s["sh_offset"]
+        idx = [k for k, x in enumerate(e.iter_sections()) if x.name == ".android_progs"][0]
+        defs = [(sym.name, base + sym["st_value"]) for sym in e.get_section_by_name(".symtab").iter_symbols()
+                if sym["st_shndx"] == idx and sym["st_size"] == P_SZ]
+    pins = {}
+    for name, off in defs:
+        mink, maxk = struct.unpack_from("<2I", nd, off + 16); mina, maxa = struct.unpack_from("<2i", nd, off + 28)
+        pin = nd[off + 106:off + 176].split(b"\0")[0].decode()
+        if pin.endswith(("/prog_netd_ingress_stats", "/prog_netd_egress_stats")) and mink == KV(5, 4, 0):
+            pins.setdefault(pin, []).append((maxa, name, off, mina, maxk))
+    assert sorted(p.rsplit("/", 1)[1] for p in pins) == ["prog_netd_egress_stats", "prog_netd_ingress_stats"], pins
+    for pin, c in sorted(pins.items()):
+        maxa, name, off, mina, maxk = max(c)
+        assert [x[0] for x in c].count(maxa) == 1 and maxk > KV(5, 4, 302) and maxa < 65536, (pin, c)
+        struct.pack_into("<i", nd, off + 32, 65536)
+        print(f"netd.o (train): {name} max_api {maxa} -> 65536 (api {mina}-, pin {pin})")
+    return nd
+if TRAIN_PROGS:
+    tb_name, tb = donors[-1]
+    rdonors = [("factory netd.o", open(J("netd.o"), "rb").read())] + donors[:-1]
+    print(f"netd.o (train): base {tb_name}")
+    tnd, _ = union(tb, rdonors, log=print)
+    tnd = relax_ringbufs(relax_stats_5_4(bytearray(tnd)))
+    open(os.path.join(OUT, "netd_a52rb_train.o"), "wb").write(tnd)
 
 # --- libservice-connectivity.so: no BPF ringbuf on 5.4 ------------------------------------------------------------
 lsc = J("libservice-connectivity.so"); ldata = open(lsc, "rb").read(); ledits = []

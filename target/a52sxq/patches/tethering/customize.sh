@@ -20,7 +20,9 @@
 #     (netd_readonly create location -> fs_bpf_netd_readonly, like the factory loopback_checks_enabled_map it replaces),
 #     while the factory userspace keeps its five maps that 372038420 dropped (uid_permission_map, uid_migration_enabled,
 #     permission_propagation_enabled, local_net_blocked_uid, loopback_checks_enabled). Under the train's userspace the
-#     factory programs take their legacy branches: INTERNET-permission / local-network / loopback checks fail open;
+#     factory programs take their legacy branches: INTERNET-permission / local-network checks fail open (on 5.4 no
+#     program does loopback checks). netd_a52rb_train.o (regen.py --train-progs, NOT installed here) is the reverse:
+#     the train's programs + the factory maps, INTERNET enforced under both userspaces, no local-network filtering;
 #   * all ringbuf maps' min_kver lowered 5.10 -> 5.4 (see regen.py). The loader then creates and pins them itself like
 #     on a 5.10 device, before bpf.progs_loaded=1 and therefore before netd/system_server start:
 #     /sys/fs/bpf/netd_shared/map_netd_packet_trace_ringbuf       32 KiB  root:system          0060
