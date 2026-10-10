@@ -119,4 +119,98 @@ else:
 PYEOF
 fi
 
-unset IDLE_TIMER_MS TOUCH_TIMER_MS SF
+# Motion smoothness modes (Settings.Secure refresh_rate_mode), enforced in system_server by
+# RefreshRateController.updateRefreshRateModeLocked() as a PRIORITY_REFRESH_RATE_MODE vote (above app requests):
+#   0 Standard -> normal-speed rates [60, 60]: single rate, SurfaceFlinger cannot switch (locked 60 Hz)
+#   1 Adaptive -> high-speed rates [60, 120]: SurfaceFlinger picks within it (touch/idle timers above)
+#   2 High (REFRESH_RATE_MODE_ALWAYS) -> on seamless panels the source votes [60, 120] exactly like Adaptive;
+#     Samsung only offers it on switchable (HFR mode 1) panels, where it means a fixed maximum. Vote
+#     [max, max] for it instead, so High is a single-rate 120 Hz policy (Vote.forPolicyRate(120, 120) also
+#     disables refresh-rate switching) on the A52s too.
+SERVICES="system/framework/services.jar"
+DECODE_APK "system" "$SERVICES" || ABORT "Failed to decode $SERVICES"
+LOG "- Making refresh_rate_mode 2 (High) a fixed maximum refresh rate vote in RefreshRateController"
+python3 - "$APKTOOL_DIR/system/${SERVICES//system\//}" << 'PYEOF' || ABORT "Failed to patch RefreshRateController"
+import glob, re, sys
+hits = glob.glob(sys.argv[1] + "/smali*/com/android/server/display/mode/RefreshRateController.smali")
+assert len(hits) == 1, "RefreshRateController: %d" % len(hits)
+f = hits[0]
+s = open(f).read()
+if ":cond_unica_rr_always" in s:
+    print("  - already patched"); sys.exit(0)
+m = re.search(r"^\.method public final updateRefreshRateModeLocked\(Z\)V\n.*?^\.end method\n", s, re.M | re.S)
+assert m, "updateRefreshRateModeLocked(Z)V"
+body = m.group(0)
+# if (mode == 0) normal-speed vote; else if (mode == 1 || mode == 2) high-speed min..max vote; else null
+branch = "    const/4 v3, 0x2\n\n    if-eq v0, v3, :cond_3\n"
+assert body.count(branch) == 1, "mode 2 branch"
+cfg = "Lcom/android/server/display/mode/RefreshRateController;->mConfig:Lcom/samsung/android/hardware/display/RefreshRateConfig;"
+hs = re.search(
+    r"\n    :cond_3\n    iget-object v0, p0, " + re.escape(cfg) + r"\n\n"
+    r"    invoke-virtual \{v0\}, (Lcom/samsung/android/hardware/display/RefreshRateConfig;->getHighSpeedRefreshRates\(\)L[^;]+;)\n\n"
+    r"    move-result-object v0\n\n"
+    r"    invoke-virtual \{v0\}, (L[^;]+;)->min\(\)I\n"
+    r".*?"
+    r"    invoke-static \{v0, v3\}, (Lcom/android/server/display/mode/Vote;->forPolicyRate\(FF\)Lcom/android/server/display/mode/Vote;)\n\n"
+    r"    move-result-object v0\n\n"
+    r"    goto :goto_3\n", body, re.S)
+assert hs and body.count("\n    :cond_3\n") == 1, "high-speed vote block"
+always = """
+    :cond_unica_rr_always
+    iget-object v0, p0, %s
+
+    invoke-virtual {v0}, %s
+
+    move-result-object v0
+
+    invoke-virtual {v0}, %s->max()I
+
+    move-result v0
+
+    int-to-float v0, v0
+
+    invoke-static {v0, v0}, %s
+
+    move-result-object v0
+
+    goto :goto_3
+""" % (cfg, hs.group(1), hs.group(2), hs.group(3))
+new = body[:hs.end()] + always + body[hs.end():]
+new = new.replace(branch, "    const/4 v3, 0x2\n\n    if-eq v0, v3, :cond_unica_rr_always\n")
+open(f, "w").write(s[:m.start()] + new + s[m.end():])
+print("  - refresh_rate_mode 2 -> forPolicyRate(max, max)")
+PYEOF
+
+# The touch IC gets the raw refresh_rate_mode value ("refresh_rate_mode,<n>" sec_cmd). The A52s stock never sends 2
+# (seamless panels only offer 0/1); hand it 1, the high-rate scan mode it already uses for Adaptive.
+INPUTDEV="system/framework/secinputdev-service.jar"
+if [ -f "$WORK_DIR/system/$INPUTDEV" ]; then
+    DECODE_APK "system" "$INPUTDEV" || ABORT "Failed to decode $INPUTDEV"
+    LOG "- Sending refresh_rate_mode 2 to the touch IC as 1 in SemInputDeviceManagerService"
+    python3 - "$APKTOOL_DIR/system/${INPUTDEV//system\//}" << 'PYEOF' || ABORT "Failed to patch SemInputDeviceManagerService\$SettingHandler"
+import glob, re, sys
+hits = glob.glob(sys.argv[1] + "/smali*/com/samsung/android/hardware/secinputdev/SemInputDeviceManagerService$SettingHandler.smali")
+assert len(hits) == 1, "SettingHandler: %d" % len(hits)
+f = hits[0]
+s = open(f).read()
+if ":cond_unica_rr_touch" in s:
+    print("  - already patched"); sys.exit(0)
+head = ".method private updateRefreshRateMode(I)I\n    .locals 4\n"
+assert s.count(head) == 1, "updateRefreshRateMode(I)I"
+m = re.search(re.escape(head) + r".*?^\.end method\n", s, re.M | re.S)
+assert "Command;->REFRESH_RATE:" in m.group(0), "REFRESH_RATE command"
+s = s.replace(head, head + """
+    const/4 v0, 0x2
+
+    if-ne p1, v0, :cond_unica_rr_touch
+
+    const/4 p1, 0x1
+
+    :cond_unica_rr_touch
+""")
+open(f, "w").write(s)
+print("  - refresh_rate_mode 2 -> 1 for the touch IC")
+PYEOF
+fi
+
+unset IDLE_TIMER_MS TOUCH_TIMER_MS SF SERVICES INPUTDEV
