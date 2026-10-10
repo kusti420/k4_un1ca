@@ -17,6 +17,9 @@ KSU_SHA="8c760adde1a256202e9b6e7c0523219f0b7af71c4f5306bd3b564875d8d70dad"
 # partition trees; unica/mods/preload copies .extra_preload/* into /system/preload, sets its metadata and adds it
 # to vpl_apks_count_list.txt (PrePackageInstaller only installs listed APKs).
 mkdir -p "$WORK_DIR/.extra_preload/ReSukiSU"
-cp -f "$KSU_APK" "$WORK_DIR/.extra_preload/ReSukiSU/ReSukiSU.apk"
+# PrePackageInstaller keeps the file name (/system/preload/ReSukiSU/X.apk -> /data/app/ReSukiSU/X.apk) and
+# throne_tracker only matches files named exactly base.apk: as ReSukiSU.apk the kernel never recognised the manager,
+# so its seccomp was never lifted ("KernelSU driver install syscall was blocked by seccomp") and root was dead.
+cp -f "$KSU_APK" "$WORK_DIR/.extra_preload/ReSukiSU/base.apk"
 LOG "- ReSukiSU v4.2.0-rc3 (35203) manager staged for /system/preload (installed as a user app on first boot)"
 unset KSU_APK KSU_SHA
