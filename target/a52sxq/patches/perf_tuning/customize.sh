@@ -14,9 +14,10 @@ SET_PROP "system" "pm.dexopt.post-boot" "verify"
 SET_PROP "product" "ro.dalvik.vm.enable_uffd_gc" "false"
 
 # Performance profile "Light" (Settings > Device care > Performance profile) acquires the vendor hyper hint
-# LOW_HEAT_MODE_HINT (ID 900), which caps CPUMaxFreq at 90% of max: 2.208 GHz on the 2.4 GHz big/prime cores, barely
-# below Standard. Cap the CPU at 86% instead (2.064 GHz -> the cores settle on their 2054400 / 2035200 kHz steps, ~2.0
-# GHz), for the hint and for its app-start variant (APP_START_LOW_HEAT, ID 901). GPU and DDR caps are left alone.
+# LOW_HEAT_MODE_HINT (ID 900), whose CPUMaxFreq "90#" is a position in Samsung's unified /sys/power/cpufreq_table, not a
+# percentage: HYPER-HAL applies 2208000 (measured; 86# gave the same), barely below Standard's 2.4 GHz. The HAL also
+# takes absolute kHz values, so cap at 2054400 (big cluster 2.05 GHz step; prime settles on 2035200), ~2.0 GHz, for the
+# hint and its app-start variant (APP_START_LOW_HEAT, ID 901). GPU and DDR caps are left alone.
 HYPER_CFG="$WORK_DIR/vendor/etc/hyper/config_vendor.json"
 [ -f "$HYPER_CFG" ] || ABORT "perf_tuning: /vendor/etc/hyper/config_vendor.json not found"
 python3 - "$HYPER_CFG" << 'PYEOF' || ABORT "Failed to lower the Light performance profile CPU cap"
@@ -26,7 +27,7 @@ n = 0
 def fix(m):
     global n
     block = m.group(0)
-    new, k = re.subn(r'("Resource" : "CPUMaxFreq",\s*"Value" : ")90#(")', r'\g<1>86#\2', block, count=1)
+    new, k = re.subn(r'("Resource" : "CPUMaxFreq",\s*"Value" : ")90#(")', r'\g<1>2054400\2', block, count=1)
     n += k
     return new
 s = re.sub(r'"Hint": "(?:LOW_HEAT_MODE_HINT|APP_START_LOW_HEAT)",.*?\]\s*\}', fix, s, flags=re.S)
@@ -34,5 +35,5 @@ if n != 2:
     sys.exit("expected 2 CPUMaxFreq 90# entries in the LOW_HEAT hints, patched %d" % n)
 open(p, "w").write(s)
 PYEOF
-LOG "- Light performance profile: CPU cap 90% -> 86% (~2.0 GHz)"
+LOG "- Light performance profile: CPU cap 2208000 -> 2054400 kHz (~2.0 GHz)"
 unset HYPER_CFG
