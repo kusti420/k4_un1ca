@@ -1,0 +1,4 @@
+id=a52sxq_samsung_restore_apps
+name=Galaxy A52s 5G: Samsung Calculator and Clock
+author=kusti420
+description=The S26 Ultra base ships no Calculator, Clock, Notes or Calendar APK: Samsung lists them in the CSC "restore" list (prism/etc/carriers/single/<CSC>/opt/restore_<CSC>.json) and Galaxy Store downloads them during first setup. The port has no S26 CSC, so they never arrive. Preinstalls the current Samsung-signed Calculator (com.sec.android.app.popupcalculator) and Clock (com.sec.android.app.clockpackage) through /system/preload, i.e. as normal user apps like on the S26 Ultra: updatable from Galaxy Store and removable.
