@@ -122,7 +122,8 @@ SMALI_PATCH "system" "system/framework/services.jar" \
     'verifyReplacingVersionCode(Landroid/content/pm/PackageInfoLite;JI)Landroid/util/Pair;' \
     'invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;' \
     'invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;\n\n    iget-object v12, v2, Lcom/android/server/pm/InstallPackageHelper;->mContext:Landroid/content/Context;\n\n    invoke-virtual {v12}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;\n\n    move-result-object v12\n\n    const-string v13, "unica_allow_downgrade"\n\n    const/4 v14, 0x0\n\n    invoke-static {v12, v13, v14}, Landroid/provider/Settings$System;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I\n\n    move-result v12\n\n    if-eqz v12, :unica_allow_downgrade\n\n    const v12, 0x100080\n\n    or-int/2addr v3, v12\n\n    :unica_allow_downgrade'
-# Allow installing apps below MIN_INSTALLABLE_TARGET_SDK when "unica_allow_sdkbypass" is set.
+# Allow installing apps below MIN_INSTALLABLE_TARGET_SDK unless "unica_allow_sdkbypass" is set to 0 (on by default,
+# so users can install old apps out of the box; the UN1CA Settings switch reads the same default).
 # Registers/labels differ per source build: anchor on the MIN_INSTALLABLE_TARGET_SDK check,
 # append three registers past .locals and resolve the low register holding "this".
 INSTALL_HELPER_SMALI="$(cd "$APKTOOL_DIR/system/framework/services.jar" && \
@@ -161,7 +162,7 @@ hook = (
     "\n    invoke-virtual {%(flag)s}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;\n"
     "\n    move-result-object %(r0)s\n"
     "\n    const-string %(r1)s, \"unica_allow_sdkbypass\"\n"
-    "\n    const/16 %(r2)s, 0x0\n"
+    "\n    const/16 %(r2)s, 0x1\n"
     "\n    invoke-static/range {%(r0)s .. %(r2)s}, Landroid/provider/Settings$System;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I\n"
     "\n    move-result %(r0)s\n"
     "\n    if-nez %(r0)s, %(label)s\n"

@@ -103,18 +103,18 @@
 
     const-string v0, "unica_allow_sdkbypass"
 
-    const/4 v1, 0x0
+    const/4 v1, 0x1
 
     invoke-static {p0, v0, v1}, Landroid/provider/Settings$System;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I
 
     move-result p0
 
-    if-ne p0, v1, :cond_0
+    if-eqz p0, :cond_0
 
     goto :goto_0
 
     :cond_0
-    const/4 v1, 0x1
+    const/4 v1, 0x0
 
     :goto_0
     return v1
