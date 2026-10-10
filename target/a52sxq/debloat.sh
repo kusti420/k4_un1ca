@@ -101,3 +101,9 @@ system/etc/permissions/privapp-permissions-com.samsung.videoscan.xml
 system/etc/default-permissions/default-permissions-com.samsung.videoscan.xml
 "
 fi
+
+# On-device Gauss LLM (com.samsung.android.offline.languagemodel): unica already drops the S26 store stub and there is
+# no SM7325 runtime for it (see post_mods.sh); its leftover preinstall whitelist goes too
+SYSTEM_DEBLOAT+="
+system/etc/sysconfig/preinstalled-packages-com.samsung.android.offline.languagemodel.xml
+"
