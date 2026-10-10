@@ -1,4 +1,4 @@
 id=hfr
 name=Adaptive refresh rate
 author=salvogiangri
-description=Adaptive refresh rate props (3 s touch/idle timers), High (locked 120 Hz) motion smoothness option.
+description=Adaptive refresh rate props (3 s touch/idle timers), Adaptive held at 60 Hz from 3 s after the last touch (K4AdaptiveTouch), High (locked 120 Hz) motion smoothness option.

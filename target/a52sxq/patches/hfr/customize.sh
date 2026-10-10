@@ -8,6 +8,8 @@
 # Scheduler::onTouchHint) boosts to the panel maximum (120 Hz) and keeps it for 3 s after the last touch.
 # Idle timer: once nothing has been drawn for 3 s the scheduler drops to the policy minimum (60 Hz).
 # So the panel switches at most once up per touch session and once down 3 s after it, instead of per gesture.
+# Untouched, the 60 Hz state is held by a system_server vote (K4AdaptiveTouch, below), not by this idle timer:
+# any frame resets the idle timer, and frames without layer votes would otherwise pick 120 Hz again.
 # https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r2/services/surfaceflinger/Scheduler/RefreshRateSelector.h#314
 IDLE_TIMER_MS=3000
 # https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r2/services/surfaceflinger/sysprop/SurfaceFlingerProperties.sysprop#346
@@ -179,6 +181,252 @@ new = body[:hs.end()] + always + body[hs.end():]
 new = new.replace(branch, "    const/4 v3, 0x2\n\n    if-eq v0, v3, :cond_unica_rr_always\n")
 open(f, "w").write(s[:m.start()] + new + s[m.end():])
 print("  - refresh_rate_mode 2 -> forPolicyRate(max, max)")
+PYEOF
+
+# Adaptive = 120 Hz while touched, 60 Hz from 3 s after the last touch, decided in system_server.
+# SurfaceFlinger alone cannot do this: every client transaction resets its idle timer, and a frame whose layers
+# carry no usable vote lands in RefreshRateSelector's "No layers with votes" branch, which ranks the primary
+# range descending, i.e. picks 120 Hz. On this non-VRR panel the View toolkit's frame-rate categories are
+# dropped (frame_rate_category_mrr is off), so ordinary UI frames - here a single status bar frame roughly every
+# 3 s while idle on the home screen, "VRI-StatusBar ... voted NoVote" -> "No layers with votes - choose 120.00 Hz"
+# right after each "Idle - choose 60.00 Hz" - push the panel back to 120 Hz, a visible 60 <-> 120 Hz flicker.
+# Fix it in DisplayModeDirector instead: K4AdaptiveTouch votes the minimum high-speed rate [60, 60] at
+# PRIORITY_FIXED_REFRESH_RATE (8) 3 s after the last user-activity power boost, and removes the vote on the next
+# boost. The boost is the one PowerManagerService.userActivityNoUpdateLocked() already sends for touches
+# (nativeSetPowerBoost(INTERACTION) -> SurfaceFlinger::notifyPowerBoost -> the 3 s touch timer above), so both
+# sides see the same touches. While the vote stands the primary range is single-rate 60 Hz, so the same
+# "No layers with votes" ranking now yields 60 Hz, and since priority 8 is below the app-request cutoff (9) the
+# app-request range stays [60, 120], so a focused layer with an explicit setFrameRate() vote (a game asking for
+# 120 Hz) still gets it. On touch the vote goes away, SurfaceFlinger re-ranks with its touch signal and switches
+# to 120 Hz; it holds there until 3 s after the last touch. High/Standard (and any higher vote: tokens, UDFPS,
+# thermal, power saving) override or clear it. RefreshRateController.updateRefreshRateModeLocked() arms the vote
+# for refresh_rate_mode 1 only.
+LOG "- Holding Adaptive at 60 Hz from 3 s after the last touch (K4AdaptiveTouch)"
+python3 - "$APKTOOL_DIR/system/${SERVICES//system\//}" << 'PYEOF' || ABORT "Failed to add the Adaptive touch vote"
+import glob, os, re, sys
+root = sys.argv[1]
+
+def one(rel):
+    hits = glob.glob(root + "/smali*/" + rel)
+    assert len(hits) == 1, "%s: %d" % (rel, len(hits))
+    return hits[0]
+
+rrc = one("com/android/server/display/mode/RefreshRateController.smali")
+pms = one("com/android/server/power/PowerManagerService.smali")
+if glob.glob(root + "/smali*/com/android/server/display/mode/K4AdaptiveTouch.smali"):
+    print("  - already patched"); sys.exit(0)
+
+RRC = "Lcom/android/server/display/mode/RefreshRateController;"
+CFG = "Lcom/samsung/android/hardware/display/RefreshRateConfig;"
+K4 = "Lcom/android/server/display/mode/K4AdaptiveTouch;"
+s = open(rrc).read()
+for need in (".field public static mHandler:Lcom/android/server/display/DisplayManagerService$DisplayManagerHandler;",
+             ".field public static mVotesStorage:Lcom/android/server/display/mode/VotesStorage;",
+             ".field public final mConfig:" + CFG,
+             ".field public final mIsExtraBuiltinScreen:Z"):
+    assert need in s, need
+hs = re.search(r"invoke-virtual \{v\d+\}, (" + re.escape(CFG) + r"->getHighSpeedRefreshRates\(\)L[^;]+;)\n\n"
+               r"    move-result-object v\d+\n\n"
+               r"    invoke-virtual \{v\d+\}, (L[^;]+;)->min\(\)I", s)
+assert hs, "getHighSpeedRefreshRates().min()"
+
+# 1. RefreshRateController.updateRefreshRateModeLocked(Z): hand every refresh_rate_mode change (v0 = new mode) to
+#    K4AdaptiveTouch right before the PRIORITY_REFRESH_RATE_MODE vote is built
+m = re.search(r"^\.method public final updateRefreshRateModeLocked\(Z\)V\n.*?^\.end method\n", s, re.M | re.S)
+assert m, "updateRefreshRateModeLocked(Z)V"
+body = m.group(0)
+anchor = re.findall(r"\n    invoke-virtual \{p1, v0\}, Ljava/util/concurrent/atomic/AtomicInteger;->set\(I\)V\n"
+                    r".*?\n(    sget-object p1, " + re.escape(RRC + "->mVotesStorage:Lcom/android/server/display/mode/VotesStorage;") +
+                    r"\n\n    if-eqz v0, :cond_\w+\n)", body, re.S)
+assert len(anchor) == 1, "mode vote anchor: %d" % len(anchor)
+body = body.replace(anchor[0], "    invoke-static {p0, v0}, %s->onRefreshRateMode(%sI)V\n\n" % (K4, RRC) + anchor[0], 1)
+s = s[:m.start()] + body + s[m.end():]
+open(rrc, "w").write(s)
+
+# 2. PowerManagerService.userActivityNoUpdateLocked(PowerGroup, ...): every time it sends the INTERACTION power boost
+#    (the same call that reaches SurfaceFlinger::notifyPowerBoost -> its touch timer), tell K4AdaptiveTouch too
+p = open(pms).read()
+m = re.search(r"^\.method public final userActivityNoUpdateLocked\(Lcom/android/server/power/PowerGroup;JIII\)Z\n.*?^\.end method\n",
+              p, re.M | re.S)
+assert m, "userActivityNoUpdateLocked(PowerGroup...)"
+body = m.group(0)
+boost = re.findall(r"\n    invoke-static \{v\d+, v\d+\}, Lcom/android/server/power/PowerManagerService;->-\$\$Nest\$smnativeSetPowerBoost\(II\)V\n", body)
+assert len(boost) == 1, "INTERACTION boost: %d" % len(boost)
+body = body.replace(boost[0], boost[0] + "\n    invoke-static {}, %s->onUserActivity()V\n" % K4, 1)
+p = p[:m.start()] + body + p[m.end():]
+open(pms, "w").write(p)
+
+# 3. The helper (classes2.dex has more method-id headroom than classes.dex)
+os.makedirs(root + "/smali_classes2/com/android/server/display/mode", exist_ok=True)
+open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.smali", "w").write("""\
+.class public final %(K4)s
+.super Ljava/lang/Object;
+.source "K4AdaptiveTouch.java"
+
+# interfaces
+.implements Ljava/lang/Runnable;
+
+
+# Adaptive motion smoothness = 120 Hz while touched, 60 Hz from 3 s after the last touch.
+# A PRIORITY_FIXED_REFRESH_RATE (8) vote for the minimum high-speed rate [60, 60] is placed 3 s after the last
+# user-activity power boost and removed on the next one. Priority 8 is below the app-request cutoff (9), so it
+# only narrows the primary range: SurfaceFlinger cannot pick 120 Hz for frames that carry no vote (its
+# "No layers with votes -> max" rule), while focused layers with an explicit setFrameRate() vote (games) still
+# get the app-request range, and every higher vote (High/Standard mode, tokens, UDFPS, thermal, power saving)
+# overrides it. The slot belongs to Samsung's seamless opt-out passive mode, which is off on this device
+# (CoreRune.FW_VRR_SEAMLESS_OPTOUT_PASSIVE); if it ever gets enabled the vote is left to Samsung.
+
+# static fields
+.field public static final IDLE:%(K4)s
+
+.field public static final TOUCH:%(K4)s
+
+.field public static volatile sIdleVote:Lcom/android/server/display/mode/Vote;
+
+
+# instance fields
+.field public final mIdle:Z
+
+
+# direct methods
+.method static constructor <clinit>()V
+    .locals 2
+
+    new-instance v0, %(K4)s
+
+    const/4 v1, 0x1
+
+    invoke-direct {v0, v1}, %(K4)s-><init>(Z)V
+
+    sput-object v0, %(K4)s->IDLE:%(K4)s
+
+    new-instance v0, %(K4)s
+
+    const/4 v1, 0x0
+
+    invoke-direct {v0, v1}, %(K4)s-><init>(Z)V
+
+    sput-object v0, %(K4)s->TOUCH:%(K4)s
+
+    return-void
+.end method
+
+.method public constructor <init>(Z)V
+    .locals 0
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    iput-boolean p1, p0, %(K4)s->mIdle:Z
+
+    return-void
+.end method
+
+# PowerManagerService, with its lock held: only post to the display thread
+.method public static onUserActivity()V
+    .locals 4
+
+    sget-object v0, %(RRC)s->mHandler:Lcom/android/server/display/DisplayManagerService$DisplayManagerHandler;
+
+    if-eqz v0, :cond_0
+
+    sget-object v1, %(K4)s->IDLE:%(K4)s
+
+    invoke-virtual {v0, v1}, Landroid/os/Handler;->removeCallbacks(Ljava/lang/Runnable;)V
+
+    sget-object v2, %(K4)s->TOUCH:%(K4)s
+
+    invoke-virtual {v0, v2}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
+
+    const-wide/16 v2, 0xbb8
+
+    invoke-virtual {v0, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+
+    :cond_0
+    return-void
+.end method
+
+# RefreshRateController.updateRefreshRateModeLocked(): Adaptive (1) on the main display arms the idle vote,
+# any other mode clears it; then start a fresh 3 s window
+.method public static onRefreshRateMode(%(RRC)sI)V
+    .locals 2
+
+    iget-boolean v0, p0, %(RRC)s->mIsExtraBuiltinScreen:Z
+
+    if-nez v0, :cond_0
+
+    const/4 v0, 0x0
+
+    const/4 v1, 0x1
+
+    if-ne p1, v1, :cond_1
+
+    iget-object v0, p0, %(RRC)s->mConfig:%(CFG)s
+
+    invoke-virtual {v0}, %(HS)s
+
+    move-result-object v0
+
+    invoke-virtual {v0}, %(SR)s->min()I
+
+    move-result v0
+
+    int-to-float v0, v0
+
+    invoke-static {v0, v0}, Lcom/android/server/display/mode/Vote;->forPhysicalRefreshRates(FF)Lcom/android/server/display/mode/CombinedVote;
+
+    move-result-object v0
+
+    :cond_1
+    sput-object v0, %(K4)s->sIdleVote:Lcom/android/server/display/mode/Vote;
+
+    invoke-static {}, %(K4)s->onUserActivity()V
+
+    :cond_0
+    return-void
+.end method
+
+# Display thread: place (idle) or remove (touch) the vote
+.method public static setIdle(Z)V
+    .locals 3
+
+    sget-boolean v0, Lcom/samsung/android/rune/CoreRune;->FW_VRR_SEAMLESS_OPTOUT_PASSIVE:Z
+
+    if-nez v0, :cond_0
+
+    sget-object v0, %(RRC)s->mVotesStorage:Lcom/android/server/display/mode/VotesStorage;
+
+    if-eqz v0, :cond_0
+
+    const/4 v1, 0x0
+
+    if-eqz p0, :cond_1
+
+    sget-object v1, %(K4)s->sIdleVote:Lcom/android/server/display/mode/Vote;
+
+    :cond_1
+    const/4 v2, -0x1
+
+    const/16 p0, 0x8
+
+    invoke-virtual {v0, v2, p0, v1}, Lcom/android/server/display/mode/VotesStorage;->updateVote(IILcom/android/server/display/mode/Vote;)V
+
+    :cond_0
+    return-void
+.end method
+
+
+# virtual methods
+.method public final run()V
+    .locals 0
+
+    iget-boolean p0, p0, %(K4)s->mIdle:Z
+
+    invoke-static {p0}, %(K4)s->setIdle(Z)V
+
+    return-void
+.end method
+""" % dict(K4=K4, RRC=RRC, CFG=CFG, HS=hs.group(1), SR=hs.group(2)))
+print("  - idle vote on PRIORITY_FIXED_REFRESH_RATE, armed from PowerManagerService user activity")
 PYEOF
 
 # The touch IC gets the raw refresh_rate_mode value ("refresh_rate_mode,<n>" sec_cmd). The A52s stock never sends 2
