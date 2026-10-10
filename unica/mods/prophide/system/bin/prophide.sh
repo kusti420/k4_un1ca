@@ -14,4 +14,8 @@ rezetprop -n ro.boot.verifiedbootstate "green"
 rezetprop -n ro.boot.veritymode "enforcing"
 rezetprop -n ro.vendor.boot.warranty_bit "0"
 rezetprop -n ro.vendor.build.security_patch "$(getprop ro.build.version.security_patch)"
-rezetprop -n sys.oem_unlock_allowed "0"
+# Android 16+ (API 36) no longer has sys.oem_unlock_allowed (nothing in framework/services sets or reads it), so
+# creating it there is itself a spoofing tell: detectors flag any value of it on API >= 36.
+if [ "$(getprop ro.build.version.sdk)" -lt 36 ]; then
+    rezetprop -n sys.oem_unlock_allowed "0"
+fi
