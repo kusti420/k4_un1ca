@@ -55,3 +55,9 @@ LOG_STEP_OUT
 # QHD+/FHD+ switching); unset it fell back to 213 dpi -> tablet UI (smallest width 811dp). The A52s panel is natively
 # 1080 wide, so the native density equals ro.sf.lcd_density.
 SET_PROP "vendor" "ro.sf.init.lcd_density" "450"
+
+# liba2dpoffload's configure_aac_enc_format_v3 (taken when aac_vbr_frm_ctl is on) reads a frame-control pointer at
+# offset 0x20 of libbthost_if's aac_codec, which is only 0x1c bytes: it reads ldac_codec+4 instead. After an LDAC
+# device was used that holds the LDAC bitrate (990000 = 0xf1b30), so the next AAC stream start SIGSEGVs the audio HAL.
+# Off -> configure_aac_enc_format_v2 (ABR frame control kept, reads only up to 0x18).
+SET_PROP "vendor" "persist.vendor.bt.aac_vbr_frm_ctl.enabled" "false"
