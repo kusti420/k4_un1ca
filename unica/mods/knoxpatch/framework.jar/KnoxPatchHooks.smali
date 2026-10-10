@@ -16,6 +16,8 @@
 
 .field private static volatile blacklist sHideRoot:Z
 
+.field private static volatile blacklist sUserApp:Z
+
 
 # direct methods
 .method private constructor blacklist <init>()V
@@ -38,6 +40,24 @@
     if-eqz v0, :cond_0
 
     sput-object v0, Lio/mesalabs/unica/KnoxPatchHooks;->sPackageName:Ljava/lang/String;
+
+    invoke-virtual {p0}, Landroid/content/Context;->getApplicationInfo()Landroid/content/pm/ApplicationInfo;
+
+    move-result-object v1
+
+    if-eqz v1, :unica_system_app
+
+    iget v1, v1, Landroid/content/pm/ApplicationInfo;->flags:I
+
+    and-int/lit8 v1, v1, 0x1
+
+    if-nez v1, :unica_system_app
+
+    const/4 v1, 0x1
+
+    sput-boolean v1, Lio/mesalabs/unica/KnoxPatchHooks;->sUserApp:Z
+
+    :unica_system_app
 
     invoke-static {v0}, Lio/mesalabs/unica/KnoxPatchHooks;->isPropertySpoofPackage(Ljava/lang/String;)Z
 
@@ -248,6 +268,10 @@
 
     if-eqz v0, :cond_0
 
+    sget-boolean v0, Lio/mesalabs/unica/KnoxPatchHooks;->sUserApp:Z
+
+    if-nez v0, :cond_1
+
     const-string p0, "false"
 
     return-object p0
@@ -284,8 +308,15 @@
 
     move-result v0
 
-    if-nez v0, :cond_8
+    if-eqz v0, :unica_not_official
 
+    sget-boolean v0, Lio/mesalabs/unica/KnoxPatchHooks;->sUserApp:Z
+
+    if-nez v0, :cond_7
+
+    goto :cond_8
+
+    :unica_not_official
     sget-boolean v0, Lio/mesalabs/unica/KnoxPatchHooks;->sSpoofBuildType:Z
 
     if-eqz v0, :cond_0
