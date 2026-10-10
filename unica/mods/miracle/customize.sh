@@ -54,12 +54,23 @@ LOG_STEP_OUT
 
 if ! $TARGET_AUDIO_SUPPORT_ACH_RINGTONE; then
     LOG_STEP_IN "- Adding non-ACH audio fallback"
-    SET_PROP "vendor" "ro.config.ringtone" "Galaxy_Bells.ogg"
-    SET_PROP "vendor" "ro.config.notification_sound" "Brightline.ogg"
-    SET_PROP "vendor" "ro.config.alarm_alert" "Morning_Xylophone.ogg"
-    SET_PROP "vendor" "ro.config.media_sound" "Media_preview_Over_the_horizon.ogg"
-    SET_PROP "vendor" "ro.config.ringtone_2" "Atomic_Bell.ogg"
-    SET_PROP "vendor" "ro.config.notification_sound_2" "Three_Star.ogg"
+    # Newer sources (e.g. Galaxy S26 Ultra) only ship the ACH_ variants of these sounds; a prop naming a missing file
+    # leaves the default ringtone/notification/alarm unset (silent) after a data wipe. Use the name that exists.
+    for p in \
+        "ro.config.ringtone:Galaxy_Bells.ogg" \
+        "ro.config.notification_sound:Brightline.ogg" \
+        "ro.config.alarm_alert:Morning_Xylophone.ogg" \
+        "ro.config.media_sound:Media_preview_Over_the_horizon.ogg" \
+        "ro.config.ringtone_2:Atomic_Bell.ogg" \
+        "ro.config.notification_sound_2:Three_Star.ogg"; do
+        SOUND="${p#*:}"
+        if [ ! "$(find "$WORK_DIR/system/system/media/audio" -name "$SOUND" -print -quit)" ] && \
+                [ "$(find "$WORK_DIR/system/system/media/audio" -name "ACH_$SOUND" -print -quit)" ]; then
+            SOUND="ACH_$SOUND"
+        fi
+        SET_PROP "vendor" "${p%%:*}" "$SOUND"
+    done
+    unset p SOUND
     LOG_STEP_OUT
 fi
 
