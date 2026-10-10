@@ -82,7 +82,7 @@ else
     # stored uncompressed in boot.img).
     strings -n 15 "$WORK_DIR/kernel/boot.img" | grep -qx "bpf_ringbuf_map" || \
         ABORT "tethering: kernel in boot.img lacks BPF_MAP_TYPE_RINGBUF (bone-machine k4 patch 0006); use the ringbuf kernel or set TARGET_TETHERING_RESIGN_APEX=true"
-    NETD_O="netd_a52rb.o"
+    NETD_O="netd_a52rb_train.o"
 fi
 EVAL "cp -a \"$SRC_DIR/target/a52sxq/patches/tethering/$NETD_O\" \"$WORK_DIR/system/system/etc/bpf/a52_netd.o\""
 SET_METADATA "system" "system/etc/bpf/a52_netd.o" 0 0 644 "u:object_r:system_file:s0"

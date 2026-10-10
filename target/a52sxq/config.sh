@@ -55,4 +55,4 @@ TARGET_BOOT_SEANDROID_MAGIC=false
 # true for now: a Play train's newer Tethering expects BPF maps our frozen a52_netd.o lacks (e.g.
 # map_netd_loopback_permission_enabled_map) -> system_server crash loop -> rescue party -> revert. Until the loader
 # relaxes the ACTIVE APEX netd.o at boot, keep the re-signed APEX so the train fails quietly instead.
-TARGET_TETHERING_RESIGN_APEX=true
+TARGET_TETHERING_RESIGN_APEX=false
