@@ -59,6 +59,28 @@ if f:
         s = s[:start] + UNSUPPORTED + s[end:]
         open(f, "w").write(s)
 
+# SecSettings > Connected devices > Samsung DeX (and "Samsung DeX" in the top-level Connected devices summary): on a
+# phone ExternalDisplayUtils.isWirelessDexOnlyDevice() is true whenever /sys/class/dp_sec/dex is missing, i.e. it
+# treats every non-DisplayPort phone as a Wireless DeX device. The A52s has no DeX at all (stock didn't offer it,
+# desktop windowing is off and the DeX tile is hidden below); with false the callers fall back to the dp_sec check -> hidden
+f = glob.glob(A + "/**/SecSettings.apk/smali*/com/samsung/android/settings/desktop/ExternalDisplayUtils.smali", recursive=True)
+assert len(f) == 1, "ExternalDisplayUtils"; f = f[0]
+s = open(f).read()
+start, end = method_span(s, ".method public static isWirelessDexOnlyDevice(Landroid/content/Context;)Z")
+s = s[:start] + ".method public static isWirelessDexOnlyDevice(Landroid/content/Context;)Z\n    .locals 0\n\n    const/4 p0, 0x0\n\n    return p0\n" + s[end:]
+open(f, "w").write(s)
+
+# SecSettings > Wi-Fi > Labs (developer) > Wi-Fi 7 mode / MLO: SemWifiUtils.isSupportedWifi7() only checks the country
+# code, not the chip; the A52s has no 802.11be (stock had no such option) -> UNSUPPORTED_ON_DEVICE (3)
+f = glob.glob(A + "/**/SecSettings.apk/smali*/com/samsung/android/settings/wifi/develop/WifiLabs7ModeSettingsController.smali", recursive=True)
+assert len(f) <= 1, "WifiLabs7ModeSettingsController"
+if f:
+    f = f[0]
+    s = open(f).read()
+    start, end = method_span(s, ".method public getAvailabilityStatus()I")
+    s = s[:start] + UNSUPPORTED + s[end:]
+    open(f, "w").write(s)
+
 # SystemUI: Wireless DeX tile is offered unconditionally when the launcher exports DesktopModeTile.
 # Match the spec comparison generically (registers/labels are build specific) and return false right after it.
 f = glob.glob(A + "/**/SystemUI.apk/smali*/com/android/systemui/qs/TileFeatureChecker.smali", recursive=True)
@@ -93,4 +115,4 @@ tiles = [t for t in s[i:j].split(",") if t not in ("DesktopMode", "Auracast")]
 s = s[:i] + ",".join(tiles) + s[j:]
 open(f, "w").write(s)
 PYEOF
-LOG "- Hid Wireless DeX tile, Adaptive color tone, Continue apps on cover screen, LE Audio/Auracast and the source AICore SoC configs"
+LOG "- Hid Wireless DeX tile and Settings entry, Adaptive color tone, Continue apps on cover screen, Wi-Fi 7 labs, LE Audio/Auracast and the source AICore SoC configs"
