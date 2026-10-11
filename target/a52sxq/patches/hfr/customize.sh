@@ -5,17 +5,34 @@
 # A52s AMOLED as a brightness/gamma flicker. With the old 250 ms idle / 300 ms touch timers SurfaceFlinger switched
 # down after every short pause and back up on the next touch or frame, i.e. several times per scroll.
 # Touch timer: every touch (PowerManagerService user activity -> SurfaceFlinger::notifyPowerBoost(INTERACTION) ->
-# Scheduler::onTouchHint) boosts to the panel maximum (120 Hz) and keeps it for 2 s after the last touch.
-# Idle timer: once nothing has been drawn for 2 s the scheduler drops to the policy minimum (60 Hz).
-# So the panel switches at most once up per touch session and once down 2 s after it, instead of per gesture.
-# 2 s (3 s up to 9.3.15; shortened on user request for a quicker drop to 60 Hz). The same delay is the
-# postDelayed() constant in K4AdaptiveTouch.onUserActivity() below (0x7d0) - keep the three values equal.
-# Untouched, the 60 Hz state is held by a system_server vote (K4AdaptiveTouch, below), not by this idle timer:
-# any frame resets the idle timer, and frames without layer votes would otherwise pick 120 Hz again.
+# Scheduler::onTouchHint) boosts to the maximum of the primary range and keeps it for the timer length after the
+# last touch. Idle timer: once nothing has been drawn for that long the scheduler drops to the policy minimum.
+# So the panel switches at most once up per touch session and once down after it, instead of per gesture.
+#
+# When Adaptive drops to 60 Hz is NOT decided by these two timers but by a system_server vote (K4AdaptiveTouch,
+# below): any frame resets the idle timer, and frames without layer votes would otherwise pick 120 Hz again. That
+# delay is user-selectable (Settings > Display > "Adaptive smoothness delay", ADAPTIVE_IDLE_CHOICES_MS, default
+# ADAPTIVE_IDLE_DEFAULT_MS = 2 s; 3 s fixed up to 9.3.15, 2 s fixed in 9.3.16) and lives in the system property
+# ADAPTIVE_IDLE_PROP: persist.sys.* is system_prop (plat_property_contexts), which system_app (SecSettings) may set
+# and system_server reads without a Settings provider call under the PowerManagerService lock.
+# The SurfaceFlinger timers are ro.surface_flinger.* props read once when it starts, so they cannot follow the
+# setting; they only have to outlast the longest choice: until the vote arrives the touch boost keeps 120 Hz, and
+# once the vote has made the primary range single-rate [60, 60] the same touch boost ("rank the primary range
+# descending") yields 60 Hz, so an earlier vote cannot bounce back. 500 ms on top of the longest choice keeps the
+# timer expiry and the vote from racing when both would otherwise fall on the same instant.
+ADAPTIVE_IDLE_PROP="persist.sys.k4.adaptive_idle_ms"
+ADAPTIVE_IDLE_CHOICES_MS="1000 1500 2000 2500 3000"
+ADAPTIVE_IDLE_DEFAULT_MS=2000
+ADAPTIVE_IDLE_MIN_MS="$(tr " " "\n" <<< "$ADAPTIVE_IDLE_CHOICES_MS" | sort -n | head -n 1)"
+ADAPTIVE_IDLE_MAX_MS="$(tr " " "\n" <<< "$ADAPTIVE_IDLE_CHOICES_MS" | sort -n | tail -n 1)"
+[[ "$ADAPTIVE_IDLE_MIN_MS" =~ ^[1-9][0-9]*$ ]] && [[ "$ADAPTIVE_IDLE_MAX_MS" =~ ^[1-9][0-9]*$ ]] && \
+    [ "$ADAPTIVE_IDLE_MIN_MS" -le "$ADAPTIVE_IDLE_DEFAULT_MS" ] && [ "$ADAPTIVE_IDLE_DEFAULT_MS" -le "$ADAPTIVE_IDLE_MAX_MS" ] && \
+    grep -q -w "$ADAPTIVE_IDLE_DEFAULT_MS" <<< "$ADAPTIVE_IDLE_CHOICES_MS" || \
+    ABORT "hfr: bad Adaptive delay choices \"$ADAPTIVE_IDLE_CHOICES_MS\" (default $ADAPTIVE_IDLE_DEFAULT_MS)"
 # https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r2/services/surfaceflinger/Scheduler/RefreshRateSelector.h#314
-IDLE_TIMER_MS=2000
+IDLE_TIMER_MS=$((ADAPTIVE_IDLE_MAX_MS + 500))
 # https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r2/services/surfaceflinger/sysprop/SurfaceFlingerProperties.sysprop#346
-TOUCH_TIMER_MS=2000
+TOUCH_TIMER_MS=$((ADAPTIVE_IDLE_MAX_MS + 500))
 
 SET_PROP "vendor" "ro.surface_flinger.use_content_detection_for_refresh_rate" "true"
 LOG "- Adding \"ro.surface_flinger.set_idle_timer_ms\" prop with \"$IDLE_TIMER_MS\" in /vendor/default.prop"
@@ -185,29 +202,38 @@ open(f, "w").write(s[:m.start()] + new + s[m.end():])
 print("  - refresh_rate_mode 2 -> forPolicyRate(max, max)")
 PYEOF
 
-# Adaptive = 120 Hz while touched, 60 Hz from 2 s after the last touch, decided in system_server.
+# Adaptive = 120 Hz while touched, 60 Hz from the chosen delay (1-3 s, default 2 s) after the last touch, decided
+# in system_server.
 # SurfaceFlinger alone cannot do this: every client transaction resets its idle timer, and a frame whose layers
 # carry no usable vote lands in RefreshRateSelector's "No layers with votes" branch, which ranks the primary
 # range descending, i.e. picks 120 Hz. On this non-VRR panel the View toolkit's frame-rate categories are
-# dropped (frame_rate_category_mrr is off), so ordinary UI frames - here a single status bar frame roughly every
-# 2 s while idle on the home screen, "VRI-StatusBar ... voted NoVote" -> "No layers with votes - choose 120.00 Hz"
+# dropped (frame_rate_category_mrr is off), so ordinary UI frames - here a single status bar frame every few
+# seconds while idle on the home screen, "VRI-StatusBar ... voted NoVote" -> "No layers with votes - choose 120.00 Hz"
 # right after each "Idle - choose 60.00 Hz" - push the panel back to 120 Hz, a visible 60 <-> 120 Hz flicker.
 # Fix it in DisplayModeDirector instead: K4AdaptiveTouch votes the minimum high-speed rate [60, 60] at
-# PRIORITY_FIXED_REFRESH_RATE (8) 2 s after the last user-activity power boost, and removes the vote on the next
+# PRIORITY_FIXED_REFRESH_RATE (8) that delay after the last user-activity power boost, and removes the vote on the next
 # boost. The boost is the one PowerManagerService.userActivityNoUpdateLocked() already sends for touches
-# (nativeSetPowerBoost(INTERACTION) -> SurfaceFlinger::notifyPowerBoost -> the 2 s touch timer above), so both
+# (nativeSetPowerBoost(INTERACTION) -> SurfaceFlinger::notifyPowerBoost -> the touch timer above), so both
 # sides see the same touches. While the vote stands the primary range is single-rate 60 Hz, so the same
 # "No layers with votes" ranking now yields 60 Hz, and since priority 8 is below the app-request cutoff (9) the
 # app-request range stays [60, 120], so a focused layer with an explicit setFrameRate() vote (a game asking for
 # 120 Hz) still gets it. On touch the vote goes away, SurfaceFlinger re-ranks with its touch signal and switches
-# to 120 Hz; it holds there until 2 s after the last touch. High/Standard (and any higher vote: tokens, UDFPS,
+# to 120 Hz; it holds there until the delay after the last touch has passed. The delay is read from
+# ADAPTIVE_IDLE_PROP on every boost (a lock-free property lookup; no Settings provider call under the
+# PowerManagerService lock), clamped to the shortest/longest choice, so a new value applies from the next touch
+# without a reboot; unset or unparsable means the default. High/Standard (and any higher vote: tokens, UDFPS,
 # thermal, power saving) override or clear it. RefreshRateController.updateRefreshRateModeLocked() arms the vote
 # for refresh_rate_mode 1 only. In refresh_rate_mode 2 the slot holds a render rate floor instead (see the class
 # comment): the High mode vote fixes the panel at 120 Hz but leaves the render range [0, 120].
-LOG "- Holding Adaptive at 60 Hz from 2 s after the last touch (K4AdaptiveTouch)"
-python3 - "$APKTOOL_DIR/system/${SERVICES//system\//}" << 'PYEOF' || ABORT "Failed to add the Adaptive touch vote"
+LOG "- Holding Adaptive at 60 Hz from $ADAPTIVE_IDLE_MIN_MS-$ADAPTIVE_IDLE_MAX_MS ms (default $ADAPTIVE_IDLE_DEFAULT_MS, $ADAPTIVE_IDLE_PROP) after the last touch (K4AdaptiveTouch)"
+python3 - "$APKTOOL_DIR/system/${SERVICES//system\//}" "$ADAPTIVE_IDLE_PROP" "$ADAPTIVE_IDLE_MIN_MS" "$ADAPTIVE_IDLE_DEFAULT_MS" \
+    "$ADAPTIVE_IDLE_MAX_MS" << 'PYEOF' || ABORT "Failed to add the Adaptive touch vote"
 import glob, os, re, sys
 root = sys.argv[1]
+IDLE_PROP = sys.argv[2]
+IDLE_MIN, IDLE_DEFAULT, IDLE_MAX = (int(a) for a in sys.argv[3:6])
+assert re.fullmatch(r"persist\.sys\.[a-z0-9_.]+", IDLE_PROP) and len(IDLE_PROP) < 92, IDLE_PROP
+assert 0 < IDLE_MIN <= IDLE_DEFAULT <= IDLE_MAX <= 0x7fff, (IDLE_MIN, IDLE_DEFAULT, IDLE_MAX)
 
 def one(rel):
     hits = glob.glob(root + "/smali*/" + rel)
@@ -270,8 +296,8 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 .implements Ljava/lang/Runnable;
 
 
-# Adaptive motion smoothness = 120 Hz while touched, 60 Hz from 2 s after the last touch.
-# A PRIORITY_FIXED_REFRESH_RATE (8) vote for the minimum high-speed rate [60, 60] is placed 2 s after the last
+# Adaptive motion smoothness = 120 Hz while touched, 60 Hz from idleDelayMs() after the last touch.
+# A PRIORITY_FIXED_REFRESH_RATE (8) vote for the minimum high-speed rate [60, 60] is placed that long after the last
 # user-activity power boost and removed on the next one. Priority 8 is below the app-request cutoff (9), so it
 # only narrows the primary range: SurfaceFlinger cannot pick 120 Hz for frames that carry no vote (its
 # "No layers with votes -> max" rule), while focused layers with an explicit setFrameRate() vote (games) still
@@ -348,7 +374,9 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 
     invoke-virtual {v0, v2}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
 
-    const-wide/16 v2, 0x7d0
+    invoke-static {}, %(K4)s->idleDelayMs()J
+
+    move-result-wide v2
 
     invoke-virtual {v0, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
@@ -356,9 +384,47 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
     return-void
 .end method
 
+# The delay between the last touch and the 60 Hz vote: %(IDLE_PROP)s
+# (Settings > Display > "Adaptive smoothness delay"), %(IDLE_MIN_DEC)s..%(IDLE_MAX_DEC)s ms, %(IDLE_DEFAULT_DEC)s ms when unset, not a number or
+# not positive. SystemProperties.getInt() is a lock-free read of the property area, cheap enough for every boost.
+.method public static idleDelayMs()J
+    .locals 2
+
+    const-string v0, "%(IDLE_PROP)s"
+
+    const/16 v1, %(IDLE_DEFAULT)s
+
+    invoke-static {v0, v1}, Landroid/os/SystemProperties;->getInt(Ljava/lang/String;I)I
+
+    move-result v0
+
+    if-gtz v0, :cond_0
+
+    move v0, v1
+
+    :cond_0
+    const/16 v1, %(IDLE_MIN)s
+
+    if-ge v0, v1, :cond_1
+
+    move v0, v1
+
+    :cond_1
+    const/16 v1, %(IDLE_MAX)s
+
+    if-le v0, v1, :cond_2
+
+    move v0, v1
+
+    :cond_2
+    int-to-long v0, v0
+
+    return-wide v0
+.end method
+
 # RefreshRateController.updateRefreshRateModeLocked(): Adaptive (1) on the main display arms the idle vote,
 # High (2) holds the render rate floor in the same slot both touched and idle, any other mode clears it; then
-# start a fresh 2 s window
+# start a fresh idle window
 .method public static onRefreshRateMode(%(RRC)sI)V
     .locals 3
 
@@ -466,8 +532,10 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 
     return-void
 .end method
-""" % dict(K4=K4, RRC=RRC, CFG=CFG, HS=hs.group(1), SR=hs.group(2)))
-print("  - idle vote on PRIORITY_FIXED_REFRESH_RATE, armed from PowerManagerService user activity")
+""" % dict(K4=K4, RRC=RRC, CFG=CFG, HS=hs.group(1), SR=hs.group(2), IDLE_PROP=IDLE_PROP,
+           IDLE_MIN="0x%x" % IDLE_MIN, IDLE_DEFAULT="0x%x" % IDLE_DEFAULT, IDLE_MAX="0x%x" % IDLE_MAX,
+           IDLE_MIN_DEC=IDLE_MIN, IDLE_DEFAULT_DEC=IDLE_DEFAULT, IDLE_MAX_DEC=IDLE_MAX))
+print("  - idle vote on PRIORITY_FIXED_REFRESH_RATE, armed from PowerManagerService user activity, delay from %s" % IDLE_PROP)
 PYEOF
 
 # Settings.System peak_refresh_rate / min_refresh_rate are AOSP's "Smooth display" / "Force peak refresh rate" keys.
@@ -1050,4 +1118,182 @@ open(f, "w").write(s)
 print("  - High/Adaptive/Standard (pd_summary=%s, %s)" % (rid, refresh))
 PYEOF
 
+# Settings > Display > "Adaptive smoothness delay", the row right under Motion smoothness: how long after the last
+# touch Adaptive drops to 60 Hz. A plain SecPreference that opens a single-choice dialog (the same pair of widgets
+# unica/mods/settings uses for Screen resolution; SecDropDownPreference fails to resolve its item text attribute
+# under this theme), enabled only while Motion smoothness is Adaptive, with the current choice - or why it is
+# greyed out - as its summary. Its controller (K4AdaptiveDelayPreferenceController.smali next to this script,
+# generated from the .java beside it) writes ADAPTIVE_IDLE_PROP, which K4AdaptiveTouch reads on the next touch;
+# choices, labels and default are resources generated here from ADAPTIVE_IDLE_CHOICES_MS / ADAPTIVE_IDLE_DEFAULT_MS,
+# so the class carries no numbers. This R8-processed SecSettings leaves several BasePreferenceController / Sliceable
+# methods abstract and gives every controller its own copies; the class has them, and the script refuses to install
+# it if the base ever grows another one (it would be an AbstractMethodError at runtime otherwise).
+# Other editors of sec_display_settings.xml anchor on other rows (hdr_brightness_toggle: outdoor_mode_caption, runs
+# before this patch; unica/mods/settings: sec_screen_size, runs after target patches), so every order works.
+LOG "- Adding the \"Adaptive smoothness delay\" choice (${ADAPTIVE_IDLE_CHOICES_MS// /, } ms) to Display settings"
+# shellcheck disable=SC2086
+python3 - "$APKTOOL_DIR/system/${SECSETTINGS//system\//}" "$MODPATH/K4AdaptiveDelayPreferenceController.smali" \
+    "$ADAPTIVE_IDLE_PROP" "$ADAPTIVE_IDLE_DEFAULT_MS" $ADAPTIVE_IDLE_CHOICES_MS << 'PYEOF' || ABORT "Failed to add the Adaptive delay setting"
+import glob, os, re, sys
+root, helper_src, prop, default = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+choices = sorted(int(a) for a in sys.argv[5:])
+assert len(choices) >= 2 and len(set(choices)) == len(choices) and choices[0] > 0 and default in choices, (choices, default)
+
+OURS = "Lcom/k4/settings/display/K4AdaptiveDelayPreferenceController;"
+KEY = "k4_adaptive_delay"
+LITERAL = "persist.sys.k4.adaptive_idle_ms"     # the property name compiled into the generated class
+
+
+def label(ms):
+    if ms % 1000:
+        return "%g seconds" % (ms / 1000.0)
+    return "1 second" if ms == 1000 else "%d seconds" % (ms // 1000)
+
+
+STRINGS = (
+    ("k4_adaptive_delay_title", "Adaptive smoothness delay"),
+    ("k4_adaptive_delay_summary", "Switch to 60 Hz %1$s after the last touch"),
+    ("k4_adaptive_delay_summary_off", "Only used when Motion smoothness is set to Adaptive"),
+)
+ARRAYS = (
+    ("string-array", "k4_adaptive_delay_entries", [label(c) for c in choices]),
+    ("integer-array", "k4_adaptive_delay_values", [str(c) for c in choices]),
+)
+INTEGERS = (("k4_adaptive_delay_default", str(default)),)
+
+_cache = {}
+def load(desc):
+    """smali text of a class of this apk, None for framework/boot classes"""
+    if desc not in _cache:
+        hits = glob.glob(root + "/smali*/" + desc[1:-1] + ".smali")
+        assert len(hits) <= 1, "%s: %d copies" % (desc, len(hits))
+        _cache[desc] = open(hits[0]).read() if hits else None
+    return _cache[desc]
+
+def supers(desc):
+    """desc with its superclasses and interfaces inside the apk; True if the superclass chain continues in the
+    framework (android.app.Dialog under AlertDialog), i.e. a member may be inherited from there"""
+    seen, todo, left = [], [(desc, True)], False
+    while todo:
+        d, is_super = todo.pop(0)
+        if d in seen:
+            continue
+        s = load(d)
+        if s is None:
+            left = left or (is_super and d != "Ljava/lang/Object;")
+            continue
+        seen.append(d)
+        todo += [(c, is_super) for c in re.findall(r"^\.super (L[^;]+;)$", s, re.M)]
+        todo += [(c, False) for c in re.findall(r"^\.implements (L[^;]+;)$", s, re.M)]
+    return seen, left
+
+def declares(desc, kind, member, text=None):
+    return re.search(r"^\.%s (?:[^\n]* )?%s$" % (kind, re.escape(member)), text or load(desc), re.M)
+
+h = open(helper_src).read()
+assert h.count(LITERAL) >= 3 and ("\n.class public %s\n" % OURS) in h, "unexpected helper source"
+parent = re.search(r"^\.super (L[^;]+;)$", h, re.M).group(1)
+assert parent == "Lcom/android/settings/core/BasePreferenceController;" and load(parent), parent
+
+# 1. Everything the generated class touches in this apk must exist with exactly that signature (it was compiled
+#    against stubs), looked up through the superclass chain like the runtime does
+checked = 0
+for owner, member in sorted(set(re.findall(r"(L(?:androidx|com/android/settings|com/android/settingslib|com/samsung|com/k4)/[^;]+;)->([^\s]+)", h))):
+    kind = "field" if ":" in member else "method"
+    if owner == OURS and declares(None, kind, member, h):
+        continue                                    # the class's own fields and methods
+    start = parent if owner == OURS else owner      # inherited through `this`
+    assert load(start), "%s is not in this SecSettings" % start
+    chain, left = supers(start)
+    found = any(declares(d, kind, member) for d in chain)
+    assert found or (left and kind == "method"), "%s->%s not found in this SecSettings" % (owner, member)
+    checked += 1
+assert checked >= 15, checked
+for cls in sorted(set(re.findall(r"L(?:androidx|com/android/settings|com/android/settingslib|com/samsung)/[^;]+;", h))):
+    assert load(cls), "%s is not in this SecSettings" % cls
+assert declares("Lcom/samsung/android/settings/cube/Controllable$ControllableType;", "field",
+                "NO_INTERACTION:Lcom/samsung/android/settings/cube/Controllable$ControllableType;"), "ControllableType.NO_INTERACTION"
+
+# 2. Overrides must not hit a final method, and no inherited method may stay abstract
+mine = set(re.findall(r"^\.method (?!.*\b(?:static|private|constructor)\b)[^\n]*? ([\w$]+\([^)]*\)\S+)$", h, re.M))
+chain, _ = supers(parent)
+abstract, concrete = set(), set()
+for d in chain:
+    for flags, sig in re.findall(r"^\.method ([^\n]*? )?([\w$<>-]+\([^)]*\)\S+)$", load(d), re.M):
+        flags = " " + (flags or "")
+        assert not (sig in mine and " final " in flags), "%s->%s is final" % (d, sig)
+        (abstract if " abstract " in flags else concrete).add(sig)
+missing = sorted(abstract - concrete - mine)
+assert not missing, "the controller base now has more abstract methods: %s" % missing
+for sig in ("getAvailabilityStatus()I", "getSummary()Ljava/lang/CharSequence;", "updateState(Landroidx/preference/Preference;)V",
+            "displayPreference(Landroidx/preference/PreferenceScreen;)V", "handlePreferenceTreeClick(Landroidx/preference/Preference;)Z"):
+    assert sig in mine and sig in abstract | concrete, sig
+# the row is refreshed (summary, enabled state) through AbstractPreferenceController.updateState -> refreshSummary
+assert "->refreshSummary(Landroidx/preference/Preference;)V" in \
+    re.search(r"^\.method public updateState\(Landroidx/preference/Preference;\)V\n.*?^\.end method\n",
+              load("Lcom/android/settingslib/core/AbstractPreferenceController;"), re.M | re.S).group(0), "updateState no longer refreshes the summary"
+
+# 3. Install the class: the highest-numbered dex has the most method-id headroom (classes.dex is all but full)
+dirs = sorted((d for d in glob.glob(root + "/smali_classes*") if re.fullmatch(r"smali_classes\d+", os.path.basename(d))),
+              key=lambda d: int(os.path.basename(d)[len("smali_classes"):]))
+assert dirs, "no smali_classesN"
+dst = dirs[-1] + "/com/k4/settings/display/K4AdaptiveDelayPreferenceController.smali"
+stale = [f for f in glob.glob(root + "/smali*/com/k4/settings/display/K4AdaptiveDelayPreferenceController.smali") if f != dst]
+assert not stale, "stale controller copies: %s" % stale
+os.makedirs(os.path.dirname(dst), exist_ok=True)
+text = h.replace(LITERAL, prop)
+if not (os.path.exists(dst) and open(dst).read() == text):
+    open(dst, "w").write(text)
+    print("  - controller %s in %s (%d references checked, property %s)" % (OURS[1:-1].replace("/", "."), os.path.basename(dirs[-1]), checked, prop))
+
+# 4. Resources (English only; other locales fall back to it)
+def add(path, items, render, existing):
+    s = open(path).read()
+    added = []
+    for item in items:
+        name = item[-2] if len(item) == 3 else item[0]
+        want = render(item)
+        m = re.search(existing % re.escape(name), s, re.S)
+        if m:
+            assert re.sub(r"\s+", "", m.group(0)) == re.sub(r"\s+", "", want), "%s already exists with other content" % name
+            continue
+        assert s.count("</resources>") == 1, path + ": </resources>"
+        s = s.replace("</resources>", want + "</resources>")
+        added.append(name)
+    if added:
+        open(path, "w").write(s)
+        print("  - %s: %s" % (os.path.basename(path), ", ".join(added)))
+
+add(root + "/res/values/strings.xml", STRINGS, lambda i: '    <string name="%s">%s</string>\n' % i,
+    r'<string name="%s">.*?</string>')
+add(root + "/res/values/arrays.xml", ARRAYS,
+    lambda i: '    <%s name="%s">\n%s    </%s>\n' % (i[0], i[1], "".join("        <item>%s</item>\n" % v for v in i[2]), i[0]),
+    r'<(?:string|integer)-array name="%s">.*?</(?:string|integer)-array>')
+add(root + "/res/values/integers.xml", INTEGERS, lambda i: '    <integer name="%s">%s</integer>\n' % i,
+    r'<integer name="%s">.*?</integer>')
+assert re.search(r'<string name="summary_placeholder">', open(root + "/res/values/strings.xml").read()), "string/summary_placeholder"
+
+# 5. The row, directly under Motion smoothness
+xf = root + "/res/xml/sec_display_settings.xml"
+x = open(xf).read()
+if 'android:key="%s"' % KEY in x:
+    print("  - Display settings row already present")
+else:
+    assert any("<SecPreference " in open(f).read() for f in glob.glob(root + "/res/xml/*.xml")), "SecPreference is not used by this SecSettings"
+    assert load("Landroidx/preference/SecPreference;"), "androidx.preference.SecPreference"
+    assert 'xmlns:settings="http://schemas.android.com/apk/res-auto"' in x, "settings namespace"
+    lines = x.split("\n")
+    hits = [i for i, l in enumerate(lines) if 'android:key="sec_high_refresh_rate"' in l]
+    assert len(hits) == 1, "sec_high_refresh_rate anchor: %d" % len(hits)
+    i = hits[0]
+    assert lines[i].lstrip().startswith("<") and lines[i].rstrip().endswith("/>") and \
+        'android:fragment="com.samsung.android.settings.display.HighRefreshRateFragment"' in lines[i], "anchor is not the single-line Motion smoothness row"
+    indent = lines[i][:len(lines[i]) - len(lines[i].lstrip())]
+    lines.insert(i + 1, indent + '<SecPreference android:title="@string/k4_adaptive_delay_title" android:key="%s" '
+                 'android:summary="@string/summary_placeholder" settings:controller="%s" />' % (KEY, OURS[1:-1].replace("/", ".")))
+    open(xf, "w").write("\n".join(lines))
+    print("  - row after sec_high_refresh_rate in sec_display_settings.xml")
+PYEOF
+
 unset IDLE_TIMER_MS TOUCH_TIMER_MS SF SERVICES INPUTDEV SECSETTINGS
+unset ADAPTIVE_IDLE_PROP ADAPTIVE_IDLE_CHOICES_MS ADAPTIVE_IDLE_DEFAULT_MS ADAPTIVE_IDLE_MIN_MS ADAPTIVE_IDLE_MAX_MS
