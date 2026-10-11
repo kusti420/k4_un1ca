@@ -11,18 +11,21 @@
 # motion photo view modes Boomerang/Slow-mo (libaplayer dynamic viewing, dropped natively without AI FRC): K4SlowMo
 # turns those two view modes off again inside the Gallery process, see K4SlowMo.smali.
 #
-# Part 1 (framework.jar): SemMediaPlayer.setVideoFrc() and SemFloatingFeature go through K4SlowMo.
+# Part 1 (framework.jar): SemMediaPlayer.setVideoFrc() and SemFloatingFeature go through K4SlowMo, which picks one of
+# three paths per hold: neural (x4 at 0.25x, when the gallery_slowmo_neural patch's k4front MPP store is registered and
+# persist.sys.k4.slowmo_neural is not 0), classical (the pipe of part 2, x2) or plain slow playback.
 # Part 2 (libaplayer.so, libimageconverter.so): the S26 Ultra player's Instant Slow-mo path (the "AI FRC" post
 # generator) runs on the A52s vendor's own frame rate conversion pipe (MPP HAL V1 type 3: libmppfrc + libFrucDYNVLib,
 # OpenCL, exact x2, 8-bit NV12 up to 1920x1088 at 30 fps). Measured on 9.3.17/9.3.18 with a test player on the phone:
-# 1080p30 held at 0.5x shows 28-30 frames per second (plain 0.5x: 15), every second one interpolated.
+# 1080p30 held at 0.5x shows 28-30 frames per second (plain 0.5x: 15), every second one interpolated. The neural
+# path asks the same native path for x4; where its frames come from is decided below libmppclient (not here).
 #
 # The SemFloatingFeature hooks go in front of everything else in getBoolean(String)/getString(String) and leave
 # ".locals 1" and the mFeatureList line alone: unica/mods/settings patches both methods after this patch has run.
 FRAMEWORK="system/framework/framework.jar"
 DECODE_APK "system" "$FRAMEWORK" || ABORT "Failed to decode $FRAMEWORK"
 
-LOG "- Gallery Instant Slow-mo: SemMediaPlayer.setVideoFrc() and the Gallery-only feature flag go through K4SlowMo"
+LOG "- Gallery Instant Slow-mo: SemMediaPlayer.setVideoFrc() and the Gallery-only feature flag go through K4SlowMo (neural, classical or plain per hold)"
 python3 - "$APKTOOL_DIR/system/${FRAMEWORK//system\//}" \
     "$SRC_DIR/target/a52sxq/patches/gallery_slowmo/K4SlowMo.smali" << 'PYEOF' || ABORT "Failed to apply the Gallery slow motion patch"
 import glob, os, re, shutil, sys
@@ -168,6 +171,12 @@ for needs, where in (("->k4NativeVideoFrc(IFZ)V", "the SemMediaPlayer accessor")
     assert needs in helper, "K4SlowMo.smali does not match this script (%s)" % where
 assert re.search(r"^\.method public static (?:[\w-]+ )*getInt\(Ljava/lang/String;I\)I$",
                  open(one("smali*/android/os/SystemProperties.smali")).read(), re.M), "SystemProperties.getInt(String, int) not found"
+# the neural path: service lookup and the one-way warm-up call
+assert "persist.sys.k4.slowmo_neural" in helper and "ISehMppStore/k4front" in helper, "K4SlowMo.smali does not match this script (neural path)"
+assert re.search(r"^\.method public static (?:[\w-]+ )*checkService\(Ljava/lang/String;\)Landroid/os/IBinder;$",
+                 open(one("smali*/android/os/ServiceManager.smali")).read(), re.M), "ServiceManager.checkService(String) not found"
+assert re.search(r"^\.method public final (?:[\w-]+ )*writeInterfaceToken\(Ljava/lang/String;\)V$",
+                 open(one("smali*/android/os/Parcel.smali")).read(), re.M), "Parcel.writeInterfaceToken(String) not found"
 dst = os.path.join(player[:player.index("/com/samsung/android/media/SemMediaPlayer.smali")], "com/k4/media")
 os.makedirs(dst, exist_ok=True)
 shutil.copyfile(helper_src, os.path.join(dst, "K4SlowMo.smali"))

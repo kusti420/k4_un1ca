@@ -1,10 +1,10 @@
 // Source of K4SlowMo.smali (the build only uses the .smali; this file is its readable form).
 // To regenerate after an edit: compile with "javac -g:none -XDstringConcat=inline" against android.jar plus stubs for
 // SemMediaPlayer (getPlaybackParams, setPlaybackParams, k4NativeVideoFrc), android.app.ActivityThread
-// (currentPackageName, currentApplication) and android.os.SystemProperties (getInt), dex it with
-// "d8 --release --min-api 34 --no-desugaring", disassemble with the baksmali inside apktool.jar
-// (com.android.tools.smali.baksmali.Main d), then put "blacklist" in front of every field and method name and keep
-// the comment block at the top of K4SlowMo.smali.
+// (currentPackageName, currentApplication), android.os.SystemProperties (getInt) and android.os.ServiceManager
+// (checkService), dex it with "d8 --release --min-api 34 --no-desugaring", disassemble with the baksmali inside
+// apktool.jar (com.android.tools.smali.baksmali.Main d), then put "blacklist" in front of every field and method name
+// and keep the comment block at the top of K4SlowMo.smali.
 package com.k4.media;
 
 import android.app.ActivityThread;
@@ -13,7 +13,11 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.PlaybackParams;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
+import android.os.Parcel;
+import android.os.ServiceManager;
+import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.util.Log;
 import com.samsung.android.media.SemMediaPlayer;
@@ -25,11 +29,18 @@ import java.util.WeakHashMap;
 public final class K4SlowMo implements Runnable {
     private static final String TAG = "K4SlowMo";
     private static final int PLAIN = 1, FRC = 2;
+    private static final int SDR8 = 1, NEURAL = 2;
+    private static final String STORE = "vendor.samsung.hardware.media.mpp.ISehMppStore";
+    private static final String NEURAL_SERVICE = STORE + "/k4front";
+    private static final int NEURAL_WARM_UP = 0x4B3401;
 
     private static int sGallery;
     private static WeakReference<SemMediaPlayer> sSlowed;
     private static int sPath;
-    private static final WeakHashMap<SemMediaPlayer, Boolean> sSources = new WeakHashMap<>();
+    private static final WeakHashMap<SemMediaPlayer, Integer> sSources = new WeakHashMap<>();
+    private static IBinder sNeural;
+    private static long sNeuralLookup;
+    private static long sNeuralWarmUp;
 
     private K4SlowMo() {
     }
@@ -99,7 +110,7 @@ public final class K4SlowMo implements Runnable {
         if (!isGallery()) {
             return;
         }
-        boolean ok = false;
+        int source = 0;
         MediaExtractor extractor = null;
         try {
             extractor = new MediaExtractor();
@@ -109,12 +120,14 @@ public final class K4SlowMo implements Runnable {
                 MediaFormat f = extractor.getTrackFormat(i);
                 String mime = f.getString("mime");
                 if (mime != null && mime.startsWith("video/")) {
-                    ok = isEightBitSdr(mime, f);
+                    if (isEightBitSdr(mime, f)) {
+                        source = isNeuralEligible(f) ? SDR8 | NEURAL : SDR8;
+                    }
                     break;
                 }
             }
         } catch (Throwable t) {
-            ok = false;
+            source = 0;
         }
         if (extractor != null) {
             try {
@@ -123,7 +136,89 @@ public final class K4SlowMo implements Runnable {
             }
         }
         synchronized (sSources) {
-            sSources.put(player, Boolean.valueOf(ok));
+            sSources.put(player, Integer.valueOf(source));
+        }
+        if ((source & NEURAL) != 0) {
+            warmUpNeural();
+        }
+    }
+
+    // What the neural engine takes, on top of 8-bit SDR. The one place to widen once more is proven.
+    public static boolean isNeuralEligible(MediaFormat f) {
+        int w = f.getNumber("width", Integer.valueOf(0)).intValue();
+        int h = f.getNumber("height", Integer.valueOf(0)).intValue();
+        if (w <= 0 || h <= 0 || Math.max(w, h) > 1920 || Math.min(w, h) > 1088) {
+            return false;
+        }
+        return f.getNumber("frame-rate", Integer.valueOf(0)).floatValue() <= 30.5f;
+    }
+
+    private static boolean neuralEnabled() {
+        return SystemProperties.getInt("persist.sys.k4.slowmo_neural", 1) != 0;
+    }
+
+    // The k4front MPP store (the neural engine's daemon). A hit is trusted for 10 s, a miss for 3 s, so a daemon that
+    // (re)starts is picked up without asking the service manager on every call.
+    private static IBinder neuralService() {
+        long now = SystemClock.uptimeMillis();
+        IBinder service;
+        synchronized (sSources) {
+            service = sNeural;
+            long age = now - sNeuralLookup;
+            if (sNeuralLookup != 0L && age >= 0L) {
+                if (service == null) {
+                    if (age < 3000L) {
+                        return null;
+                    }
+                } else if (age < 10000L && service.isBinderAlive()) {
+                    return service;
+                }
+            }
+        }
+        try {
+            service = ServiceManager.checkService(NEURAL_SERVICE);
+        } catch (Throwable t) {
+            service = null;
+        }
+        synchronized (sSources) {
+            sNeural = service;
+            sNeuralLookup = now == 0L ? 1L : now;
+        }
+        return service;
+    }
+
+    // Asks the daemon to build its network in the background (it frees it again after two minutes without a pipe).
+    // One-way, so it never waits for the daemon; nothing here may reach the player.
+    private static void warmUpNeural() {
+        try {
+            if (!neuralEnabled()) {
+                return;
+            }
+            long now = SystemClock.uptimeMillis();
+            synchronized (sSources) {
+                if (sNeuralWarmUp != 0L && now - sNeuralWarmUp >= 0L && now - sNeuralWarmUp < 5000L) {
+                    return;
+                }
+            }
+            IBinder service = neuralService();
+            if (service == null) {
+                return;
+            }
+            synchronized (sSources) {
+                sNeuralWarmUp = now == 0L ? 1L : now;
+            }
+            Parcel data = Parcel.obtain();
+            try {
+                data.writeInterfaceToken(STORE);
+                service.transact(NEURAL_WARM_UP, data, null, IBinder.FLAG_ONEWAY);
+            } finally {
+                data.recycle();
+            }
+        } catch (Throwable t) {
+            synchronized (sSources) {
+                sNeural = null;
+                sNeuralLookup = 0L;
+            }
         }
     }
 
@@ -157,18 +252,43 @@ public final class K4SlowMo implements Runnable {
             if (!(rate > 0.0f)) {
                 return;
             }
+            Integer boxed;
+            synchronized (sSources) {
+                boxed = sSources.get(player);
+            }
+            int source = boxed == null ? 0 : boxed.intValue();
             String why;
-            int mode = SystemProperties.getInt("persist.sys.k4.slowmo_frc", 1);
-            if (mode <= 0) {
-                why = "persist.sys.k4.slowmo_frc is off";
+            String noNeural;
+            if (!neuralEnabled()) {
+                noNeural = "persist.sys.k4.slowmo_neural is off";
+            } else if (neuralService() == null) {
+                noNeural = "no k4front service";
+            } else if (boxed == null) {
+                noNeural = "source was not examined";
+            } else if ((source & NEURAL) == 0) {
+                noNeural = "source not eligible";
             } else {
-                Boolean ok;
-                synchronized (sSources) {
-                    ok = sSources.get(player);
+                noNeural = null;
+            }
+            if (noNeural == null) {
+                try {
+                    nativeFrc(player, 4, 0.25f, lowLatency);
+                    sSlowed = new WeakReference<>(player);
+                    sPath = FRC;
+                    Log.i(TAG, "hold: neural x4, playing at 0.25x");
+                    return;
+                } catch (IllegalStateException e) {
+                    throw e;
+                } catch (RuntimeException e) {
+                    why = "neural frame interpolation refused: " + e;
                 }
-                if (ok == null) {
+            } else {
+                int mode = SystemProperties.getInt("persist.sys.k4.slowmo_frc", 1);
+                if (mode <= 0) {
+                    why = "persist.sys.k4.slowmo_frc is off";
+                } else if (boxed == null) {
                     why = "source was not examined";
-                } else if (!ok.booleanValue()) {
+                } else if ((source & SDR8) == 0) {
                     why = "not an 8-bit SDR video";
                 } else {
                     int s = mode == 2 ? scale : 2;
@@ -177,7 +297,7 @@ public final class K4SlowMo implements Runnable {
                         nativeFrc(player, s, r, lowLatency);
                         sSlowed = new WeakReference<>(player);
                         sPath = FRC;
-                        Log.i(TAG, "hold: frame interpolation x2, playing at " + r + "x");
+                        Log.i(TAG, "hold: frame interpolation x2, playing at " + r + "x (no neural: " + noNeural + ")");
                         return;
                     } catch (IllegalStateException e) {
                         throw e;
@@ -185,6 +305,7 @@ public final class K4SlowMo implements Runnable {
                         why = "frame interpolation refused: " + e;
                     }
                 }
+                why = why + "; no neural: " + noNeural;
             }
             sSlowed = new WeakReference<>(player);
             sPath = PLAIN;
