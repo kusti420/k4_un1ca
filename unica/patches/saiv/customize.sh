@@ -208,6 +208,71 @@ if [ "$SOURCE_PLATFORM_SDK_VERSION" -ge 37 ]; then
         sed -i "/^libArtifactDetector_v1\.camera\.samsung\.so$/d" "$WORK_DIR/system/system/etc/public.libraries-camera.samsung.txt"
     fi
 
+    # Deleting the lib is not enough on One UI 9: RemasterDirector.initEstimators() only logs
+    # ArtifactDetectorWrapper.isArtifactDetectorAvailable() and registers the wrapper for BLUR, MILD_BLUR, LDR,
+    # LOWLIGHT, NOISE, DONUT_BLUR, MOIRE, FLARE, REFLECTION and SHADOW anyway; its init() (early estimator init,
+    # i.e. as soon as Gallery opens Remaster) then runs ArtifactDetector.<clinit> -> System.load() ->
+    # UnsatisfiedLinkError, killing the service. Make the wrapper honour its own availability check: init() does
+    # nothing and estimateMulti() returns the empty result map of its existing "ArtifactDetector is null" path.
+    # AnalyzerUtil.runEstimator() already treats missing class results as "no result" (null entries are filtered
+    # by getNonNullEntries/overrideDetectionResults), so the other estimators and enhancers keep working.
+    PRS_APK="system/priv-app/PhotoRemasterService/PhotoRemasterService.apk"
+    if [ -f "$WORK_DIR/system/$PRS_APK" ] && \
+            [ ! -f "$WORK_DIR/system/system/lib64/libArtifactDetector_v1.camera.samsung.so" ] && \
+            [ ! -f "$WORK_DIR/vendor/lib64/libArtifactDetector_v1.camera.samsung.so" ]; then
+        DECODE_APK "system" "$PRS_APK" || ABORT "Failed to decode $PRS_APK"
+        LOG "- Skipping the missing artifact detector in PhotoRemasterService"
+        python3 - "$APKTOOL_DIR/system/${PRS_APK//system\//}" << 'PYEOF' || ABORT "Failed to patch ArtifactDetectorWrapper"
+import glob, re, sys
+hits = glob.glob(sys.argv[1] + "/smali*/vizinsight/atl/artifactdetector/ArtifactDetectorWrapper.smali")
+assert len(hits) == 1, "ArtifactDetectorWrapper: %d" % len(hits)
+f = hits[0]
+s = open(f).read()
+if ":cond_unica_artifact_detector" in s:
+    print("  - already patched"); sys.exit(0)
+W = "Lvizinsight/atl/artifactdetector/ArtifactDetectorWrapper;"
+AVAILABLE = "    invoke-static {}, %s->isArtifactDetectorAvailable()Z\n\n" % W
+assert ".method public static isArtifactDetectorAvailable()Z\n" in s, "isArtifactDetectorAvailable()Z"
+# every construction of the native detector must sit in the two methods patched below
+assert len(re.findall(r"new-instance \w+, Lvizinsight/atl/artifactdetector/ArtifactDetector;", s)) == 2, "ArtifactDetector users"
+
+def method(sig):
+    m = re.search(r"^" + re.escape(sig) + r"\n.*?^\.end method\n", s, re.M | re.S)
+    assert m, sig
+    assert "new-instance" in m.group(0) and "Lvizinsight/atl/artifactdetector/ArtifactDetector;" in m.group(0), sig + ": no detector"
+    return m
+
+# init(Context): p1 is free, the method overwrites it with mArtifactDetector first thing
+m = method(".method public init(Landroid/content/Context;)V")
+head = ".method public init(Landroid/content/Context;)V\n    .locals 0\n\n    iget-object p1, p0, "
+assert m.group(0).startswith(head), "init(Context) head"
+body = m.group(0).replace("    .locals 0\n\n", "    .locals 0\n\n" + AVAILABLE +
+    "    move-result p1\n\n"
+    "    if-nez p1, :cond_unica_artifact_detector\n\n"
+    "    return-void\n\n"
+    "    :cond_unica_artifact_detector\n", 1)
+s = s[:m.start()] + body + s[m.end():]
+
+# estimateMulti(...): locals are unassigned at entry; v0 is loaded with `this` by the first instruction
+m = method(".method public estimateMulti(Landroid/content/Context;Lcom/samsung/android/photoremaster/sdk/ip/BgrBuffer;ILjava/lang/String;)Ljava/util/Map;")
+first = "    .end annotation\n\n    move-object/from16 v0, p0\n"
+assert re.search(r"^    \.locals (\d+)$", m.group(0), re.M) and int(re.search(r"^    \.locals (\d+)$", m.group(0), re.M).group(1)) >= 1, "estimateMulti locals"
+assert m.group(0).count(first) == 1, "estimateMulti head"
+body = m.group(0).replace(first, "    .end annotation\n\n" + AVAILABLE +
+    "    move-result v0\n\n"
+    "    if-nez v0, :cond_unica_artifact_detector\n\n"
+    "    new-instance v0, Ljava/util/HashMap;\n\n"
+    "    invoke-direct {v0}, Ljava/util/HashMap;-><init>()V\n\n"
+    "    return-object v0\n\n"
+    "    :cond_unica_artifact_detector\n"
+    "    move-object/from16 v0, p0\n", 1)
+s = s[:m.start()] + body + s[m.end():]
+open(f, "w").write(s)
+print("  - ArtifactDetectorWrapper.init()/estimateMulti() gated on isArtifactDetectorAvailable()")
+PYEOF
+    fi
+    unset PRS_APK
+
     # The Android 17 PetService requires libPetDetector_v1 plus the new model
     # contract. The target vendor has neither, so keep the capability disabled.
     if [ ! -f "$TARGET_FIRMWARE_ROOT/vendor/lib64/libPetDetector_v1.camera.samsung.so" ]; then
