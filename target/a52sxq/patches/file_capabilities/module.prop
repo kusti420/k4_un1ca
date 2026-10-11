@@ -1,0 +1,4 @@
+id=a52sxq_file_capabilities
+name=Galaxy A52s 5G: stock file capabilities on vendor binaries
+author=kusti420
+description=scripts/extract_fw.sh cannot read security.capability (rootless FUSE extraction) and writes capabilities=0x0 for every file, restoring only run-as and simpleperf_app_runner. The stock A528BXXU5FWK4 vendor image carries four more: loc_launcher (SETUID+SETGID), pd-mapper and pm-service (NET_BIND_SERVICE) and the Bluetooth HAL (NET_ADMIN+BLOCK_SUSPEND). Without them loc_launcher cannot switch its children to their izat.conf groups, so xtra-daemon/lowi-server run without group inet and every XTRA/NTP DNS lookup fails (slow GPS fix, no Wi-Fi positioning). Masks were read from the stock vendor.img xattrs; mkfs.erofs writes them back from fs_config.
