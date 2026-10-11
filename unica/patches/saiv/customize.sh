@@ -273,6 +273,79 @@ PYEOF
     fi
     unset PRS_APK
 
+    # Second half of the same service: the resolution upscaler (Gallery > Remaster on a small picture ->
+    # UpscaleProcessor -> libmidas "Run AI_UPSCALE_nX LITE"). libmidas_DNNInterface picks the model set from
+    # /vendor/etc/midas/midas_config.json: the entry whose models_list names ro.soc.model, else the "default" one.
+    # The One UI 9 config swapped the default from the SRIBMidas_aiUPSCALER_nX_LITE_V100_INT8.tflite set (still the
+    # default in One UI 8, and the set unica/patches/legacy installs for old vendors) to
+    # SRIBMidas_aiUPSCALER_nX_V270_INT8.tflite, which no portable set ships. A missing model is fatal, not an
+    # error: AIupscale_1x::Init() fails, calls DeInit(), and that frees a pointer its constructor never
+    # initialised -> SIGABRT of the service ("Pointer tag ... was truncated"). When the default set is not
+    # installed, point the default entry at the installed SNAPLITE set, taking the tensor names and execution
+    # settings from the config's own entry for those files. Only 2X/3X/4X matter: the service's upscale enhancers
+    # are VSWUpscale2x/3x/4xEnhancer, and the 1X slot has no installed model in either set.
+    MIDAS_CONFIG="$WORK_DIR/vendor/etc/midas/midas_config.json"
+    if [ -s "$MIDAS_CONFIG" ]; then
+        LOG "- Matching the default MIDAS upscaler entry to the installed models"
+        python3 - "$MIDAS_CONFIG" "$TARGET_PLATFORM" << 'PYEOF' || ABORT "Failed to check the MIDAS upscaler models"
+import collections, json, os, re, sys
+cfg, soc = sys.argv[1], sys.argv[2]
+d = os.path.dirname(cfg)
+
+def no_dups(pairs):
+    keys = [k for k, _ in pairs]
+    assert len(keys) == len(set(keys)), "duplicate keys: %s" % [k for k, c in collections.Counter(keys).items() if c > 1]
+    return dict(pairs)
+
+conf = json.loads(open(cfg).read(), object_pairs_hook=no_dups)
+ups = [e for e in conf.get("enhancements", []) if e.get("type") == "upscale"]
+assert len(ups) == 1, "upscale modules: %d" % len(ups)
+infos = ups[0].get("dnn_model_info", [])
+entries = [(i, m) for i in infos for m in i.get("compatible_models", [])]
+if any(soc.lower() == str(x).lower() for _, m in entries for x in (m.get("models_list") or [])):
+    print("  - %s has its own upscaler entry, nothing to do" % soc); sys.exit(0)
+defaults = [i for i in infos if i.get("version") == "default"]
+assert len(defaults) == 1 and defaults[0].get("compatible_models"), "default upscaler entry"
+default = defaults[0]
+
+def scales(files):
+    return [f for f in files if re.search(r"_[234]X_", f)]
+
+def have(files):
+    return all(os.path.isfile(os.path.join(d, f)) for f in files)
+
+cur = default["compatible_models"][0].get("model_file", [])
+assert len(scales(cur)) == 3, "default upscaler files: %s" % cur
+if have(scales(cur)):
+    print("  - default upscaler models are installed, nothing to do"); sys.exit(0)
+donors = [(i, m) for i, m in entries
+          if i is not default and i.get("model_format") == "SNAPLITE" and len(m.get("model_file", [])) == len(cur)
+          and len(scales(m["model_file"])) == 3 and have(scales(m["model_file"]))]
+if not donors:
+    print("  ! neither %s nor any other SNAPLITE upscaler set is installed, leaving the config alone" % scales(cur))
+    sys.exit(0)
+assert len({json.dumps([m["model_file"], i.get("input_node"), i.get("output_node")]) for i, m in donors}) == 1, \
+    "ambiguous installed upscaler sets: %s" % [m["model_file"] for _, m in donors]
+info, model = donors[0]
+# the tensor names of that entry must be the ones the installed models really use
+assert isinstance(info.get("input_node"), list) and isinstance(info.get("output_node"), list) and \
+    len(info["input_node"]) == len(info["output_node"]) == len(model["model_file"]), "upscaler tensor names"
+for f, i, o in zip(model["model_file"], info["input_node"], info["output_node"]):
+    if f in scales(model["model_file"]):
+        blob = open(os.path.join(d, f), "rb").read()
+        assert i.encode() in blob and o.encode() in blob, "%s has no tensors %s/%s" % (f, i, o)
+new = {"version": "default"}
+new.update((k, v) for k, v in info.items() if k not in ("version", "compatible_models"))
+new["compatible_models"] = default["compatible_models"]
+new["compatible_models"][0]["model_file"] = list(model["model_file"])
+default.clear()
+default.update(new)
+open(cfg, "w").write(json.dumps(conf, indent=2) + "\n")
+print("  - default upscaler entry: %s -> %s" % (scales(cur), scales(model["model_file"])))
+PYEOF
+    fi
+    unset MIDAS_CONFIG
+
     # The Android 17 PetService requires libPetDetector_v1 plus the new model
     # contract. The target vendor has neither, so keep the capability disabled.
     if [ ! -f "$TARGET_FIRMWARE_ROOT/vendor/lib64/libPetDetector_v1.camera.samsung.so" ]; then
