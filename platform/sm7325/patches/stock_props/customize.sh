@@ -1,2 +1,3 @@
-LOG "- Adding \"ro.netflix.bsp_rev\" prop with \"Q7325-SPY-33758-1\" in /system/system/build.prop"
-EVAL "sed -i \"/ro.smps.gain.spk/i ro.netflix.bsp_rev=Q7325-SPY-33758-1\" \"$WORK_DIR/system/system/build.prop\""
+# The anchor the old sed inserted before (ro.smps.gain.spk) is gone from One UI 9 build.prop, so the prop was silently
+# never added there
+SET_PROP "system" "ro.netflix.bsp_rev" "Q7325-SPY-33758-1"
