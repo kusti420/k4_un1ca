@@ -106,6 +106,22 @@
 
 
 # direct methods
+.method static bridge synthetic blacklist -$$Nest$mdrain(Lcom/k4/media/K4SlowMoExport;)V
+    .registers 1
+
+    invoke-direct {p0}, Lcom/k4/media/K4SlowMoExport;->drain()V
+
+    return-void
+.end method
+
+.method static bridge synthetic blacklist -$$Nest$mfinish(Lcom/k4/media/K4SlowMoExport;ZLjava/lang/String;)V
+    .registers 3
+
+    invoke-direct {p0, p1, p2}, Lcom/k4/media/K4SlowMoExport;->finish(ZLjava/lang/String;)V
+
+    return-void
+.end method
+
 .method static constructor blacklist <clinit>()V
     .registers 0
 

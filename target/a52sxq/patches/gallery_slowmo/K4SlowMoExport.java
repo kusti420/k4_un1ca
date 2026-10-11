@@ -1,7 +1,9 @@
 // Neural "Save slow-mo clip": records the proven neural playback (SemMediaPlayer + AI FRC post generator -> MPP ->
 // k4neuralmpp) of one section into an H.264 file. An off-screen SemMediaPlayer renders the section at the hold rate into
 // a MediaCodec encoder's input surface; the encoded frames are written with a constant cadence.
-// Source of K4SlowMoExport.smali (see K4SlowMo.java for how the smali is generated).
+// Source of K4SlowMoExport.smali (see K4SlowMo.java for how the smali is generated, but dex the save classes WITHOUT
+// "--no-desugaring": the anonymous classes call private methods of this class and need d8's nest bridges, or the
+// drain thread dies with IllegalAccessError).
 package com.k4.media;
 
 import android.media.MediaCodec;

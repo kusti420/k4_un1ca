@@ -50,7 +50,7 @@
 
     const/4 v1, 0x0
 
-    invoke-virtual {p0, v0, v1}, Lcom/k4/media/K4SlowMoExport;->finish(ZLjava/lang/String;)V
+    invoke-static {p0, v0, v1}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$mfinish(Lcom/k4/media/K4SlowMoExport;ZLjava/lang/String;)V
 
     return-void
 .end method

@@ -46,7 +46,7 @@
 
     iget-object p0, p0, Lcom/k4/media/K4SlowMoExport$1;->this$0:Lcom/k4/media/K4SlowMoExport;
 
-    invoke-virtual {p0}, Lcom/k4/media/K4SlowMoExport;->drain()V
+    invoke-static {p0}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$mdrain(Lcom/k4/media/K4SlowMoExport;)V
 
     return-void
 .end method
