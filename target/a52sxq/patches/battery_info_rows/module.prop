@@ -1,0 +1,4 @@
+id=a52sxq_battery_info_rows
+name=Galaxy A52s 5G: battery cycle count and dates in Battery information
+author=kusti420
+description=Settings > Battery > Battery information shows cycle count, first used date, manufacture date and battery health only when BatteryInfoUtils.isAvailableBatteryRegulatory() is true. Outside Korea that requires a positive battery authentication result (BatteryManager property 106), which needs a battery authentication IC the A52s doesn't have; the rows' data comes from /efs/FactoryApp (batt_discharge_level, batt_beginning_date, HwParamBattQR), which the A52s does have. Skip only that authentication check in Settings (the framework still reports the real result). Works with SEC_FLOATING_FEATURE_BATTERY_SUPPORT_BSOH_SETTINGS=TRUE from post_mods.sh.
