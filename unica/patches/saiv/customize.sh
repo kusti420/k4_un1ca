@@ -274,22 +274,32 @@ PYEOF
     unset PRS_APK
 
     # Second half of the same service: the resolution upscaler (Gallery > Remaster on a small picture ->
-    # UpscaleProcessor -> libmidas "Run AI_UPSCALE_nX LITE"). libmidas_DNNInterface picks the model set from
-    # /vendor/etc/midas/midas_config.json: the entry whose models_list names ro.soc.model, else the "default" one.
-    # The One UI 9 config swapped the default from the SRIBMidas_aiUPSCALER_nX_LITE_V100_INT8.tflite set (still the
-    # default in One UI 8, and the set unica/patches/legacy installs for old vendors) to
-    # SRIBMidas_aiUPSCALER_nX_V270_INT8.tflite, which no portable set ships. A missing model is fatal, not an
-    # error: AIupscale_1x::Init() fails, calls DeInit(), and that frees a pointer its constructor never
-    # initialised -> SIGABRT of the service ("Pointer tag ... was truncated"). When the default set is not
-    # installed, point the default entry at the installed SNAPLITE set, taking the tensor names and execution
-    # settings from the config's own entry for those files. Only 2X/3X/4X matter: the service's upscale enhancers
-    # are VSWUpscale2x/3x/4xEnhancer, and the 1X slot has no installed model in either set.
+    # UpscaleProcessor -> libmidas AIupscale_1x). Two things in /vendor/etc/midas/midas_config.json decide what it
+    # does, and the One UI 9 config changed both away from what old vendors get (unica/patches/legacy installs
+    # the SRIBMidas_aiUPSCALER_nX_LITE_V100_INT8.tflite set):
+    # 1. Which models: libmidas_DNNInterface uses the entry whose models_list names ro.soc.model, else the
+    #    "default" one. One UI 9 swapped that default from the LITE_V100 set (the One UI 8 default) to
+    #    SRIBMidas_aiUPSCALER_nX_V270_INT8.tflite, which no portable set ships. A missing model is fatal, not an
+    #    error: AIupscale_1x::Init() fails, calls DeInit(), and that frees a pointer its constructor never
+    #    initialised -> SIGABRT of the service ("Pointer tag ... was truncated"). When the default set is not
+    #    installed, point the default entry at the installed SNAPLITE set, taking the tensor names and execution
+    #    settings from the config's own entry for those files. Only 2X/3X/4X matter: the service's upscale
+    #    enhancers are VSWUpscale2x/3x/4xEnhancer, and the 1X slot has no installed model in either set.
+    # 2. How the model output is used: SRIBMidas::RunEnh() looks ro.product.device up in "midasSR_devices". Listed
+    #    devices run module 2/3/4 ("Run AI_UPSCALE_nX"): output = upscaled input + residual_value * model output,
+    #    for models that return a zero-mean detail residual - which is what the LITE_V100 set returns. Unlisted
+    #    devices run module 22/23/24 ("Run AI_UPSCALE_nX LITE"): output = (1 - residual_value) * upscaled input +
+    #    residual_value * model output, for models that return the whole picture (V270). Feeding that path a
+    #    residual model leaves 0.3 x the original: the remastered picture came out at ~1/3 brightness with bright
+    #    speckles on edges (measured 0.31-0.33; reproduced offline with the model: blend 0.32, residual add 1.01).
+    #    Tile layout and model input are identical for both module families, so listing the device is the whole
+    #    fix; it is what the pre-One UI 9 branch below already does for these models.
     MIDAS_CONFIG="$WORK_DIR/vendor/etc/midas/midas_config.json"
     if [ -s "$MIDAS_CONFIG" ]; then
-        LOG "- Matching the default MIDAS upscaler entry to the installed models"
-        python3 - "$MIDAS_CONFIG" "$TARGET_PLATFORM" << 'PYEOF' || ABORT "Failed to check the MIDAS upscaler models"
+        LOG "- Matching the MIDAS upscaler configuration to the installed models"
+        python3 - "$MIDAS_CONFIG" "$TARGET_PLATFORM" "$(GET_PROP "ro.product.device")" << 'PYEOF' || ABORT "Failed to check the MIDAS upscaler models"
 import collections, json, os, re, sys
-cfg, soc = sys.argv[1], sys.argv[2]
+cfg, soc, device = sys.argv[1:4]
 d = os.path.dirname(cfg)
 
 def no_dups(pairs):
@@ -314,34 +324,51 @@ def scales(files):
 def have(files):
     return all(os.path.isfile(os.path.join(d, f)) for f in files)
 
+changed = False
 cur = default["compatible_models"][0].get("model_file", [])
 assert len(scales(cur)) == 3, "default upscaler files: %s" % cur
 if have(scales(cur)):
-    print("  - default upscaler models are installed, nothing to do"); sys.exit(0)
-donors = [(i, m) for i, m in entries
-          if i is not default and i.get("model_format") == "SNAPLITE" and len(m.get("model_file", [])) == len(cur)
-          and len(scales(m["model_file"])) == 3 and have(scales(m["model_file"]))]
-if not donors:
-    print("  ! neither %s nor any other SNAPLITE upscaler set is installed, leaving the config alone" % scales(cur))
-    sys.exit(0)
-assert len({json.dumps([m["model_file"], i.get("input_node"), i.get("output_node")]) for i, m in donors}) == 1, \
-    "ambiguous installed upscaler sets: %s" % [m["model_file"] for _, m in donors]
-info, model = donors[0]
-# the tensor names of that entry must be the ones the installed models really use
-assert isinstance(info.get("input_node"), list) and isinstance(info.get("output_node"), list) and \
-    len(info["input_node"]) == len(info["output_node"]) == len(model["model_file"]), "upscaler tensor names"
-for f, i, o in zip(model["model_file"], info["input_node"], info["output_node"]):
-    if f in scales(model["model_file"]):
-        blob = open(os.path.join(d, f), "rb").read()
-        assert i.encode() in blob and o.encode() in blob, "%s has no tensors %s/%s" % (f, i, o)
-new = {"version": "default"}
-new.update((k, v) for k, v in info.items() if k not in ("version", "compatible_models"))
-new["compatible_models"] = default["compatible_models"]
-new["compatible_models"][0]["model_file"] = list(model["model_file"])
-default.clear()
-default.update(new)
-open(cfg, "w").write(json.dumps(conf, indent=2) + "\n")
-print("  - default upscaler entry: %s -> %s" % (scales(cur), scales(model["model_file"])))
+    print("  - default upscaler models are installed")
+else:
+    donors = [(i, m) for i, m in entries
+              if i is not default and i.get("model_format") == "SNAPLITE" and len(m.get("model_file", [])) == len(cur)
+              and len(scales(m["model_file"])) == 3 and have(scales(m["model_file"]))]
+    if not donors:
+        print("  ! neither %s nor any other SNAPLITE upscaler set is installed, leaving the config alone" % scales(cur))
+        sys.exit(0)
+    assert len({json.dumps([m["model_file"], i.get("input_node"), i.get("output_node")]) for i, m in donors}) == 1, \
+        "ambiguous installed upscaler sets: %s" % [m["model_file"] for _, m in donors]
+    info, model = donors[0]
+    # the tensor names of that entry must be the ones the installed models really use
+    assert isinstance(info.get("input_node"), list) and isinstance(info.get("output_node"), list) and \
+        len(info["input_node"]) == len(info["output_node"]) == len(model["model_file"]), "upscaler tensor names"
+    for f, i, o in zip(model["model_file"], info["input_node"], info["output_node"]):
+        if f in scales(model["model_file"]):
+            blob = open(os.path.join(d, f), "rb").read()
+            assert i.encode() in blob and o.encode() in blob, "%s has no tensors %s/%s" % (f, i, o)
+    new = {"version": "default"}
+    new.update((k, v) for k, v in info.items() if k not in ("version", "compatible_models"))
+    new["compatible_models"] = default["compatible_models"]
+    new["compatible_models"][0]["model_file"] = list(model["model_file"])
+    default.clear()
+    default.update(new)
+    changed = True
+    print("  - default upscaler entry: %s -> %s" % (scales(cur), scales(model["model_file"])))
+
+# residual models need the residual-add module, i.e. the device in midasSR_devices
+cur = default["compatible_models"][0]["model_file"]
+if all("_LITE_V100_" in f for f in scales(cur)) and have(scales(cur)):
+    assert re.fullmatch(r"[A-Za-z0-9_-]+", device), "ro.product.device: %r" % device
+    sr = conf.get("midasSR_devices")
+    assert isinstance(sr, list) and sr and all(isinstance(x, str) for x in sr), "midasSR_devices"
+    if device in sr:
+        print("  - %s is already in midasSR_devices" % device)
+    else:
+        sr.insert(0, device)
+        changed = True
+        print("  - %s added to midasSR_devices (residual upscaler models)" % device)
+if changed:
+    open(cfg, "w").write(json.dumps(conf, indent=2) + "\n")
 PYEOF
     fi
     unset MIDAS_CONFIG
