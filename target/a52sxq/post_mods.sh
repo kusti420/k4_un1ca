@@ -30,3 +30,9 @@ SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_CONFIG_GAME_DEFAULT_F
 if [ ! -f "$SRC_DIR/target/a52sxq/patches/kernel_bone_machine/disable" ]; then
     SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_BATTERY_SUPPORT_PASS_THROUGH" "TRUE"
 fi
+
+# Settings > Battery > Battery information: the cycle count, first used date and manufacture date rows only show
+# with BSOH_SETTINGS (S26 Ultra: TRUE; dropped here because battery flags come from the A52s firmware). Their data is
+# on the A52s too: /efs/FactoryApp/batt_discharge_level (cycles x100), batt_beginning_date and HwParamBattQR.
+# BSOH_GALAXYDIAGNOSTICS stays off: its battery health score needs /efs/FactoryApp/bsoh, which the A52s never writes.
+SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_BATTERY_SUPPORT_BSOH_SETTINGS" "TRUE"
