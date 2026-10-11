@@ -11,8 +11,14 @@
     <dimen name="physical_power_button_center_screen_location_y">975.0px</dimen>
     <dimen name="rounded_corner_radius_bottom">28.0dp</dimen>
     <dimen name="rounded_corner_radius_top">28.0dp</dimen>
-    <dimen name="status_bar_camera_side_padding">36.0px</dimen>
-    <dimen name="status_bar_camera_top_margin">33.0px</dimen>
-    <dimen name="status_bar_height_portrait">87.0px</dimen>
-    <dimen name="status_bar_indicator_corner_padding">72.0px</dimen>
+    <!-- k4: the four status bar dimens below are the stock A52s pixel values (36, 33, 87 and 72 px on the 1080 px
+         wide, 409.432 dpi panel) written in mm, as Samsung does on its multi-resolution phones. Pixels do not follow
+         Display > Screen resolution (HD+ / 540p), so the status bar became 1.5x / 2x too tall and its contents moved
+         in. mm follows the display's physical dpi, which patches/resolution_scaling scales with a forced size, and
+         unlike dp it ignores Screen zoom, exactly like the stock px values. +0.02 px so both rounding
+         (getDimensionPixelSize) and truncation (getDimensionPixelOffset) give the stock pixel count at FHD+. -->
+    <dimen name="status_bar_camera_side_padding">2.2346mm</dimen>
+    <dimen name="status_bar_camera_top_margin">2.0485mm</dimen>
+    <dimen name="status_bar_height_portrait">5.3985mm</dimen>
+    <dimen name="status_bar_indicator_corner_padding">4.4679mm</dimen>
 </resources>
