@@ -23,3 +23,10 @@ SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GENAI_SUPPORT_TIME_WEATHER_WAL
 # rate (games start at 60); the __floating_feature fallback derives 120 from the panel's default refresh rate.
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_SUPPORT_GAME_SERVER_POLICY_QUERIES" --delete
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_CONFIG_GAME_DEFAULT_FRAMERATE" "60"
+
+# Game Booster "Pause USB Power Delivery" (pass-through charging): BatteryService writes /sys/class/power_supply/
+# battery/pass_through, which only the bone-machine kernel provides (k4 patch 0008 holds the charger in
+# CHARGING_OFF while set). The stock A52s kernel has no such node, so only offer it with our kernel.
+if [ ! -f "$SRC_DIR/target/a52sxq/patches/kernel_bone_machine/disable" ]; then
+    SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_BATTERY_SUPPORT_PASS_THROUGH" "TRUE"
+fi
