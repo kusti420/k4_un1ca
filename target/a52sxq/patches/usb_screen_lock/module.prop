@@ -1,0 +1,4 @@
+id=a52sxq_usb_screen_lock
+name=Galaxy A52s 5G: "Block USB connections" while locked reaches the kernel
+author=kusti420
+description=One UI 9's UsbHostRestrictor (Settings.Secure block_usb_lock) writes the lock state to /sys/class/usb_notify/usb_control/usb_sl as system_server. The node exists on the A52s kernel, but the A14 vendor init.qcom.usb.rc never hands it to system (newer vendors do it in ueventd.rc: usb_sl 0664 system usb), so every lock/unlock failed with "Failed to write to ScrLck Block FILE ... EACCES" and USB data stayed open on a locked phone. Chown it next to the other usb_control nodes.
