@@ -7,6 +7,9 @@
 #   release                          -> endInstantSlowMoPlay()                           = setVideoFrc(1, 1.0f, false)
 # Its own fallback for a throwing setVideoFrc() (setSpeedWithPlaybackParam) is an empty method in this build, so the
 # speed change has to happen inside SemMediaPlayer.setVideoFrc() itself.
+# The same Gallery flag also enables "Save slow-mo clip" (SemMediaCapture/VEKit, works without the AI FRC pipe) and the
+# motion photo view modes Boomerang/Slow-mo (libaplayer dynamic viewing, dropped natively without AI FRC): K4SlowMo
+# turns those two view modes off again inside the Gallery process, see K4SlowMo.smali.
 #
 # The SemFloatingFeature hooks go in front of everything else in getBoolean(String)/getString(String) and leave
 # ".locals 1" and the mFeatureList line alone: unica/mods/settings patches both methods after this patch has run.
