@@ -52,3 +52,42 @@ for c in changed:
 PYEOF
 LOG "- 30.0 SELinux mapping extended with the Android 17 split domains"
 unset MAP REF f
+
+# The product partition has its own half of the mapping. The A14 one (product/etc/selinux/mapping/30.0.cil) maps the
+# Qualcomm product/system_ext public types the vendor policy uses by their versioned names (vendor_systemhelper_app,
+# vendor_hal_systemhelper_hwservice, vendor_sys_qti_display, vendor_display_notch_prop); the source ships product
+# mappings for 31.0+ only, so every vendor rule on those *_30_0 attributes matched nothing (e.g.
+# vendor_systemhelper_app as a vendor_hal_trustedui_client). Restore only the 30.0 lines for types this policy still
+# defines: the *_31_0.. attribute declarations in the A14 file belong to the source's own newer mappings, and the
+# device secilc rejects duplicates. Verified with the device's secilc (full init argument list) before shipping.
+PMAP_SRC="$FW_DIR/$(cut -d "/" -f 1 <<< "$TARGET_FIRMWARE")_$(cut -d "/" -f 2 <<< "$TARGET_FIRMWARE")/product/etc/selinux/mapping/30.0.cil"
+PMAP="$WORK_DIR/product/etc/selinux/mapping/30.0.cil"
+if [ ! -f "$PMAP" ]; then
+    [ -f "$PMAP_SRC" ] || ABORT "compat_sepolicy_mapping: target product 30.0.cil not found"
+    python3 - "$PMAP_SRC" "$PMAP" "$WORK_DIR" << 'PYEOF' || ABORT "Failed to restore the product 30.0 SELinux mapping"
+import glob, re, sys
+src, dst, work = sys.argv[1:4]
+known = set()
+for f in glob.glob(work + "/product/etc/selinux/*.cil") + glob.glob(work + "/system/system/etc/selinux/*.cil") + \
+        glob.glob(work + "/system/system/system_ext/etc/selinux/*.cil") + glob.glob(work + "/system_ext/etc/selinux/*.cil"):
+    known |= set(re.findall(r"^\(type (\S+)\)", open(f).read(), re.M))
+vendor = open(work + "/vendor/etc/selinux/plat_pub_versioned.cil").read()
+out = []
+for l in open(src):
+    m = re.match(r"^\(typeattributeset (\S+)_30_0 \((.*)\)\)\s*$", l)
+    if not m:
+        continue
+    attr = m.group(1) + "_30_0"
+    types = [t for t in m.group(2).split() if t in known]
+    if not types or "(typeattribute %s)" % attr not in vendor:
+        continue
+    out.append("(expandtypeattribute (%s) true)" % attr)
+    out.append("(typeattributeset %s (%s))" % (attr, " ".join(types)))
+    print("    %s <- %s" % (attr, " ".join(types)))
+assert out, "nothing to map"
+open(dst, "w").write("\n".join(sorted(out)) + "\n")
+PYEOF
+    SET_METADATA "product" "etc/selinux/mapping/30.0.cil" 0 0 644 "u:object_r:system_file:s0"
+    LOG "- Product 30.0 SELinux mapping restored for the types this policy defines"
+fi
+unset PMAP PMAP_SRC
