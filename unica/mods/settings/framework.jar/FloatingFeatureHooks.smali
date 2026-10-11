@@ -67,60 +67,13 @@
     return-object p0
 .end method
 
+# k4: the "Launcher animation type" option is gone (2026-10-11): the launcher always gets the source's own
+# SEC_FLOATING_FEATURE_LAUNCHER_CONFIG_ANIMATION_TYPE (HighEnd on the S26 Ultra base). A leftover
+# persist.sys.unica.launcher_anim_type from an older build is ignored.
 .method public static blacklist onGetString(Ljava/lang/String;)Ljava/lang/String;
-    .locals 2
+    .locals 0
 
-    const-string v0, "SEC_FLOATING_FEATURE_LAUNCHER_CONFIG_ANIMATION_TYPE"
+    const/4 p0, 0x0
 
-    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v0
-
-    if-eqz v0, :cond_none
-
-    const-string v0, "persist.sys.unica.launcher_anim_type"
-
-    const/4 v1, -0x1
-
-    invoke-static {v0, v1}, Landroid/os/SystemProperties;->getInt(Ljava/lang/String;I)I
-
-    move-result v0
-
-    if-nez v0, :cond_1
-
-    const-string v0, "HighEnd"
-
-    return-object v0
-
-    :cond_1
-    const/4 v1, 0x1
-
-    if-ne v0, v1, :cond_2
-
-    const-string v0, "Mass"
-
-    return-object v0
-
-    :cond_2
-    const/4 v1, 0x2
-
-    if-ne v0, v1, :cond_3
-
-    const-string v0, "LowEnd"
-
-    return-object v0
-
-    :cond_3
-    const/4 v1, 0x3
-
-    if-ne v0, v1, :cond_none
-
-    const-string v0, "LowestEnd"
-
-    return-object v0
-
-    :cond_none
-    const/4 v0, 0x0
-
-    return-object v0
+    return-object p0
 .end method
