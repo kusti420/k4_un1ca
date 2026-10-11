@@ -1,0 +1,4 @@
+id=a52sxq_fast_charging_pd
+name=Galaxy A52s 5G: Fast charging switch also controls USB PD / PPS
+author=kusti420
+description=One UI 9 has a single "Fast charging" switch. BatteryService.setAdaptiveFastCharging() only writes afc_disable, which on the A52s kernel is read by the MUIC (9 V AFC detection) alone; the SM5714 USB PD driver follows /sys/class/power_supply/battery/pd_disable, which only the SEC_FLOATING_FEATURE_BATTERY_SUPPORT_PD_HV path writes (off on the S26 Ultra base too). So with a USB PD/PPS charger, turning Fast charging off still charged at up to 25 W. Write pd_disable = !enabled whenever the switch is applied (boot and every change).

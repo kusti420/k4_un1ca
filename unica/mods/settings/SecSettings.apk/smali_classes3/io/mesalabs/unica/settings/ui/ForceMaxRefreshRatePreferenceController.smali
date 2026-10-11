@@ -114,6 +114,20 @@
 .method public getAvailabilityStatus()I
     .locals 2
 
+    # k4: Adaptive motion smoothness no longer flickers (a52sxq hfr patch), so this override is retired. Only show it
+    # while it is still on (min_refresh_rate forced to the peak), so anyone who enabled it can still turn it off.
+    invoke-virtual {p0}, Lio/mesalabs/unica/settings/ui/ForceMaxRefreshRatePreferenceController;->isChecked()Z
+
+    move-result v0
+
+    if-nez v0, :k4_force_peak_still_on
+
+    const/4 p0, 0x3
+
+    return p0
+
+    :k4_force_peak_still_on
+
     iget v0, p0, Lio/mesalabs/unica/settings/ui/ForceMaxRefreshRatePreferenceController;->mRefreshRateType:I
 
     const/4 v1, 0x2
