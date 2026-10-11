@@ -211,4 +211,23 @@ else:
     open(xf, "w").write("\n".join(lines))
     print("  - row after dark_mode_settings in sec_display_settings.xml")
 PYEOF
-unset OVERLAY_PACKAGE OVERLAY_DIR OVERLAY_APK PURE_BLACK_COLORS FRAMEWORK_RES SECSETTINGS
+
+# One UI only installs packages from the system partitions that are named in
+# /system/etc/sysconfig/allowed-system-preload-apps.xml (PMRune.PM_ALLOWED_SYSTEM_PRELOAD_APPS, checked in
+# InstallPackageHelper.processParseResult: "Package is not in allowed list : <pkg>" and the package is skipped).
+# 9.3.18's first build shipped the overlay without it: the apk was on /product, never installed, and the switch
+# stayed hidden. Put the overlay package on the list.
+PRELOAD_ALLOWLIST="$WORK_DIR/system/system/etc/sysconfig/allowed-system-preload-apps.xml"
+if [ -f "$PRELOAD_ALLOWLIST" ]; then
+    if grep -q "<allowed-system-preload package=\"$OVERLAY_PACKAGE\"" "$PRELOAD_ALLOWLIST"; then
+        LOG "- $OVERLAY_PACKAGE is already an allowed system preload package"
+    else
+        [ "$(grep -c "^</config>" "$PRELOAD_ALLOWLIST")" = "1" ] || ABORT "pure_black_theme: unexpected ${PRELOAD_ALLOWLIST//$WORK_DIR/} layout"
+        LOG "- Allowing $OVERLAY_PACKAGE as a system preload package"
+        EVAL "sed -i \"s|^</config>|    <allowed-system-preload package=\\\"$OVERLAY_PACKAGE\\\"/>\n</config>|\" \"$PRELOAD_ALLOWLIST\""
+        grep -q "<allowed-system-preload package=\"$OVERLAY_PACKAGE\"" "$PRELOAD_ALLOWLIST" || ABORT "pure_black_theme: failed to patch ${PRELOAD_ALLOWLIST//$WORK_DIR/}"
+    fi
+else
+    LOG "- No allowed-system-preload-apps.xml in this source, nothing to allow"
+fi
+unset OVERLAY_PACKAGE OVERLAY_DIR OVERLAY_APK PURE_BLACK_COLORS FRAMEWORK_RES SECSETTINGS PRELOAD_ALLOWLIST
