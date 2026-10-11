@@ -184,6 +184,123 @@ stale = [p for p in glob.glob(os.path.join(d, "smali*/com/k4/media/K4SlowMo.smal
 assert not stale, "stale K4SlowMo.smali copies: %s" % stale
 print("K4SlowMo.smali ->", os.path.relpath(dst, d))
 PYEOF
+# Part 1b (framework.jar): Gallery's "Save slow-mo clip". The stock save goes SemMediaCapture -> VEKit and repeats every
+# frame four times. K4SlowMoCapture takes exactly that case (Gallery, one dynamic viewing section over the whole range,
+# capture type 89, eligible source, neural service registered, persist.sys.k4.slowmo_neural not 0) and lets
+# K4SlowMoExport record the neural playback of the section (off-screen SemMediaPlayer -> H.264 encoder surface -> MP4,
+# constant frame cadence, no audio track yet). Everything else and every failure - also one after the export has
+# started: the output is cleared first - continues on the stock VEKit path. The helper classes are generated from
+# K4SlowMoCapture.java / K4SlowMoExport.java (save_smali/, recipe at the top of K4SlowMo.java).
+LOG "- Gallery \"Save slow-mo clip\": SemMediaCapture hands the instant slow-mo clip to K4SlowMoCapture (neural export)"
+python3 - "$APKTOOL_DIR/system/${FRAMEWORK//system\//}" \
+    "$SRC_DIR/target/a52sxq/patches/gallery_slowmo/save_smali" << 'PYEOF' || ABORT "Failed to apply the Gallery slow motion save patch"
+import glob, os, re, shutil, sys
+
+d, helper_dir = sys.argv[1], sys.argv[2]
+
+
+def one(pattern):
+    m = glob.glob(os.path.join(d, pattern))
+    assert len(m) == 1, "expected exactly one %s, found %d" % (pattern, len(m))
+    return m[0]
+
+
+path = one("smali*/com/samsung/android/media/mediacapture/SemMediaCapture.smali")
+src = open(path).read()
+C = "Lcom/samsung/android/media/mediacapture/SemMediaCapture;"
+W = "Lcom/samsung/vekit/Control/MediaCaptureWrapper;"
+K = "Lcom/k4/media/K4SlowMoCapture;"
+OBJ = "Ljava/lang/Object;"
+
+def method(name):
+    m = re.findall(r"^\.method [^\n]* %s\n" % re.escape(name), src, re.M)
+    assert len(m) == 1, "SemMediaCapture: expected exactly one method %s, found %d" % (name, len(m))
+    start = src.index(m[0]); end = src.index("\n.end method\n", start) + len("\n.end method\n")
+    return start, end
+
+def first_instruction(body):
+    """offset in body of the first instruction line (after .locals/.registers, .param and annotation blocks)"""
+    pos = body.index("\n") + 1; in_block = 0
+    while True:
+        nl = body.index("\n", pos); line = body[pos:nl].strip()
+        if line.startswith(".annotation") or line.startswith(".param") and not line.endswith(".end param"): in_block += line.startswith(".annotation")
+        if line.startswith(".end annotation"): in_block -= 1
+        elif not in_block and line and not line.startswith("."): return pos
+        pos = nl + 1
+
+changed = []
+def at_entry(name, call):
+    """call a void recorder first thing in the method (uses parameter registers only)"""
+    global src
+    start, end = method(name); body = src[start:end]
+    if call in body: return
+    assert K not in body, "SemMediaCapture.%s has a different K4SlowMoCapture hook" % name
+    assert " static " not in body.split("\n", 1)[0], "SemMediaCapture.%s became static" % name
+    i = first_instruction(body)
+    src = src[:start] + body[:i] + call + "\n" + body[i:] + src[end:]; changed.append(name)
+
+at_entry("setDataSource(Ljava/io/FileDescriptor;)V", "    invoke-static {p0, p1}, %s->source(%sLjava/io/FileDescriptor;)V\n" % (K, OBJ))
+at_entry("setDataSource(Ljava/io/FileDescriptor;JJ)V", "    invoke-static/range {p0 .. p5}, %s->source(%sLjava/io/FileDescriptor;JJ)V\n" % (K, OBJ))
+at_entry("setOutputFile(Ljava/io/FileDescriptor;)V", "    invoke-static {p0, p1}, %s->output(%sLjava/io/FileDescriptor;)V\n" % (K, OBJ))
+at_entry("setParameter(II)V", "    invoke-static {p0, p1, p2}, %s->parameter(%sII)V\n" % (K, OBJ))
+at_entry("setStartEndTime(II)V", "    invoke-static {p0, p1, p2}, %s->startEnd(%sII)V\n" % (K, OBJ))
+at_entry("setDynamicViewingConfigurations(Ljava/util/List;)V", "    invoke-static {p0, p1}, %s->dynamicViewing(%sLjava/util/List;)V\n" % (K, OBJ))
+at_entry("release()V", "    invoke-static {p0}, %s->release(%s)V\n" % (K, OBJ))
+
+def before_wrapper_call(name, wrapper_method, hook):
+    """if (K4SlowMoCapture.<hook>(this)) return;  right before  this.mWrapper.<wrapper_method>()  (v0 is dead there)"""
+    global src
+    start, end = method(name); body = src[start:end]
+    anchor = ("    iget-object p0, p0, %s->mWrapper:%s\n\n    invoke-virtual {p0}, %s->%s()V\n" % (C, W, W, wrapper_method))
+    if anchor not in body: anchor = anchor.replace("\n\n", "\n")
+    code = ("    invoke-static {p0}, %s->%s(%s)Z\n\n    move-result v0\n\n    if-eqz v0, :k4_stock\n\n    return-void\n\n    :k4_stock\n" % (K, hook, OBJ))
+    if code in body: return
+    assert K not in body, "SemMediaCapture.%s has a different K4SlowMoCapture hook" % name
+    assert body.count(anchor) == 1, "SemMediaCapture.%s: mWrapper.%s() call not found exactly once" % (name, wrapper_method)
+    head = re.search(r"^    \.(locals|registers) (\d+)$", body, re.M)
+    assert head and int(head.group(2)) >= (1 if head.group(1) == "locals" else 2), "SemMediaCapture.%s has no local register" % name
+    assert re.search(r"^    monitor-exit v0$", body[:body.index(anchor)], re.M), "SemMediaCapture.%s: v0 is not the released lock any more" % name
+    src = src[:start] + body.replace(anchor, code + anchor) + src[end:]; changed.append(name)
+
+before_wrapper_call("startCapture()V", "startCapture", "startCapture")
+before_wrapper_call("stopCapture()V", "stopCapture", "stopCapture")
+
+# getProgressForCapture(): ours while our export runs; the method has no local register of its own -> add one
+name = "getProgressForCapture()F"
+start, end = method(name); body = src[start:end]
+code = ("    invoke-static {p0}, %s->ours(%s)Z\n\n    move-result v0\n\n    if-eqz v0, :k4_stock\n\n"
+        "    invoke-static {p0}, %s->progress(%s)F\n\n    move-result v0\n\n    return v0\n\n    :k4_stock\n" % (K, OBJ, K, OBJ))
+if code not in body:
+    assert K not in body, "SemMediaCapture.%s has a different K4SlowMoCapture hook" % name
+    head = re.search(r"^    \.(locals|registers) (\d+)$", body, re.M)
+    assert head, "SemMediaCapture.%s: no .locals/.registers line" % name
+    assert not re.search(r"\bv\d+\b", body), "SemMediaCapture.%s uses local registers now" % name
+    body = body.replace(head.group(0), "    .%s %d" % (head.group(1), int(head.group(2)) + 1), 1)
+    i = first_instruction(body)
+    src = src[:start] + body[:i] + code + "\n" + body[i:] + src[end:]; changed.append(name)
+
+if changed:
+    open(path, "w").write(src)
+print("SemMediaCapture: " + ("hooked " + ", ".join(changed) if changed else "already hooked"))
+
+# the helper classes, next to K4SlowMo.smali (same dex)
+dst = os.path.dirname(one("smali*/com/k4/media/K4SlowMo.smali"))
+helpers = sorted(glob.glob(os.path.join(helper_dir, "*.smali")))
+names = [os.path.basename(h) for h in helpers]
+for needed in ("K4SlowMoCapture.smali", "K4SlowMoExport.smali", "K4SlowMoExport$Listener.smali"):
+    assert needed in names, "save_smali/%s is missing" % needed
+capture = open(os.path.join(helper_dir, "K4SlowMoCapture.smali")).read()
+for sig in ("source(Ljava/lang/Object;Ljava/io/FileDescriptor;)V", "source(Ljava/lang/Object;Ljava/io/FileDescriptor;JJ)V",
+            "output(Ljava/lang/Object;Ljava/io/FileDescriptor;)V", "parameter(Ljava/lang/Object;II)V", "startEnd(Ljava/lang/Object;II)V",
+            "dynamicViewing(Ljava/lang/Object;Ljava/util/List;)V", "release(Ljava/lang/Object;)V", "startCapture(Ljava/lang/Object;)Z",
+            "stopCapture(Ljava/lang/Object;)Z", "ours(Ljava/lang/Object;)Z", "progress(Ljava/lang/Object;)F"):
+    assert ".method public static blacklist " + sig in capture, "K4SlowMoCapture.smali does not match this script (%s)" % sig
+for old in glob.glob(os.path.join(d, "smali*/com/k4/media/K4SlowMoCapture*.smali")) + glob.glob(os.path.join(d, "smali*/com/k4/media/K4SlowMoExport*.smali")):
+    os.remove(old)
+for h in helpers:
+    shutil.copyfile(h, os.path.join(dst, os.path.basename(h)))
+print("%d K4SlowMoCapture/K4SlowMoExport smali files -> %s" % (len(helpers), os.path.relpath(dst, d)))
+PYEOF
 # Part 2: the native player. Every patch below is located by its instruction/data pattern, must match exactly once,
 # and is skipped when the patched bytes are already there. libmppclient.so (HAL V5 client) is used as it is: against
 # the V1 service its create/init/setParameter/setBuffer/emptyBuffer/fillBuffer calls are the V1 ones.

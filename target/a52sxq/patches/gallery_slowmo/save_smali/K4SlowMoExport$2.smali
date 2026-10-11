@@ -1,0 +1,56 @@
+.class Lcom/k4/media/K4SlowMoExport$2;
+.super Ljava/lang/Object;
+
+# interfaces
+.implements Ljava/lang/Runnable;
+
+
+# annotations
+.annotation system Ldalvik/annotation/EnclosingMethod;
+    value = Lcom/k4/media/K4SlowMoExport;->invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;
+.end annotation
+
+.annotation system Ldalvik/annotation/InnerClass;
+    accessFlags = 0x0
+    name = null
+.end annotation
+
+
+# instance fields
+.field final synthetic blacklist this$0:Lcom/k4/media/K4SlowMoExport;
+
+
+# direct methods
+.method constructor blacklist <init>(Lcom/k4/media/K4SlowMoExport;)V
+    .registers 2
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010
+        }
+        names = {
+            null
+        }
+    .end annotation
+
+    iput-object p1, p0, Lcom/k4/media/K4SlowMoExport$2;->this$0:Lcom/k4/media/K4SlowMoExport;
+
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    return-void
+.end method
+
+
+# virtual methods
+.method public blacklist run()V
+    .registers 3
+
+    iget-object p0, p0, Lcom/k4/media/K4SlowMoExport$2;->this$0:Lcom/k4/media/K4SlowMoExport;
+
+    const/4 v0, 0x1
+
+    const/4 v1, 0x0
+
+    invoke-virtual {p0, v0, v1}, Lcom/k4/media/K4SlowMoExport;->finish(ZLjava/lang/String;)V
+
+    return-void
+.end method
