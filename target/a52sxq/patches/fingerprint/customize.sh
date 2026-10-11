@@ -1,9 +1,11 @@
 OLD_POS="/sys/class/fingerprint/fingerprint/position"
 NEW_POS="/sys/devices/virtual/fingerprint/fingerprint/position"
 
+# AODService is deliberately not listed: rebuilding it drops Samsung's signature (no Galaxy Store updates), and its
+# /sys/class/fingerprint/fingerprint/position works as is (a symlink to the devices/virtual node on the A52s).
 for SPEC in "system|system/framework/services.jar" \
         "system_ext|priv-app/SystemUI/SystemUI.apk" \
-        "system|system/priv-app/AODService_v80/AODService_v80.apk"; do
+        ; do
     PART="${SPEC%%|*}"
     FILE="${SPEC#*|}"
     if [[ "$PART" == "system_ext" ]]; then

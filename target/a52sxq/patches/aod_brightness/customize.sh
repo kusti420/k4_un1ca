@@ -18,33 +18,8 @@
 # handler and threshold sender, and a lux debug view); the wallpaper AOD UI keys off ha6.K0 / bj1.S() directly. So
 # clearing g6.p keeps wallpaper AOD and restores the stock A52s index brightness (g6.r stays true through the
 # config_aodBrightnessValues fallback, so dozeMode stays 0x10002).
-DECODE_APK "system" "system/priv-app/AODService_v80/AODService_v80.apk"
-python3 - "$APKTOOL_DIR/system/priv-app/AODService_v80/AODService_v80.apk" << 'PYEOF' || ABORT "Failed to apply the AOD brightness patch"
-import glob, re, sys
-d = sys.argv[1]
-bm = glob.glob(d + "/smali*/com/samsung/android/app/aodservice/manager/brightness/BrightnessManager.smali")
-assert len(bm) == 1, "BrightnessManager.smali: %d" % len(bm)
-s = open(bm[0]).read()
-# the static ()Z method whose body is "flag && <static>()Z" (isPlatformBrightness)
-cands = []
-for m in re.finditer(r"\.method public static (\w+)\(\)Z\n(?:.*\n)*?\.end method", s):
-    f = re.findall(r"sget-boolean v\d+, (L[\w/$]+;)->(\w+):Z", m.group(0))
-    if len(f) == 1 and m.group(0).count("invoke-static") == 1:
-        cands.append(f[0])
-assert len(cands) == 1, "isPlatformBrightness candidates: %s" % cands
-cls, fld = cands[0]
-path = glob.glob(d + "/smali*/" + cls[1:-1] + ".smali")
-assert len(path) == 1, cls
-t = open(path[0]).read()
-assert "cameralightsensor" in t and "SEC_FLOATING_FEATURE_LCD_CONFIG_AOD_REFRESH_RATE" in t, "unexpected class " + cls
-put = re.escape(cls + "->" + fld + ":Z")
-# <clinit>: sget-boolean vN, <features>;->K0:Z (AOD_FULLSCREEN > 0) / sput-boolean vN, <cls>;-><fld>:Z
-done = re.findall(r"const/4 (v\d+), 0x0\n\n    sput-boolean \1, " + put, t)
-new, n = re.subn(r"sget-boolean (v\d+), L[\w/$]+;->\w+:Z\n\n    sput-boolean \1, " + put,
-                 lambda k: "const/4 %s, 0x0\n\n    sput-boolean %s, %s->%s:Z" % (k.group(1), k.group(1), cls, fld), t)
-assert n + len(done) == 1, "%s->%s initialiser: %d patched, %d already" % (cls, fld, n, len(done))
-if n:
-    open(path[0], "w").write(new)
-print("%s->%s = false" % (cls, fld))
-PYEOF
-LOG "- AOD brightness follows the sensor hub index (2/10/30/60 nit HLPM) with wallpaper AOD"
+# k4 (9.3.13): no longer patched in the APK. Rebuilding AODService replaced Samsung's signature, so Galaxy Store
+# could not update Always On Display (compareSignature false) - and any update would have dropped the fix. The
+# platform brightness mode now gets its lux -> nits arrays (config_autoBrightnessLevels_doze /
+# config_autoBrightnessDisplayValuesNits_doze) from target/a52sxq/overlay instead, see arrays.xml there.
+LOG "- AOD brightness: lux -> nits doze arrays come from the target overlay (AODService left unmodified)"

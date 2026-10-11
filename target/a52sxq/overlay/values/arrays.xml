@@ -2617,4 +2617,27 @@
     <integer-array name="config_rearDisplayDeviceStates" />
     <integer-array name="config_deviceStatesOnWhichToSleep" />
     <integer-array name="config_deviceStatesOnWhichToWakeUp" />
+    <!-- k4: AOD brightness for the stock (unpatched, Galaxy Store updatable) AODService. With wallpaper AOD
+         (LCD_CONFIG_AOD_FULLSCREEN=1) AODService runs its "platform brightness" mode: lux -> nits through these two
+         arrays -> DisplayManager.convertToBrightness(). framework-res has them empty and only the S26 Ultra overlay
+         fills them, so AOD stayed at the lowest level. Steps match the stock A52s AOD index thresholds
+         (<=2 / <=50 / <=100 / >100 lux) and land in the middle of the S6E3FC3 HLPM bands of config_aodBrightnessValues
+         (backlight 0-11 = 2 nit, 12-31 = 10, 32-54 = 30, 55+ = 60): backlight 6 / 20 / 43 / 80 on this panel's curve. -->
+    <integer-array name="config_autoBrightnessLevels_doze">
+        <item>2</item>
+        <item>3</item>
+        <item>50</item>
+        <item>51</item>
+        <item>100</item>
+        <item>101</item>
+    </integer-array>
+    <integer-array name="config_autoBrightnessDisplayValuesNits_doze">
+        <item>5</item>
+        <item>5</item>
+        <item>17</item>
+        <item>17</item>
+        <item>43</item>
+        <item>43</item>
+        <item>95</item>
+    </integer-array>
 </resources>
