@@ -116,3 +116,20 @@ s = s[:i] + ",".join(tiles) + s[j:]
 open(f, "w").write(s)
 PYEOF
 LOG "- Hid Wireless DeX tile and Settings entry, Adaptive color tone, Continue apps on cover screen, Wi-Fi 7 labs, LE Audio/Auracast and the source AICore SoC configs"
+
+# android.hardware.security.model.compatible ("supports the Android security model", CDD): the stock A52s declares it in
+# /system/etc/permissions/handheld_core_hardware.xml, the S26 Ultra in its own vendor copy of that file. This port has
+# the S26 system file and the A52s vendor file, so neither declared it (pm has-feature: false).
+FEATURE_XML="$WORK_DIR/system/system/etc/permissions/android.hardware.security.model.compatible.xml"
+if ! grep -q -r -F '"android.hardware.security.model.compatible"' "$WORK_DIR/system/system/etc/permissions" \
+        "$WORK_DIR/vendor/etc/permissions" "$WORK_DIR/product/etc/permissions" 2> /dev/null; then
+    LOG "- Declaring android.hardware.security.model.compatible"
+    cat > "$FEATURE_XML" << 'XMLEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<permissions>
+    <feature name="android.hardware.security.model.compatible" />
+</permissions>
+XMLEOF
+    SET_METADATA "system" "system/etc/permissions/android.hardware.security.model.compatible.xml" 0 0 644 "u:object_r:system_file:s0"
+fi
+unset FEATURE_XML
