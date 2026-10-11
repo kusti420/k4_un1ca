@@ -5,15 +5,17 @@
 # A52s AMOLED as a brightness/gamma flicker. With the old 250 ms idle / 300 ms touch timers SurfaceFlinger switched
 # down after every short pause and back up on the next touch or frame, i.e. several times per scroll.
 # Touch timer: every touch (PowerManagerService user activity -> SurfaceFlinger::notifyPowerBoost(INTERACTION) ->
-# Scheduler::onTouchHint) boosts to the panel maximum (120 Hz) and keeps it for 3 s after the last touch.
-# Idle timer: once nothing has been drawn for 3 s the scheduler drops to the policy minimum (60 Hz).
-# So the panel switches at most once up per touch session and once down 3 s after it, instead of per gesture.
+# Scheduler::onTouchHint) boosts to the panel maximum (120 Hz) and keeps it for 2 s after the last touch.
+# Idle timer: once nothing has been drawn for 2 s the scheduler drops to the policy minimum (60 Hz).
+# So the panel switches at most once up per touch session and once down 2 s after it, instead of per gesture.
+# 2 s (3 s up to 9.3.15; shortened on user request for a quicker drop to 60 Hz). The same delay is the
+# postDelayed() constant in K4AdaptiveTouch.onUserActivity() below (0x7d0) - keep the three values equal.
 # Untouched, the 60 Hz state is held by a system_server vote (K4AdaptiveTouch, below), not by this idle timer:
 # any frame resets the idle timer, and frames without layer votes would otherwise pick 120 Hz again.
 # https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r2/services/surfaceflinger/Scheduler/RefreshRateSelector.h#314
-IDLE_TIMER_MS=3000
+IDLE_TIMER_MS=2000
 # https://android.googlesource.com/platform/frameworks/native/+/refs/tags/android-16.0.0_r2/services/surfaceflinger/sysprop/SurfaceFlingerProperties.sysprop#346
-TOUCH_TIMER_MS=3000
+TOUCH_TIMER_MS=2000
 
 SET_PROP "vendor" "ro.surface_flinger.use_content_detection_for_refresh_rate" "true"
 LOG "- Adding \"ro.surface_flinger.set_idle_timer_ms\" prop with \"$IDLE_TIMER_MS\" in /vendor/default.prop"
@@ -183,26 +185,26 @@ open(f, "w").write(s[:m.start()] + new + s[m.end():])
 print("  - refresh_rate_mode 2 -> forPolicyRate(max, max)")
 PYEOF
 
-# Adaptive = 120 Hz while touched, 60 Hz from 3 s after the last touch, decided in system_server.
+# Adaptive = 120 Hz while touched, 60 Hz from 2 s after the last touch, decided in system_server.
 # SurfaceFlinger alone cannot do this: every client transaction resets its idle timer, and a frame whose layers
 # carry no usable vote lands in RefreshRateSelector's "No layers with votes" branch, which ranks the primary
 # range descending, i.e. picks 120 Hz. On this non-VRR panel the View toolkit's frame-rate categories are
 # dropped (frame_rate_category_mrr is off), so ordinary UI frames - here a single status bar frame roughly every
-# 3 s while idle on the home screen, "VRI-StatusBar ... voted NoVote" -> "No layers with votes - choose 120.00 Hz"
+# 2 s while idle on the home screen, "VRI-StatusBar ... voted NoVote" -> "No layers with votes - choose 120.00 Hz"
 # right after each "Idle - choose 60.00 Hz" - push the panel back to 120 Hz, a visible 60 <-> 120 Hz flicker.
 # Fix it in DisplayModeDirector instead: K4AdaptiveTouch votes the minimum high-speed rate [60, 60] at
-# PRIORITY_FIXED_REFRESH_RATE (8) 3 s after the last user-activity power boost, and removes the vote on the next
+# PRIORITY_FIXED_REFRESH_RATE (8) 2 s after the last user-activity power boost, and removes the vote on the next
 # boost. The boost is the one PowerManagerService.userActivityNoUpdateLocked() already sends for touches
-# (nativeSetPowerBoost(INTERACTION) -> SurfaceFlinger::notifyPowerBoost -> the 3 s touch timer above), so both
+# (nativeSetPowerBoost(INTERACTION) -> SurfaceFlinger::notifyPowerBoost -> the 2 s touch timer above), so both
 # sides see the same touches. While the vote stands the primary range is single-rate 60 Hz, so the same
 # "No layers with votes" ranking now yields 60 Hz, and since priority 8 is below the app-request cutoff (9) the
 # app-request range stays [60, 120], so a focused layer with an explicit setFrameRate() vote (a game asking for
 # 120 Hz) still gets it. On touch the vote goes away, SurfaceFlinger re-ranks with its touch signal and switches
-# to 120 Hz; it holds there until 3 s after the last touch. High/Standard (and any higher vote: tokens, UDFPS,
+# to 120 Hz; it holds there until 2 s after the last touch. High/Standard (and any higher vote: tokens, UDFPS,
 # thermal, power saving) override or clear it. RefreshRateController.updateRefreshRateModeLocked() arms the vote
 # for refresh_rate_mode 1 only. In refresh_rate_mode 2 the slot holds a render rate floor instead (see the class
 # comment): the High mode vote fixes the panel at 120 Hz but leaves the render range [0, 120].
-LOG "- Holding Adaptive at 60 Hz from 3 s after the last touch (K4AdaptiveTouch)"
+LOG "- Holding Adaptive at 60 Hz from 2 s after the last touch (K4AdaptiveTouch)"
 python3 - "$APKTOOL_DIR/system/${SERVICES//system\//}" << 'PYEOF' || ABORT "Failed to add the Adaptive touch vote"
 import glob, os, re, sys
 root = sys.argv[1]
@@ -268,8 +270,8 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 .implements Ljava/lang/Runnable;
 
 
-# Adaptive motion smoothness = 120 Hz while touched, 60 Hz from 3 s after the last touch.
-# A PRIORITY_FIXED_REFRESH_RATE (8) vote for the minimum high-speed rate [60, 60] is placed 3 s after the last
+# Adaptive motion smoothness = 120 Hz while touched, 60 Hz from 2 s after the last touch.
+# A PRIORITY_FIXED_REFRESH_RATE (8) vote for the minimum high-speed rate [60, 60] is placed 2 s after the last
 # user-activity power boost and removed on the next one. Priority 8 is below the app-request cutoff (9), so it
 # only narrows the primary range: SurfaceFlinger cannot pick 120 Hz for frames that carry no vote (its
 # "No layers with votes -> max" rule), while focused layers with an explicit setFrameRate() vote (games) still
@@ -346,7 +348,7 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 
     invoke-virtual {v0, v2}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
 
-    const-wide/16 v2, 0xbb8
+    const-wide/16 v2, 0x7d0
 
     invoke-virtual {v0, v1, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
@@ -356,7 +358,7 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 
 # RefreshRateController.updateRefreshRateModeLocked(): Adaptive (1) on the main display arms the idle vote,
 # High (2) holds the render rate floor in the same slot both touched and idle, any other mode clears it; then
-# start a fresh 3 s window
+# start a fresh 2 s window
 .method public static onRefreshRateMode(%(RRC)sI)V
     .locals 3
 
@@ -467,6 +469,338 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 """ % dict(K4=K4, RRC=RRC, CFG=CFG, HS=hs.group(1), SR=hs.group(2)))
 print("  - idle vote on PRIORITY_FIXED_REFRESH_RATE, armed from PowerManagerService user activity")
 PYEOF
+
+# Settings.System peak_refresh_rate / min_refresh_rate are AOSP's "Smooth display" / "Force peak refresh rate" keys.
+# Motion smoothness never writes them and both are unset on a clean install, but
+# DisplayModeDirector$SettingsObserver.updateRefreshRateSettingLocked(int) still turns them into votes that outrank
+# the Motion smoothness vote: peak becomes the render rate cap (PRIORITY_USER_SETTING_PEAK_RENDER_FRAME_RATE), min
+# the render rate floor. A value left behind by something else - Samsung's factory DisplayModeSetting test writes
+# both keys to one rate, root "battery" tweaks do the same - then decides the frame rate in every mode: a tester had
+# both at 48 (a real S26 Ultra LTPO rate, meaningless on this 60/120 Hz panel), so the render rate was capped at 48
+# and SurfaceFlinger picked 40 fps on the 120 Hz mode (30 fps on 60 Hz) in High, Adaptive and Standard alike.
+# Ignore such a value right where the two settings are read: a finite, positive rate more than 1 Hz below the
+# lowest refresh rate the display has is treated as unset (peak -> the default peak the observer already uses,
+# min -> 0), with one WARN line (tag K4RefreshRate) per ignored value. The floor is the lowest rate among the
+# display's modes, but never above the panel minimum from TARGET_LCD_CONFIG_HFR_SUPPORTED_REFRESH_RATE, so a mode
+# list narrowed at runtime cannot turn a deliberate 60 into "stale". Everything that means something keeps working:
+# 0 (off), infinity (Force peak refresh rate), 60 as a real cap, 120 (the retired UN1CA Force peak toggle wrote
+# min_refresh_rate=120). The settings themselves are left alone - system_server only stops acting on them. This is
+# the only reader in services.jar (DisplayModeDirector$Injector just holds the two Uris).
+MIN_PANEL_RATE="$(tr "," "\n" <<< "$TARGET_LCD_CONFIG_HFR_SUPPORTED_REFRESH_RATE" | sort -n | head -n 1)"
+[[ "$MIN_PANEL_RATE" =~ ^[1-9][0-9]*$ ]] || \
+    ABORT "hfr: no panel minimum in TARGET_LCD_CONFIG_HFR_SUPPORTED_REFRESH_RATE=\"$TARGET_LCD_CONFIG_HFR_SUPPORTED_REFRESH_RATE\""
+LOG "- Ignoring peak_refresh_rate/min_refresh_rate settings below the panel's lowest refresh rate ($MIN_PANEL_RATE Hz)"
+python3 - "$APKTOOL_DIR/system/${SERVICES//system\//}" "$MIN_PANEL_RATE" << 'PYEOF' || ABORT "Failed to patch DisplayModeDirector\$SettingsObserver"
+import glob, os, re, struct, sys
+root, floor = sys.argv[1], float(sys.argv[2])
+assert 1 <= floor <= 240, "panel minimum %r" % floor
+
+def one(rel):
+    hits = glob.glob(root + "/smali*/" + rel)
+    assert len(hits) == 1, "%s: %d" % (rel, len(hits))
+    return hits[0]
+
+K4 = "Lcom/android/server/display/mode/K4RefreshRateSettings;"
+OBS = "Lcom/android/server/display/mode/DisplayModeDirector$SettingsObserver;"
+DMD = "Lcom/android/server/display/mode/DisplayModeDirector;"
+MODES = "Landroid/util/SparseArray;"
+obs = one("com/android/server/display/mode/DisplayModeDirector$SettingsObserver.smali")
+helper = glob.glob(root + "/smali*/com/android/server/display/mode/K4RefreshRateSettings.smali")
+s = open(obs).read()
+if K4 in s:
+    assert len(helper) == 1, "hooked, but %d helper classes" % len(helper)
+    print("  - already patched"); sys.exit(0)
+assert not helper, "stale K4RefreshRateSettings.smali"
+
+# no other class of the display code may read the two keys (the Injector only builds their Uris)
+readers = sorted(os.path.basename(f) for f in glob.glob(root + "/smali*/com/android/server/display/**/*.smali", recursive=True)
+                 if re.search(r'"(?:peak|min)_refresh_rate"', open(f).read()))
+assert readers == ["DisplayModeDirector$Injector.smali", "DisplayModeDirector$SettingsObserver.smali"], readers
+
+m = re.search(r"^\.method public final updateRefreshRateSettingLocked\(I\)V\n.*?^\.end method\n", s, re.M | re.S)
+assert m, "updateRefreshRateSettingLocked(I)V"
+body = m.group(0)
+loc = re.search(r"^    \.locals (\d+)$", body, re.M)
+assert loc and int(loc.group(1)) >= 6, "locals"
+assert len(re.findall(r'"(?:peak|min)_refresh_rate"', s)) == 4 and len(re.findall(r'"(?:peak|min)_refresh_rate"', body)) == 2, \
+    "the two keys are read outside updateRefreshRateSettingLocked(I)V"
+# the method reaches the per-display mode table exactly like the hooks below do (same fields, same access)
+for need in ("    iget-object v1, p0, %s->this$0:%s\n" % (OBS, DMD),
+             "    iget-object v1, v1, %s->mSupportedModesByDisplay:%s\n" % (DMD, MODES),
+             "    invoke-virtual {v1, p1}, %s->contains(I)Z\n" % MODES):
+    assert body.count(need) >= 1, need
+GET = r"Landroid/provider/Settings\$System;->getFloatForUser\(Landroid/content/ContentResolver;Ljava/lang/String;FI\)F"
+INF = r"    invoke-static \{%s\}, Ljava/lang/Float;->isInfinite\(F\)Z\n\n    move-result v3\n"
+
+def modes(reg):
+    return ("    iget-object %(r)s, p0, %(OBS)s->this$0:%(DMD)s\n\n"
+            "    iget-object %(r)s, %(r)s, %(DMD)s->mSupportedModesByDisplay:%(MODES)s\n\n" % dict(r=reg, OBS=OBS, DMD=DMD, MODES=MODES))
+
+# min: v2 = getFloatForUser(v0 resolver, "min_refresh_rate", v3 = 0f, v4 = USER_CURRENT). v3 (the 0f default) is dead
+# after the call and is rewritten by the isInfinite() result right below, so it can carry the mode table; v0, v1
+# (max rate), v4 and p1 (display id) stay untouched. v2 is a float before and after.
+rd = re.search(r'(    const-string(?:/jumbo)? v2, "min_refresh_rate"\n\n'
+               r"    const/4 v3, 0x0\n\n"
+               r"    const/4 v4, -0x2\n\n"
+               r"    invoke-static \{v0, v2, v3, v4\}, " + GET + r"\n\n"
+               r"    move-result v2\n\n)" + INF % "v2", body)
+assert rd, "min_refresh_rate read"
+body = body[:rd.end(1)] + modes("v3") + \
+    "    invoke-static {v3, p1, v2}, %s->min(%sIF)F\n\n    move-result v2\n\n" % (K4, MODES) + body[rd.end(1):]
+
+# peak: v0 = getFloatForUser(v0 resolver, v3 = "peak_refresh_rate", v5 = mDefaultPeakRefreshRate, v4). v3 (the key
+# string) is dead after the call and rewritten by isInfinite() below; v5 still holds the default peak (a float) and
+# is the fallback; v1 (max rate) and v2 (min) stay untouched. v0 is a float before and after.
+rd = re.search(r'(    const-string(?:/jumbo)? v3, "peak_refresh_rate"\n\n'
+               r"    iget v5, p0, " + re.escape(OBS) + r"->mDefaultPeakRefreshRate:F\n\n"
+               r"    invoke-static \{v0, v3, v5, v4\}, " + GET + r"\n\n"
+               r"    move-result v0\n\n)" + INF % "v0", body)
+assert rd, "peak_refresh_rate read"
+body = body[:rd.end(1)] + modes("v3") + \
+    "    invoke-static {v3, p1, v0, v5}, %s->peak(%sIFF)F\n\n    move-result v0\n\n" % (K4, MODES) + body[rd.end(1):]
+assert body.count(K4) == 2
+open(obs, "w").write(s[:m.start()] + body + s[m.end():])
+
+# The helper (classes2.dex, next to K4AdaptiveTouch)
+os.makedirs(root + "/smali_classes2/com/android/server/display/mode", exist_ok=True)
+open(root + "/smali_classes2/com/android/server/display/mode/K4RefreshRateSettings.smali", "w").write("""\
+.class public final %(K4)s
+.super Ljava/lang/Object;
+.source "K4RefreshRateSettings.java"
+
+
+# Settings.System peak_refresh_rate / min_refresh_rate, as DisplayModeDirector$SettingsObserver reads them:
+# a finite, positive rate more than 1 Hz below the lowest refresh rate of the display is not a setting anyone
+# can mean on this panel (a 48 left behind caps rendering at 40 fps), so it is treated as unset.
+
+# static fields
+.field private static sIgnoredMin:F
+
+.field private static sIgnoredPeak:F
+
+
+# direct methods
+
+# Lowest refresh rate among the display's modes, 0 if unknown
+.method private static lowestRefreshRate(%(MODES)sI)F
+    .locals 6
+
+    const/4 v0, 0x0
+
+    if-eqz p0, :cond_done
+
+    invoke-virtual {p0, p1}, %(MODES)s->get(I)Ljava/lang/Object;
+
+    move-result-object v1
+
+    instance-of v2, v1, [Landroid/view/Display$Mode;
+
+    if-eqz v2, :cond_done
+
+    check-cast v1, [Landroid/view/Display$Mode;
+
+    array-length v2, v1
+
+    const/4 v3, 0x0
+
+    :goto_loop
+    if-ge v3, v2, :cond_done
+
+    aget-object v4, v1, v3
+
+    if-eqz v4, :cond_next
+
+    invoke-virtual {v4}, Landroid/view/Display$Mode;->getRefreshRate()F
+
+    move-result v5
+
+    const/4 v4, 0x0
+
+    cmpl-float v4, v5, v4
+
+    if-lez v4, :cond_next
+
+    const/4 v4, 0x0
+
+    cmpl-float v4, v0, v4
+
+    if-eqz v4, :cond_take
+
+    cmpg-float v4, v5, v0
+
+    if-gez v4, :cond_next
+
+    :cond_take
+    move v0, v5
+
+    :cond_next
+    add-int/lit8 v3, v3, 0x1
+
+    goto :goto_loop
+
+    :cond_done
+    return v0
+.end method
+
+.method private static isStale(%(MODES)sIF)Z
+    .locals 4
+
+    const/4 v0, 0x0
+
+    # 0, negative, NaN and infinity all keep their AOSP meaning
+    cmpl-float v1, p2, v0
+
+    if-lez v1, :cond_no
+
+    invoke-static {p2}, Ljava/lang/Float;->isInfinite(F)Z
+
+    move-result v1
+
+    if-nez v1, :cond_no
+
+    invoke-static {p0, p1}, %(K4)s->lowestRefreshRate(%(MODES)sI)F
+
+    move-result v2
+
+    # the panel minimum from TARGET_LCD_CONFIG_HFR_SUPPORTED_REFRESH_RATE
+    const v3, %(FLOOR)s
+
+    cmpl-float v1, v2, v0
+
+    if-lez v1, :cond_panel
+
+    cmpg-float v1, v2, v3
+
+    if-lez v1, :cond_floor
+
+    :cond_panel
+    move v2, v3
+
+    # 1 Hz of slack: a stored 60.0 against a 60.000004 Hz mode is not stale
+    :cond_floor
+    const/high16 v3, 0x3f800000    # 1.0f
+
+    add-float/2addr v3, p2
+
+    cmpg-float v1, v3, v2
+
+    if-gez v1, :cond_no
+
+    const/4 v0, 0x1
+
+    return v0
+
+    :cond_no
+    const/4 v0, 0x0
+
+    return v0
+.end method
+
+.method private static warn(Ljava/lang/String;F)V
+    .locals 2
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v1, "Ignoring Settings.System "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, "="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0, p1}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+
+    const-string v1, ": below every refresh rate of this display, treated as unset"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    const-string v1, "K4RefreshRate"
+
+    invoke-static {v1, v0}, Landroid/util/Slog;->w(Ljava/lang/String;Ljava/lang/String;)I
+
+    return-void
+.end method
+
+# min_refresh_rate as read for display p1: 0 instead of a stale value
+.method public static min(%(MODES)sIF)F
+    .locals 1
+
+    invoke-static {p0, p1, p2}, %(K4)s->isStale(%(MODES)sIF)Z
+
+    move-result v0
+
+    if-nez v0, :cond_stale
+
+    const/4 v0, 0x0
+
+    sput v0, %(K4)s->sIgnoredMin:F
+
+    return p2
+
+    :cond_stale
+    sget v0, %(K4)s->sIgnoredMin:F
+
+    cmpl-float v0, v0, p2
+
+    if-eqz v0, :cond_logged
+
+    sput p2, %(K4)s->sIgnoredMin:F
+
+    const-string v0, "min_refresh_rate"
+
+    invoke-static {v0, p2}, %(K4)s->warn(Ljava/lang/String;F)V
+
+    :cond_logged
+    const/4 v0, 0x0
+
+    return v0
+.end method
+
+# peak_refresh_rate as read for display p1: the default peak (p3) instead of a stale value
+.method public static peak(%(MODES)sIFF)F
+    .locals 1
+
+    invoke-static {p0, p1, p2}, %(K4)s->isStale(%(MODES)sIF)Z
+
+    move-result v0
+
+    if-nez v0, :cond_stale
+
+    const/4 v0, 0x0
+
+    sput v0, %(K4)s->sIgnoredPeak:F
+
+    return p2
+
+    :cond_stale
+    sget v0, %(K4)s->sIgnoredPeak:F
+
+    cmpl-float v0, v0, p2
+
+    if-eqz v0, :cond_logged
+
+    sput p2, %(K4)s->sIgnoredPeak:F
+
+    const-string v0, "peak_refresh_rate"
+
+    invoke-static {v0, p2}, %(K4)s->warn(Ljava/lang/String;F)V
+
+    :cond_logged
+    return p3
+.end method
+""" % dict(K4=K4, MODES=MODES, FLOOR="0x%08x    # %sf" % (struct.unpack("<I", struct.pack("<f", floor))[0], floor)))
+print("  - updateRefreshRateSettingLocked(I)V: min/peak read through K4RefreshRateSettings (panel minimum %g Hz)" % floor)
+PYEOF
+unset MIN_PANEL_RATE
 
 # The touch IC gets the raw refresh_rate_mode value ("refresh_rate_mode,<n>" sec_cmd). The A52s stock never sends 2
 # (seamless panels only offer 0/1); hand it 1, the high-rate scan mode it already uses for Adaptive.
