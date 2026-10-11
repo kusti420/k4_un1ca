@@ -1,0 +1,11 @@
+# Neural frame rate conversion front for the Samsung MPP store (target/a52sxq/patches/gallery_slowmo_neural).
+# Registers vendor.samsung.hardware.media.mpp.ISehMppStore/k4front and forwards everything it does not serve itself
+# to the stock store (mppserver, .../default). Same class/user/group and scheduling as mppserver; the executable is
+# labelled hal_mpp_default_exec, so it runs in mppserver's own domain. Defaults compiled into the daemon:
+# libraries /vendor/lib64/k4neural, model /vendor/etc/k4neural, Hexagon skel from /vendor/lib/rfsa/adsp.
+service k4neuralmpp /vendor/bin/hw/k4neuralmpp --serve vendor.samsung.hardware.media.mpp.ISehMppStore/k4front --stock vendor.samsung.hardware.media.mpp.ISehMppStore/default
+    class hal
+    user system
+    group system
+    ioprio rt 4
+    writepid /dev/cpuset/foreground/tasks /dev/stune/foreground/tasks
