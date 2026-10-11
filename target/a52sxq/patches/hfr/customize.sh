@@ -147,7 +147,8 @@ fi
 #   2 High (REFRESH_RATE_MODE_ALWAYS) -> on seamless panels the source votes [60, 120] exactly like Adaptive;
 #     Samsung only offers it on switchable (HFR mode 1) panels, where it means a fixed maximum. Vote
 #     [max, max] for it instead, so High is a single-rate 120 Hz policy (Vote.forPolicyRate(120, 120) also
-#     disables refresh-rate switching) on the A52s too.
+#     disables refresh-rate switching) on the A52s too. That vote is physical only; the 120 fps render floor that
+#     makes High "120 always" is placed by K4AdaptiveTouch (below) in two other slots, on purpose not in this one.
 SERVICES="system/framework/services.jar"
 DECODE_APK "system" "$SERVICES" || ABORT "Failed to decode $SERVICES"
 LOG "- Making refresh_rate_mode 2 (High) a fixed maximum refresh rate vote in RefreshRateController"
@@ -223,8 +224,10 @@ PYEOF
 # PowerManagerService lock), clamped to the shortest/longest choice, so a new value applies from the next touch
 # without a reboot; unset or unparsable means the default. High/Standard (and any higher vote: tokens, UDFPS,
 # thermal, power saving) override or clear it. RefreshRateController.updateRefreshRateModeLocked() arms the vote
-# for refresh_rate_mode 1 only. In refresh_rate_mode 2 the slot holds a render rate floor instead (see the class
-# comment): the High mode vote fixes the panel at 120 Hz but leaves the render range [0, 120].
+# for refresh_rate_mode 1 only. In refresh_rate_mode 2 the slot holds a render rate floor instead, and the same
+# floor is also placed where it binds the app-request range (see the class comment): the High mode vote fixes the
+# panel at 120 Hz but leaves the render range [0, 120], which let SurfaceFlinger compose the whole screen at a
+# playing video's 30 fps in High while Adaptive stayed at 60.
 LOG "- Holding Adaptive at 60 Hz from $ADAPTIVE_IDLE_MIN_MS-$ADAPTIVE_IDLE_MAX_MS ms (default $ADAPTIVE_IDLE_DEFAULT_MS, $ADAPTIVE_IDLE_PROP) after the last touch (K4AdaptiveTouch)"
 python3 - "$APKTOOL_DIR/system/${SERVICES//system\//}" "$ADAPTIVE_IDLE_PROP" "$ADAPTIVE_IDLE_MIN_MS" "$ADAPTIVE_IDLE_DEFAULT_MS" \
     "$ADAPTIVE_IDLE_MAX_MS" << 'PYEOF' || ABORT "Failed to add the Adaptive touch vote"
@@ -258,6 +261,35 @@ hs = re.search(r"invoke-virtual \{v\d+\}, (" + re.escape(CFG) + r"->getHighSpeed
                r"    move-result-object v\d+\n\n"
                r"    invoke-virtual \{v\d+\}, (L[^;]+;)->min\(\)I", s)
 assert hs, "getHighSpeedRefreshRates().min()"
+
+# The vote slots K4AdaptiveTouch writes, by number: they must still be these priorities, 9 must still be the
+# app-request cutoff DisplayModeDirector uses, a display's own vote must still replace a global one of the same
+# priority (VotesStorage.getVotes), and Samsung must still write a global priority-9 vote on discrete-VRR panels only
+mode = os.path.dirname(rrc)
+v = open(mode + "/Vote.smali").read()
+names = dict(re.findall(r":(pswitch_\w+)\n\s+const-string(?:/jumbo)? p0, \"(PRIORITY_\w+)\"", v))
+sw = re.search(r"^\.method public static priorityToString\(I\)Ljava/lang/String;\n.*?\.packed-switch (0x[0-9a-f]+)\n(.*?)\.end packed-switch", v, re.M | re.S)
+assert sw, "Vote.priorityToString"
+prio = {names.get(l): int(sw.group(1), 16) + i for i, l in enumerate(re.findall(r":(pswitch_\w+)", sw.group(2)))}
+assert (prio.get("PRIORITY_FIXED_REFRESH_RATE"), prio.get("PRIORITY_APP_REQUEST_RENDER_FRAME_RATE_RANGE"),
+        prio.get("PRIORITY_REFRESH_RATE_MODE")) == (8, 9, 14), prio
+assert "Lcom/samsung/android/rune/CoreRune;->FW_VRR_DISCRETE:Z" in v, "CoreRune.FW_VRR_DISCRETE"
+dmd = open(mode + "/DisplayModeDirector.smali").read()
+specs = re.search(r"^\.method public final getDesiredDisplayModeSpecs\(I\)L[^\n]*\n.*?^\.end method\n", dmd, re.M | re.S)
+assert specs and re.search(r"    const/16 (v\d+), 0x9\n.*?"
+                           r"    invoke-virtual \{v\d+, \1, v\d+, v\d+\}, Lcom/android/server/display/mode/VoteSummary;->applyVotes\(IILandroid/util/SparseArray;\)V\n\n"
+                           r"    invoke-virtual \{v\d+, v\d+\}, Lcom/android/server/display/mode/VoteSummary;->limitRefreshRanges\(",
+                           specs.group(0), re.S), "app-request summary no longer starts at priority 9"
+gv = re.search(r"^\.method public final getVotes\(I\)Landroid/util/SparseArray;\n.*?^\.end method\n", open(mode + "/VotesStorage.smali").read(), re.M | re.S)
+assert gv and re.search(r"->contains\(I\)Z\n\n    move-result (v\d+)\n\n    if-nez \1, ", gv.group(0)), "VotesStorage.getVotes merge"
+users9 = sorted(os.path.basename(f) for f in glob.glob(mode + "/*.smali") if re.search(r"^    const/16 [vp]\d+, 0x9$", open(f).read(), re.M))
+assert users9 == ["DisplayModeDirector$AppRequestObserver.smali", "DisplayModeDirector.smali",
+                  "RefreshRateController$RefreshRateMinLimitToken.smali"], users9
+assert re.search(r"sget-boolean (v\d+), Lcom/samsung/android/rune/CoreRune;->FW_VRR_DISCRETE:Z\n\n    if-eqz \1, :cond_\w+\n\n"
+                 r"    sget-object v\d+, [^\n]*->mVotesStorage:[^\n]*\n\n    const/16 v\d+, 0x9\n",
+                 open(mode + "/RefreshRateController$RefreshRateMinLimitToken.smali").read()), "RefreshRateMinLimitToken priority 9"
+assert re.search(r"    const/16 p5, 0x9\n\n    invoke-virtual \{p3, p1, p5, v2\}, Lcom/android/server/display/mode/VotesStorage;->updateVote\(",
+                 open(mode + "/DisplayModeDirector$AppRequestObserver.smali").read()), "AppRequestObserver render range vote"
 
 # 1. RefreshRateController.updateRefreshRateModeLocked(Z): hand every refresh_rate_mode change (v0 = new mode) to
 #    K4AdaptiveTouch right before the PRIORITY_REFRESH_RATE_MODE vote is built
@@ -305,11 +337,33 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 # overrides it. The slot belongs to Samsung's seamless opt-out passive mode, which is off on this device
 # (CoreRune.FW_VRR_SEAMLESS_OPTOUT_PASSIVE); if it ever gets enabled the vote is left to Samsung.
 #
-# High = 120 Hz panel AND 120 fps rendering. The mode vote only fixes the physical rate; with frame rate override
-# on, SurfaceFlinger still lowers the render rate by content detection once its touch timer runs out (60 fps, or
-# 40 fps for a slow animation - what "Show refresh rate" displays). In High the same slot therefore carries a
-# RenderVote [max, max], touched and idle alike. Below the app-request cutoff it only raises the primary range,
-# so an app that explicitly asks for a lower frame rate (video, a 60 fps game cap) still gets it.
+# High = 120 Hz panel AND 120 fps rendering, always. The mode vote only fixes the physical rate; with frame rate
+# override on, SurfaceFlinger still picks a lower display render rate on its own:
+#  - by content detection once its touch timer runs out (60 fps, or 40 fps for a slow animation - what "Show
+#    refresh rate" displays). It only does that inside the primary range, so in High the FIXED_REFRESH_RATE slot
+#    (8) carries a RenderVote [max, max], touched and idle alike;
+#  - for a focused layer with an explicit setFrameRate() vote (a video player: 30 fps for a 30 fps clip), which may
+#    leave the primary range as long as it stays inside the app-request range - the whole screen (player UI,
+#    subtitles, a second app) was then composed at the video's rate, worse than Adaptive's 60. So the same
+#    RenderVote also goes into the global PRIORITY_APP_REQUEST_RENDER_FRAME_RATE_RANGE slot (9), the lowest priority
+#    that DisplayModeDirector feeds into the app-request summary (applyVotes(9..29)): the app-request render range
+#    becomes [max, max] as well and SurfaceFlinger has no lower display rate to choose from. Its per-uid frame rate
+#    overrides are bounded by that range too, so in High a video app's own UI is no longer throttled to the video
+#    rate and the SurfaceFlinger-internal game overrides (ro.surface_flinger.game_default_frame_rate_override,
+#    GameManager interventions) no longer reduce the frame rate.
+# What still lowers the frame rate in High, by design:
+#  - a window-level request (preferredMin/MaxDisplayRefreshRate, and the per-package ranges Samsung's game manager
+#    sets through WindowManager: Game Booster frame rate limits). It arrives as the DISPLAY's vote at the same
+#    priority 9, and a display's vote replaces the global one (VotesStorage.getVotes), so it takes the place of
+#    the app-request floor; a cap below max then conflicts only with slot 8, which the summary drops first
+#    (lowest priority first) -> render [0, cap] on the 120 Hz panel, as before;
+#  - any higher-priority cap (a peak_refresh_rate setting of 60, thermal, low power, UDFPS, layout limits): the
+#    summary loop drops priorities 8 and 9 before it gets to the mode vote (14), so the panel stays at 120 Hz and
+#    renders at the cap; the app-request summary (no loop) is then re-widened to the primary result
+#    (limitRefreshRanges). Had the floor been put into the mode vote itself, the same conflict would have dropped
+#    the physical 120 Hz lock with it and the game manager's ranges (priority 9) would have lost to it.
+# Slot 9 is Samsung's on discrete-VRR (LTPO) panels (RefreshRateMinLimitToken, CoreRune.FW_VRR_DISCRETE); there it
+# is left alone. It is re-asserted on every touch/idle transition, a no-op while it is unchanged.
 
 # static fields
 .field public static final IDLE:%(K4)s
@@ -423,8 +477,8 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 .end method
 
 # RefreshRateController.updateRefreshRateModeLocked(): Adaptive (1) on the main display arms the idle vote,
-# High (2) holds the render rate floor in the same slot both touched and idle, any other mode clears it; then
-# start a fresh idle window
+# High (2) holds the render rate floor both touched and idle (sTouchVote is non-null in High only; setIdle()
+# puts it into slot 8 and slot 9), any other mode clears both; then start a fresh idle window
 .method public static onRefreshRateMode(%(RRC)sI)V
     .locals 3
 
@@ -492,32 +546,45 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
     return-void
 .end method
 
-# Display thread: place (idle) or remove (touch) the vote
+# Display thread. Slot 8 (PRIORITY_FIXED_REFRESH_RATE): the idle vote while idle, sTouchVote while touched (null
+# in Adaptive = vote removed; High's render floor in High). Slot 9 (global app-request render range): sTouchVote
+# in both states, i.e. High's render floor or nothing. VotesStorage.updateVote() ignores an unchanged vote.
 .method public static setIdle(Z)V
-    .locals 3
-
-    sget-boolean v0, Lcom/samsung/android/rune/CoreRune;->FW_VRR_SEAMLESS_OPTOUT_PASSIVE:Z
-
-    if-nez v0, :cond_0
+    .locals 4
 
     sget-object v0, %(RRC)s->mVotesStorage:Lcom/android/server/display/mode/VotesStorage;
 
-    if-eqz v0, :cond_0
+    if-eqz v0, :cond_2
 
-    sget-object v1, %(K4)s->sTouchVote:Lcom/android/server/display/mode/Vote;
+    const/4 v2, -0x1
 
-    if-eqz p0, :cond_1
+    sget-object v3, %(K4)s->sTouchVote:Lcom/android/server/display/mode/Vote;
+
+    sget-boolean v1, Lcom/samsung/android/rune/CoreRune;->FW_VRR_SEAMLESS_OPTOUT_PASSIVE:Z
+
+    if-nez v1, :cond_1
+
+    move-object v1, v3
+
+    if-eqz p0, :cond_0
 
     sget-object v1, %(K4)s->sIdleVote:Lcom/android/server/display/mode/Vote;
 
-    :cond_1
-    const/4 v2, -0x1
-
+    :cond_0
     const/16 p0, 0x8
 
     invoke-virtual {v0, v2, p0, v1}, Lcom/android/server/display/mode/VotesStorage;->updateVote(IILcom/android/server/display/mode/Vote;)V
 
-    :cond_0
+    :cond_1
+    sget-boolean p0, Lcom/samsung/android/rune/CoreRune;->FW_VRR_DISCRETE:Z
+
+    if-nez p0, :cond_2
+
+    const/16 p0, 0x9
+
+    invoke-virtual {v0, v2, p0, v3}, Lcom/android/server/display/mode/VotesStorage;->updateVote(IILcom/android/server/display/mode/Vote;)V
+
+    :cond_2
     return-void
 .end method
 
@@ -536,6 +603,8 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
            IDLE_MIN="0x%x" % IDLE_MIN, IDLE_DEFAULT="0x%x" % IDLE_DEFAULT, IDLE_MAX="0x%x" % IDLE_MAX,
            IDLE_MIN_DEC=IDLE_MIN, IDLE_DEFAULT_DEC=IDLE_DEFAULT, IDLE_MAX_DEC=IDLE_MAX))
 print("  - idle vote on PRIORITY_FIXED_REFRESH_RATE, armed from PowerManagerService user activity, delay from %s" % IDLE_PROP)
+print("  - High: render floor in the FIXED_REFRESH_RATE slot and the global app-request render range slot (%d, %d)"
+      % (prio["PRIORITY_FIXED_REFRESH_RATE"], prio["PRIORITY_APP_REQUEST_RENDER_FRAME_RATE_RANGE"]))
 PYEOF
 
 # Settings.System peak_refresh_rate / min_refresh_rate are AOSP's "Smooth display" / "Force peak refresh rate" keys.
