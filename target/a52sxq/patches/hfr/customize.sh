@@ -200,7 +200,8 @@ PYEOF
 # 120 Hz) still gets it. On touch the vote goes away, SurfaceFlinger re-ranks with its touch signal and switches
 # to 120 Hz; it holds there until 3 s after the last touch. High/Standard (and any higher vote: tokens, UDFPS,
 # thermal, power saving) override or clear it. RefreshRateController.updateRefreshRateModeLocked() arms the vote
-# for refresh_rate_mode 1 only.
+# for refresh_rate_mode 1 only. In refresh_rate_mode 2 the slot holds a render rate floor instead (see the class
+# comment): the High mode vote fixes the panel at 120 Hz but leaves the render range [0, 120].
 LOG "- Holding Adaptive at 60 Hz from 3 s after the last touch (K4AdaptiveTouch)"
 python3 - "$APKTOOL_DIR/system/${SERVICES//system\//}" << 'PYEOF' || ABORT "Failed to add the Adaptive touch vote"
 import glob, os, re, sys
@@ -275,6 +276,12 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 # get the app-request range, and every higher vote (High/Standard mode, tokens, UDFPS, thermal, power saving)
 # overrides it. The slot belongs to Samsung's seamless opt-out passive mode, which is off on this device
 # (CoreRune.FW_VRR_SEAMLESS_OPTOUT_PASSIVE); if it ever gets enabled the vote is left to Samsung.
+#
+# High = 120 Hz panel AND 120 fps rendering. The mode vote only fixes the physical rate; with frame rate override
+# on, SurfaceFlinger still lowers the render rate by content detection once its touch timer runs out (60 fps, or
+# 40 fps for a slow animation - what "Show refresh rate" displays). In High the same slot therefore carries a
+# RenderVote [max, max], touched and idle alike. Below the app-request cutoff it only raises the primary range,
+# so an app that explicitly asks for a lower frame rate (video, a 60 fps game cap) still gets it.
 
 # static fields
 .field public static final IDLE:%(K4)s
@@ -282,6 +289,8 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 .field public static final TOUCH:%(K4)s
 
 .field public static volatile sIdleVote:Lcom/android/server/display/mode/Vote;
+
+.field public static volatile sTouchVote:Lcom/android/server/display/mode/Vote;
 
 
 # instance fields
@@ -346,9 +355,10 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 .end method
 
 # RefreshRateController.updateRefreshRateModeLocked(): Adaptive (1) on the main display arms the idle vote,
-# any other mode clears it; then start a fresh 3 s window
+# High (2) holds the render rate floor in the same slot both touched and idle, any other mode clears it; then
+# start a fresh 3 s window
 .method public static onRefreshRateMode(%(RRC)sI)V
-    .locals 2
+    .locals 3
 
     iget-boolean v0, p0, %(RRC)s->mIsExtraBuiltinScreen:Z
 
@@ -356,9 +366,11 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 
     const/4 v0, 0x0
 
+    const/4 v2, 0x0
+
     const/4 v1, 0x1
 
-    if-ne p1, v1, :cond_1
+    if-ne p1, v1, :cond_2
 
     iget-object v0, p0, %(RRC)s->mConfig:%(CFG)s
 
@@ -376,8 +388,35 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 
     move-result-object v0
 
+    goto :cond_1
+
+    :cond_2
+    const/4 v1, 0x2
+
+    if-ne p1, v1, :cond_1
+
+    iget-object v0, p0, %(RRC)s->mConfig:%(CFG)s
+
+    invoke-virtual {v0}, %(HS)s
+
+    move-result-object v0
+
+    invoke-virtual {v0}, %(SR)s->max()I
+
+    move-result v0
+
+    int-to-float v0, v0
+
+    new-instance v2, Lcom/android/server/display/mode/RefreshRateVote$RenderVote;
+
+    invoke-direct {v2, v0, v0}, Lcom/android/server/display/mode/RefreshRateVote;-><init>(FF)V
+
+    move-object v0, v2
+
     :cond_1
     sput-object v0, %(K4)s->sIdleVote:Lcom/android/server/display/mode/Vote;
+
+    sput-object v2, %(K4)s->sTouchVote:Lcom/android/server/display/mode/Vote;
 
     invoke-static {}, %(K4)s->onUserActivity()V
 
@@ -397,7 +436,7 @@ open(root + "/smali_classes2/com/android/server/display/mode/K4AdaptiveTouch.sma
 
     if-eqz v0, :cond_0
 
-    const/4 v1, 0x0
+    sget-object v1, %(K4)s->sTouchVote:Lcom/android/server/display/mode/Vote;
 
     if-eqz p0, :cond_1
 
