@@ -283,8 +283,11 @@ if changed:
     open(path, "w").write(src)
 print("SemMediaCapture: " + ("hooked " + ", ".join(changed) if changed else "already hooked"))
 
-# the helper classes, next to K4SlowMo.smali (same dex)
-dst = os.path.dirname(one("smali*/com/k4/media/K4SlowMo.smali"))
+# the helper classes go into the last dex: the one K4SlowMo.smali sits in is within a few hundred method references of
+# the 65536 limit ("Unsigned short value out of range: 65536" from smali when it overflows)
+last = max(glob.glob(os.path.join(d, "smali_classes*")), key=lambda x: int(re.search(r"smali_classes(\d+)$", x).group(1)))
+dst = os.path.join(last, "com", "k4", "media")
+os.makedirs(dst, exist_ok=True)
 helpers = sorted(glob.glob(os.path.join(helper_dir, "*.smali")))
 names = [os.path.basename(h) for h in helpers]
 for needed in ("K4SlowMoCapture.smali", "K4SlowMoExport.smali", "K4SlowMoExport$Listener.smali"):
