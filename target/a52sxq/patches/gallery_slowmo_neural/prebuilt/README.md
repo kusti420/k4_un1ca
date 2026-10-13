@@ -5,10 +5,12 @@ Our own binary (plain C, NDK binder; no third-party code): the neural MPP front 
 - Source: `../src/{k4neuralmpp.c,k4n_engine.c,k4n.h}`; rebuild with `../src/build.sh` (AOSP prebuilt clang r596125,
   NDK sysroot API 30 and bionic crt objects of an AOSP tree; C only, no libc++). Working copy and test tools:
   `/mnt/B1/OneUi9/scratch/htpre/neural` on the build PC (NOTES.md one level up).
-- This copy: sha256 `5f76a426e3efd51b9b7ecbd6c61315012775202014c52c014c060c3d2100ca24`, 85736 bytes, built 2026-10-13: the repeat
-  bridging build (d5091601...) plus the quality modes (`persist.sys.k4.slowmo_quality`, 0/1/2; tested as 2f5184b6...
-  with default 0, see `/mnt/B1/OneUi9/scratch/htpre/quality`) with the default set to 1. Modes 1/2 have NOT run in
-  the real Gallery yet.
+- This copy: sha256 `0285ba7dc049450902d3a198fe92523d81f1f0a67981405b79029cf78ffa1653`, 86216 bytes, built 2026-10-13: repeat
+  bridging (d5091601...) + quality modes (2f5184b6..., see `/mnt/B1/OneUi9/scratch/htpre/quality`) + the live/save
+  split: a pipe announced by the recorder with transaction 0x4B3402 (K4SlowMoExport.announceSave) uses
+  `persist.sys.k4.slowmo_quality_save` (default 1), every other pipe `persist.sys.k4.slowmo_quality` (default 0).
+  Reason: on 9.3.27 (mode 1 everywhere) the worst frame pair at live speed went from ~110 to ~160 ms (budget 133).
+  The split itself has NOT run on a phone yet.
   History: 2efeffd4... shipped in 9.3.21-9.3.25; 7361ddee... in 9.3.26 (NEON warp, two-stage pipeline, hold statistics,
   single-copy pass-through - real Gallery on 9.3.26, 720p x4: 31.7 fps, intervals median 33 ms, max 52 ms). This copy
   adds bridging of repeated source frames: an isolated repeat (mean abs difference of the prepared luma tensors < 0.15)

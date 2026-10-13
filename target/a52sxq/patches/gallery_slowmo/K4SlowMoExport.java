@@ -155,6 +155,7 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
         mDrain = new Thread(new Runnable() { @Override public void run() { drain(); } }, "K4SlowMoExportDrain");
         mDrain.start();
         mPlayerClass = Class.forName(PLAYER);
+        announceSave();
         mPlayer = mPlayerClass.getDeclaredConstructor().newInstance();
         listen("OnInitCompleteListener"); listen("OnErrorListener"); listen("OnPlaybackCompleteListener");
         mPlayerClass.getMethod("setSurface", Surface.class).invoke(mPlayer, mSurface);
@@ -232,6 +233,18 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
             }
             writeAudio(mWritten * mFrameUs);
         } catch (Throwable t) { if (mError == null && !mDone) { mError = "encoder: " + t; Log.w(TAG, "save: encoder/muxer thread", t); } }
+    }
+
+    // Tells the neural front that the FRC pipe this player is about to open records a clip: no real-time limit, so it
+    // may use its slower, sharper picture mode (k4neuralmpp TX_K4_SAVE). Without it the pipe is treated as a live hold.
+    private static void announceSave() {
+        try {
+            android.os.IBinder b = (android.os.IBinder) Class.forName("android.os.ServiceManager").getMethod("checkService", String.class)
+                    .invoke(null, "vendor.samsung.hardware.media.mpp.ISehMppStore/k4front");
+            if (b == null) return;
+            android.os.Parcel data = android.os.Parcel.obtain(), reply = android.os.Parcel.obtain();
+            try { b.transact(0x4B3402, data, reply, 0); } finally { data.recycle(); reply.recycle(); }
+        } catch (Throwable t) { Log.w(TAG, "save: could not announce the recording to the neural front: " + t); }
     }
 
     private static boolean audioProperty() {

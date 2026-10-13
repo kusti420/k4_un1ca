@@ -257,6 +257,107 @@
     return-void
 .end method
 
+.method private static blacklist announceSave()V
+    .registers 5
+
+    :try_start_0
+    const-string v0, "android.os.ServiceManager"
+
+    invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
+
+    move-result-object v0
+
+    const-string v1, "checkService"
+
+    const-class v2, Ljava/lang/String;
+
+    filled-new-array {v2}, [Ljava/lang/Class;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v1, v2}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+
+    move-result-object v0
+
+    const-string v1, "vendor.samsung.hardware.media.mpp.ISehMppStore/k4front"
+
+    filled-new-array {v1}, [Ljava/lang/Object;
+
+    move-result-object v1
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v0, v2, v1}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/os/IBinder;
+
+    if-nez v0, :cond_22
+
+    goto :goto_54
+
+    :cond_22
+    invoke-static {}, Landroid/os/Parcel;->obtain()Landroid/os/Parcel;
+
+    move-result-object v1
+
+    invoke-static {}, Landroid/os/Parcel;->obtain()Landroid/os/Parcel;
+
+    move-result-object v2
+    :try_end_2a
+    .catchall {:try_start_0 .. :try_end_2a} :catchall_40
+
+    const v3, 0x4b3402
+
+    const/4 v4, 0x0
+
+    :try_start_2e
+    invoke-interface {v0, v3, v1, v2, v4}, Landroid/os/IBinder;->transact(ILandroid/os/Parcel;Landroid/os/Parcel;I)Z
+    :try_end_31
+    .catchall {:try_start_2e .. :try_end_31} :catchall_38
+
+    :try_start_31
+    invoke-virtual {v1}, Landroid/os/Parcel;->recycle()V
+
+    invoke-virtual {v2}, Landroid/os/Parcel;->recycle()V
+
+    return-void
+
+    :catchall_38
+    move-exception v0
+
+    invoke-virtual {v1}, Landroid/os/Parcel;->recycle()V
+
+    invoke-virtual {v2}, Landroid/os/Parcel;->recycle()V
+
+    throw v0
+    :try_end_40
+    .catchall {:try_start_31 .. :try_end_40} :catchall_40
+
+    :catchall_40
+    move-exception v0
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    const-string v2, "save: could not announce the recording to the neural front: "
+
+    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    const-string v1, "K4SlowMo"
+
+    invoke-static {v1, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+
+    :goto_54
+    return-void
+.end method
+
 .method private static blacklist audioProperty()Z
     .registers 5
 
@@ -523,6 +624,10 @@
     move-result-object v0
 
     iput-object v0, p0, Lcom/k4/media/K4SlowMoExport;->mPlayerClass:Ljava/lang/Class;
+
+    invoke-static {}, Lcom/k4/media/K4SlowMoExport;->announceSave()V
+
+    iget-object v0, p0, Lcom/k4/media/K4SlowMoExport;->mPlayerClass:Ljava/lang/Class;
 
     invoke-virtual {v0, v2}, Ljava/lang/Class;->getDeclaredConstructor([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
 

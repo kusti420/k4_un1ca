@@ -35,6 +35,7 @@ int k4n_verbose;
 #define TX_VERSION 16777215
 #define TX_HASH    16777214
 #define TX_K4_WARMUP 0x4B3401   // k4neuralmpp only (oneway, no arguments): build the network now
+#define TX_K4_SAVE   0x4B3402   // k4neuralmpp only (no arguments): the next FRC pipe (within 20 s) records a clip, no real-time limit
 #define TYPE_FRC 3
 #define CF_NV12 2
 #define FMT_NV12 0x109
@@ -64,6 +65,7 @@ static K4nConfig g_cfg = { "/vendor/lib64/k4neural", "/vendor/etc/k4neural", 2 }
 static int g_vintf = 1;
 // engine life time: built on warm-up/create, released after K4N_IDLE_S seconds without a pipe
 static pthread_mutex_t g_use_mu = PTHREAD_MUTEX_INITIALIZER; static int g_live_pipes; static double g_last_use;
+static double g_save_until;      // TX_K4_SAVE: the next FRC pipe created before this time (k4n_now_ms) is a recording
 static void engine_touch(int dpipes) { pthread_mutex_lock(&g_use_mu); g_live_pipes += dpipes; g_last_use = k4n_now_ms(); pthread_mutex_unlock(&g_use_mu); }
 static char g_hash[128]; static int g_version = 1;
 
@@ -506,9 +508,13 @@ static binder_status_t mpp_tx(AIBinder* b, transaction_code_t code, const AParce
         // both switches are read per pipe, so a setprop applies to the next hold without restarting the daemon
         p->pipelined = getenv("K4N_PIPELINE") ? atoi(getenv("K4N_PIPELINE")) : prop_int("persist.sys.k4.slowmo_pipeline", 1);
         k4n_warp_scalar = getenv("K4N_WARP_SCALAR") ? 1 : !prop_int("persist.sys.k4.slowmo_neon", 1); p->work_has = p->out_busy = 0;
-        // picture quality of this pipe (k4n.h): 0 = the original warp/blend (default), 1 = improved, 2 = for saving
-        { int q = getenv("K4N_QUALITY") ? atoi(getenv("K4N_QUALITY")) : prop_int("persist.sys.k4.slowmo_quality", 1);
-          k4n_session_set_quality(p->ses, q); k4n_session_set_quality(p->ses_b, q); if (q) K4N_LOG("init: picture quality mode %d", q); }
+        // picture quality of this pipe (k4n.h): 0 = the original warp/blend, 1 = improved, 2 = one source at the quarter
+        // positions. Mode 1 costs about 10 ms per frame pair and, measured at live speed on 9.3.27 (720p x4), pushed the
+        // worst pair from ~110 to ~160 ms against the 133 ms budget, so the live hold stays on 0 by default; a pipe that
+        // the recorder announced with TX_K4_SAVE has no real-time limit and gets the save mode (default 1).
+        { double now = k4n_now_ms(); pthread_mutex_lock(&g_use_mu); int save = g_save_until > now; g_save_until = 0; pthread_mutex_unlock(&g_use_mu);
+          int q = getenv("K4N_QUALITY") ? atoi(getenv("K4N_QUALITY")) : save ? prop_int("persist.sys.k4.slowmo_quality_save", 1) : prop_int("persist.sys.k4.slowmo_quality", 0);
+          k4n_session_set_quality(p->ses, q); k4n_session_set_quality(p->ses_b, q); K4N_LOG("init: %s pipe, picture quality mode %d", save ? "save" : "live", q); }
         pthread_create(&p->th, NULL, pipe_main, p); p->th_started = 1;
         if (p->pipelined) { pthread_create(&p->oth, NULL, out_main, p); p->oth_started = 1; }
         write_ok(out); AParcel_writeInt32(out, 1); AParcel_writeInt32(out, 4 + 7 * 4);
@@ -697,6 +703,7 @@ static binder_status_t store_tx(AIBinder* b, transaction_code_t code, const APar
         int32_t pos = AParcel_getDataPosition(in), type = 0; AParcel_readInt32(in, &type); AParcel_setDataPosition(in, pos);
         if (type == TYPE_FRC) { pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED); pthread_create(&t, &at, warm_main, NULL); }
     }
+    if (code == TX_K4_SAVE) { pthread_mutex_lock(&g_use_mu); g_save_until = k4n_now_ms() + 20000.0; pthread_mutex_unlock(&g_use_mu); K4N_LOG("save announced (uid %d): the next pipe is a recording", (int) AIBinder_getCallingUid()); return STATUS_OK; }
     if (code == TX_K4_WARMUP) { K4N_LOG("warm-up requested (uid %d): engine %s", (int) AIBinder_getCallingUid(), k4n_engine_ready() ? "already built" : "is being built"); pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED); pthread_create(&t, &at, warm_main, NULL); return STATUS_OK; }
     if (code == 1) {
         int32_t pos = AParcel_getDataPosition(in), type = 0; AParcel_readInt32(in, &type); AParcel_setDataPosition(in, pos);
