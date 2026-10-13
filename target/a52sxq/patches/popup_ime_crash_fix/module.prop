@@ -1,0 +1,4 @@
+id=a52sxq_popup_ime_crash_fix
+name=Galaxy A52s 5G: pop-up view no longer crashes SystemUI when the keyboard opens
+author=kusti420
+description=With desktop windowing off on this port (SEC_FLOATING_FEATURE_COMMON_SUPPORT_DESKTOP_WINDOWING=FALSE, config_isDesktopModeSupported=false) WMShell never creates DesktopModeWindowDecorViewModel, the only place that assigns FreeformImeController.freeformImeCallbackFinder. The controller still tracks pop-up view tasks, so the first keyboard show over a focused pop-up window called invoke() on null (FATAL EXCEPTION wmshell.main in showImeStartPositioning) and SystemUI died, again after every restart while the pop-up task existed (tester log 2026-10-12: 8 crashes in 22 minutes). Two null guards: the pop-up window is simply not moved out of the keyboard's way.
