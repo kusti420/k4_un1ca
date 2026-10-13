@@ -37,7 +37,11 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
     // The player drops frames that are late for their real-time slot; the file does not care about real time, so the
     // playback runs slower than the clip rate (same frames, more time for each).
     public static float sPlaybackFactor = 0.5f;
-    public static boolean sAudio = false;      // time-stretched audio track: not proven yet, off
+    // Time-stretched audio track (pitch kept): off unless persist.sys.k4.slowmo_save_audio is not 0. With it off not a
+    // single audio call is made and the file is the video-only one.
+    public static final String AUDIO_PROPERTY = "persist.sys.k4.slowmo_save_audio";
+    public static boolean sAudio = false;      // test override (main)
+    private boolean mAudio;
     private float mPlayRate;
     private final Listener mListener;
     private HandlerThread mThread;
@@ -50,7 +54,7 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
     private Thread mDrain;
     // audio of the section: decoded, time-stretched with the pitch kept (K4TimeStretch) and encoded before the video
     // starts; written next to the video frames by time stamp
-    private MediaFormat mAudioFormat; private int mAudioTrack = -1, mAudioNext; private String mAudioNote = "no audio track yet";
+    private MediaFormat mAudioFormat; private int mAudioTrack = -1, mAudioNext; private String mAudioNote = "no audio track (" + AUDIO_PROPERTY + " is 0)";
     private final java.util.ArrayList<ByteBuffer> mAudioData = new java.util.ArrayList<>(); private final java.util.ArrayList<long[]> mAudioInfo = new java.util.ArrayList<>();
     private int mTrack = -1, mWidth, mHeight, mRotation, mFps = 30, mWritten, mDropped, mGaps;
     private long mFrcCallUs = Long.MAX_VALUE, mFirstPtsUs = -1, mLastPtsUs = -1, mFrameUs = 33333, mT0;
@@ -94,6 +98,7 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
             mFrameUs = 1000000L / mFps;
         } finally { ex.release(); }
         mPlayRate = mRate * sPlaybackFactor;
+        mAudio = sAudio || audioProperty();
         mExpected = (int) ((long) (mEndMs - mStartMs) * mFps * mScale / 1000) + 1;
         mPreRollMs = mStartMs >= 500 ? 500 : 0;
         mSkip = (int) ((long) mPreRollMs * mFps * mScale / 1000) / mFps * mFps;      // whole key frame distances (1 s of encoder frames)
@@ -139,7 +144,7 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
         mEncoder.start();
         mMuxer = new MediaMuxer(mOut, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
         mMuxer.setOrientationHint(mRotation);
-        if (sAudio) try { prepareAudio(); } catch (Throwable t) { mAudioFormat = null; mAudioData.clear(); mAudioInfo.clear(); mAudioNote = "audio left out: " + t; }
+        if (mAudio) try { prepareAudio(); } catch (Throwable t) { mAudioFormat = null; mAudioData.clear(); mAudioInfo.clear(); mAudioNote = "audio left out: " + t; }
         mDrain = new Thread(new Runnable() { @Override public void run() { drain(); } }, "K4SlowMoExportDrain");
         mDrain.start();
         mPlayerClass = Class.forName(PLAYER);
@@ -222,6 +227,13 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
         } catch (Throwable t) { if (mError == null && !mDone) { mError = "encoder: " + t; Log.w(TAG, "save: encoder/muxer thread", t); } }
     }
 
+    private static boolean audioProperty() {
+        try { return (Integer) Class.forName("android.os.SystemProperties").getMethod("getInt", String.class, int.class).invoke(null, AUDIO_PROPERTY, 0) != 0; }
+        catch (Throwable t) { return false; }
+    }
+
+    // Audio samples go into the file from the drain thread only (the one that writes the video), in time-stamp order,
+    // each batch right after the video frame that reaches its time; the muxer has both tracks before it is started.
     private void writeAudio(long untilUs) {
         if (mAudioTrack < 0) return;
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
@@ -276,7 +288,11 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
             if (ch < 1 || ch > 2 || raw.length < rate * ch / 5) { mAudioNote = "audio left out: " + raw.length + " bytes of PCM, " + ch + " channels"; return; }
             short[] in = new short[raw.length / 2];
             ByteBuffer.wrap(raw).order(java.nio.ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(in);
-            short[] out = K4TimeStretch.stretch(in, ch, rate, 1.0 / mRate);
+            // as long as the video that will be written: mExpected frames (one more than section / rate)
+            int inFrames = in.length / ch; long outFrames = mExpected * mFrameUs * rate / 1000000L, wanted = (long) (mEndMs - mStartMs) * rate / 1000;
+            // ... unless the source has less audio than the section (ends early): then the nominal factor, and silence after it
+            double factor = Math.abs(inFrames - wanted) <= wanted / 50 ? outFrames / (double) inFrames : 1.0 / mRate;
+            short[] out = K4TimeStretch.stretch(in, ch, rate, factor);
             MediaFormat ef = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, rate, ch);
             ef.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
             ef.setInteger(MediaFormat.KEY_BIT_RATE, 64000 * ch);
@@ -309,7 +325,7 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
                 }
             }
             if (mAudioFormat == null || mAudioData.isEmpty()) { mAudioFormat = null; mAudioData.clear(); mAudioInfo.clear(); mAudioNote = "audio left out: encoder gave nothing"; }
-            else mAudioNote = "audio " + rate + " Hz x" + ch + " stretched " + (1.0f / mRate) + "x, " + mAudioData.size() + " AAC frames";
+            else mAudioNote = "audio " + rate + " Hz x" + ch + ", " + inFrames * 1000L / rate + " ms stretched to " + out.length / ch * 1000L / rate + " ms, " + mAudioData.size() + " AAC frames";
         } finally {
             try { ex.release(); } catch (Throwable t) { }
             try { if (dec != null) { dec.stop(); dec.release(); } } catch (Throwable t) { }

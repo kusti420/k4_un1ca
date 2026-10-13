@@ -15,6 +15,8 @@
 
 
 # static fields
+.field public static final blacklist AUDIO_PROPERTY:Ljava/lang/String; = "persist.sys.k4.slowmo_save_audio"
+
 .field private static final blacklist PLAYER:Ljava/lang/String; = "com.samsung.android.media.SemMediaPlayer"
 
 .field private static final blacklist TAG:Ljava/lang/String; = "K4SlowMo"
@@ -27,6 +29,8 @@
 
 
 # instance fields
+.field private blacklist mAudio:Z
+
 .field private final blacklist mAudioData:Ljava/util/ArrayList;
     .annotation system Ldalvik/annotation/Signature;
         value = {
@@ -180,7 +184,7 @@
 
     iput v0, p0, Lcom/k4/media/K4SlowMoExport;->mAudioTrack:I
 
-    const-string v1, "no audio track yet"
+    const-string v1, "no audio track (persist.sys.k4.slowmo_save_audio is 0)"
 
     iput-object v1, p0, Lcom/k4/media/K4SlowMoExport;->mAudioNote:Ljava/lang/String;
 
@@ -251,6 +255,65 @@
     iput p7, p0, Lcom/k4/media/K4SlowMoExport;->mPositionMs:I
 
     return-void
+.end method
+
+.method private static blacklist audioProperty()Z
+    .registers 5
+
+    const/4 v0, 0x0
+
+    :try_start_1
+    const-string v1, "android.os.SystemProperties"
+
+    invoke-static {v1}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
+
+    move-result-object v1
+
+    const-string v2, "getInt"
+
+    const-class v3, Ljava/lang/String;
+
+    sget-object v4, Ljava/lang/Integer;->TYPE:Ljava/lang/Class;
+
+    filled-new-array {v3, v4}, [Ljava/lang/Class;
+
+    move-result-object v3
+
+    invoke-virtual {v1, v2, v3}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+
+    move-result-object v1
+
+    const-string v2, "persist.sys.k4.slowmo_save_audio"
+
+    invoke-static {v0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+
+    move-result-object v3
+
+    filled-new-array {v2, v3}, [Ljava/lang/Object;
+
+    move-result-object v2
+
+    const/4 v3, 0x0
+
+    invoke-virtual {v1, v3, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+
+    move-result-object v1
+
+    check-cast v1, Ljava/lang/Integer;
+
+    invoke-virtual {v1}, Ljava/lang/Integer;->intValue()I
+
+    move-result v1
+    :try_end_2a
+    .catchall {:try_start_1 .. :try_end_2a} :catchall_2d
+
+    if-eqz v1, :cond_2d
+
+    const/4 v0, 0x1
+
+    :catchall_2d
+    :cond_2d
+    return v0
 .end method
 
 .method private blacklist begin()V
@@ -367,7 +430,7 @@
 
     invoke-virtual {v0, v1}, Landroid/media/MediaMuxer;->setOrientationHint(I)V
 
-    sget-boolean v0, Lcom/k4/media/K4SlowMoExport;->sAudio:Z
+    iget-boolean v0, p0, Lcom/k4/media/K4SlowMoExport;->mAudio:Z
 
     if-eqz v0, :cond_95
 
@@ -1464,7 +1527,7 @@
 .end method
 
 .method private blacklist prepareAudio()V
-    .registers 42
+    .registers 44
     .annotation system Ldalvik/annotation/Throws;
         value = {
             Ljava/lang/Exception;
@@ -1505,7 +1568,7 @@
 
     move-result v8
     :try_end_1f
-    .catchall {:try_start_10 .. :try_end_1f} :catchall_3c7
+    .catchall {:try_start_10 .. :try_end_1f} :catchall_418
 
     const-string v9, "mime"
 
@@ -1542,11 +1605,11 @@
     :catchall_3c
     move-exception v0
 
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
     move-object v1, v11
 
-    goto/16 :goto_3cd
+    goto/16 :goto_41e
 
     :cond_42
     move-object v8, v11
@@ -1563,7 +1626,7 @@
     :try_start_49
     invoke-virtual {v5}, Landroid/media/MediaExtractor;->release()V
     :try_end_4c
-    .catchall {:try_start_49 .. :try_end_4c} :catchall_3b4
+    .catchall {:try_start_49 .. :try_end_4c} :catchall_400
 
     return-void
 
@@ -1595,7 +1658,7 @@
 
     move-result-object v7
     :try_end_65
-    .catchall {:try_start_4d .. :try_end_65} :catchall_3c7
+    .catchall {:try_start_4d .. :try_end_65} :catchall_418
 
     :try_start_65
     invoke-virtual {v7, v8, v11, v11, v6}, Landroid/media/MediaCodec;->configure(Landroid/media/MediaFormat;Landroid/view/Surface;Landroid/media/MediaCrypto;I)V
@@ -1614,7 +1677,7 @@
 
     invoke-direct {v10}, Ljava/io/ByteArrayOutputStream;-><init>()V
     :try_end_78
-    .catchall {:try_start_65 .. :try_end_78} :catchall_3bf
+    .catchall {:try_start_65 .. :try_end_78} :catchall_40e
 
     :try_start_78
     new-instance v11, Landroid/media/MediaCodec$BufferInfo;
@@ -1623,45 +1686,45 @@
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v23
+    move-result-wide v25
     :try_end_81
-    .catchall {:try_start_78 .. :try_end_81} :catchall_3b9
+    .catchall {:try_start_78 .. :try_end_81} :catchall_407
 
-    move/from16 v25, v6
+    move/from16 v27, v6
 
-    move/from16 v26, v25
+    move/from16 v28, v27
 
     :goto_85
-    const-wide/32 v28, 0xf4240
-
     const/16 v30, 0x4
 
-    move-object/from16 v16, v7
+    const-wide/32 v31, 0xf4240
 
-    if-nez v25, :cond_1bc
+    move-object/from16 v18, v7
+
+    if-nez v27, :cond_1bc
 
     :try_start_8e
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v17
+    move-result-wide v19
     :try_end_92
     .catchall {:try_start_8e .. :try_end_92} :catchall_1b3
 
-    sub-long v17, v17, v23
+    sub-long v19, v19, v25
 
-    const-wide/16 v19, 0x1f40
+    const-wide/16 v21, 0x1f40
 
-    cmp-long v17, v17, v19
+    cmp-long v19, v19, v21
 
-    if-gez v17, :cond_1bc
+    if-gez v19, :cond_1bc
 
-    if-nez v26, :cond_ed
+    if-nez v28, :cond_ed
 
-    move/from16 v32, v8
+    move/from16 v34, v8
 
-    move-wide/from16 v34, v12
+    move-wide/from16 v36, v12
 
-    move-object/from16 v6, v16
+    move-object/from16 v6, v18
 
     const-wide/16 v7, 0x1388
 
@@ -1680,37 +1743,37 @@
 
     invoke-virtual {v5, v7, v8}, Landroid/media/MediaExtractor;->readSampleData(Ljava/nio/ByteBuffer;I)I
 
-    move-result v19
+    move-result v21
 
     invoke-virtual {v5}, Landroid/media/MediaExtractor;->getSampleTime()J
 
-    move-result-wide v20
+    move-result-wide v22
     :try_end_b7
     .catchall {:try_start_a4 .. :try_end_b7} :catchall_1b1
 
-    if-ltz v19, :cond_d9
+    if-ltz v21, :cond_d9
 
     const-wide/32 v7, 0x186a0
 
     add-long/2addr v7, v14
 
-    cmp-long v7, v20, v7
+    cmp-long v7, v22, v7
 
     if-lez v7, :cond_c2
 
     goto :goto_d9
 
     :cond_c2
-    const/16 v18, 0x0
+    const/16 v20, 0x0
 
-    const/16 v22, 0x0
+    const/16 v24, 0x0
 
-    move-object/from16 v16, v6
+    move-object/from16 v18, v6
 
-    move/from16 v17, v12
+    move/from16 v19, v12
 
     :try_start_ca
-    invoke-virtual/range {v16 .. v22}, Landroid/media/MediaCodec;->queueInputBuffer(IIIJI)V
+    invoke-virtual/range {v18 .. v24}, Landroid/media/MediaCodec;->queueInputBuffer(IIIJI)V
 
     invoke-virtual {v5}, Landroid/media/MediaExtractor;->advance()Z
     :try_end_d0
@@ -1721,46 +1784,46 @@
     :catchall_d1
     move-exception v0
 
-    move-object/from16 v11, v16
+    move-object/from16 v11, v18
 
     const/4 v1, 0x0
 
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
-    goto/16 :goto_3cd
+    goto/16 :goto_41e
 
     :cond_d9
     :goto_d9
-    move-object/from16 v16, v6
+    move-object/from16 v18, v6
 
-    move/from16 v17, v12
+    move/from16 v19, v12
 
-    const-wide/16 v20, 0x0
+    const-wide/16 v22, 0x0
 
-    const/16 v22, 0x4
+    const/16 v24, 0x4
 
-    const/16 v18, 0x0
+    const/16 v20, 0x0
 
-    const/16 v19, 0x0
+    const/16 v21, 0x0
 
     :try_start_e5
-    invoke-virtual/range {v16 .. v22}, Landroid/media/MediaCodec;->queueInputBuffer(IIIJI)V
+    invoke-virtual/range {v18 .. v24}, Landroid/media/MediaCodec;->queueInputBuffer(IIIJI)V
     :try_end_e8
     .catchall {:try_start_e5 .. :try_end_e8} :catchall_1b3
 
-    move-object/from16 v6, v16
+    move-object/from16 v6, v18
 
-    const/16 v26, 0x1
+    const/16 v28, 0x1
 
     goto :goto_f3
 
     :cond_ed
-    move/from16 v32, v8
+    move/from16 v34, v8
 
-    move-wide/from16 v34, v12
+    move-wide/from16 v36, v12
 
     :goto_f1
-    move-object/from16 v6, v16
+    move-object/from16 v6, v18
 
     :cond_f3
     :goto_f3
@@ -1814,19 +1877,19 @@
 
     :cond_11e
     :goto_11e
-    move/from16 v16, v9
+    move/from16 v18, v9
 
     move v9, v8
 
-    move/from16 v8, v16
+    move/from16 v8, v18
 
-    move-object/from16 v18, v2
+    move-object/from16 v20, v2
 
-    move-object/from16 v19, v3
+    move-object/from16 v21, v3
 
-    move-object/from16 v17, v4
+    move-object/from16 v19, v4
 
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
     goto/16 :goto_1a4
 
@@ -1841,29 +1904,29 @@
 
     iget v8, v11, Landroid/media/MediaCodec$BufferInfo;->size:I
 
-    mul-int/lit8 v16, v32, 0x2
+    mul-int/lit8 v18, v34, 0x2
 
-    div-int v8, v8, v16
+    div-int v8, v8, v18
 
-    sub-long v16, v34, v12
+    sub-long v18, v36, v12
 
-    move-object/from16 v18, v2
+    move-object/from16 v20, v2
 
-    move-object/from16 v19, v3
+    move-object/from16 v21, v3
 
     int-to-long v2, v9
 
-    mul-long v16, v16, v2
+    mul-long v18, v18, v2
 
-    move-wide/from16 v20, v2
+    move-wide/from16 v22, v2
 
-    div-long v2, v16, v28
+    div-long v2, v18, v31
     :try_end_148
     .catchall {:try_start_f5 .. :try_end_148} :catchall_1b1
 
-    move-object/from16 v17, v4
+    move-object/from16 v19, v4
 
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
     const-wide/16 v4, 0x0
 
@@ -1878,9 +1941,9 @@
 
     sub-long v12, v14, v12
 
-    mul-long v12, v12, v20
+    mul-long v12, v12, v22
 
-    div-long v12, v12, v28
+    div-long v12, v12, v31
 
     invoke-static {v3, v4, v12, v13}, Ljava/lang/Math;->min(JJ)J
 
@@ -1892,11 +1955,11 @@
 
     sub-int/2addr v3, v2
 
-    const/16 v33, 0x2
+    const/16 v35, 0x2
 
     mul-int/lit8 v3, v3, 0x2
 
-    mul-int v3, v3, v32
+    mul-int v3, v3, v34
 
     new-array v4, v3, [B
 
@@ -1908,7 +1971,7 @@
 
     mul-int/lit8 v2, v2, 0x2
 
-    mul-int v2, v2, v32
+    mul-int v2, v2, v34
 
     add-int/2addr v8, v2
 
@@ -1923,13 +1986,13 @@
     goto :goto_188
 
     :cond_180
-    move-object/from16 v18, v2
+    move-object/from16 v20, v2
 
-    move-object/from16 v19, v3
+    move-object/from16 v21, v3
 
-    move-object/from16 v17, v4
+    move-object/from16 v19, v4
 
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
     :cond_188
     :goto_188
@@ -1939,12 +2002,12 @@
 
     if-eqz v2, :cond_191
 
-    const/16 v25, 0x1
+    const/16 v27, 0x1
 
     goto :goto_193
 
     :cond_191
-    const/16 v25, 0x0
+    const/16 v27, 0x0
 
     :goto_193
     const/4 v8, 0x0
@@ -1961,29 +2024,29 @@
     goto :goto_1b8
 
     :cond_19a
-    move-object/from16 v18, v2
+    move-object/from16 v20, v2
 
-    move-object/from16 v19, v3
+    move-object/from16 v21, v3
 
-    move-object/from16 v17, v4
+    move-object/from16 v19, v4
 
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
     :goto_1a2
-    move/from16 v8, v32
+    move/from16 v8, v34
 
     :goto_1a4
     move-object v7, v6
 
-    move-object/from16 v5, v16
+    move-object/from16 v5, v18
 
-    move-object/from16 v4, v17
+    move-object/from16 v4, v19
 
-    move-object/from16 v2, v18
+    move-object/from16 v2, v20
 
-    move-object/from16 v3, v19
+    move-object/from16 v3, v21
 
-    move-wide/from16 v12, v34
+    move-wide/from16 v12, v36
 
     goto/16 :goto_85
 
@@ -1995,39 +2058,39 @@
     :catchall_1b3
     move-exception v0
 
-    move-object/from16 v6, v16
+    move-object/from16 v6, v18
 
     :goto_1b6
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
     :goto_1b8
     move-object v11, v6
 
     const/4 v1, 0x0
 
-    goto/16 :goto_3cd
+    goto/16 :goto_41e
 
     :cond_1bc
-    move/from16 v32, v8
+    move/from16 v34, v8
 
-    move-object/from16 v6, v16
+    move-object/from16 v6, v18
 
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
     :try_start_1c2
     invoke-virtual {v10}, Ljava/io/ByteArrayOutputStream;->toByteArray()[B
 
     move-result-object v2
 
-    move/from16 v8, v32
+    move/from16 v8, v34
 
     const/4 v3, 0x1
 
-    if-lt v8, v3, :cond_387
+    if-lt v8, v3, :cond_3d1
 
     const/4 v12, 0x2
 
-    if-gt v8, v12, :cond_387
+    if-gt v8, v12, :cond_3d1
 
     array-length v3, v2
 
@@ -2037,22 +2100,22 @@
 
     if-ge v3, v4, :cond_1d7
 
-    goto/16 :goto_387
+    goto/16 :goto_3d1
 
     :cond_1d7
     array-length v3, v2
 
     div-int/2addr v3, v12
 
-    new-array v3, v3, [S
+    new-array v4, v3, [S
 
     invoke-static {v2}, Ljava/nio/ByteBuffer;->wrap([B)Ljava/nio/ByteBuffer;
 
     move-result-object v2
 
-    sget-object v4, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
+    sget-object v5, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
 
-    invoke-virtual {v2, v4}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
+    invoke-virtual {v2, v5}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
 
     move-result-object v2
 
@@ -2060,17 +2123,79 @@
 
     move-result-object v2
 
-    invoke-virtual {v2, v3}, Ljava/nio/ShortBuffer;->get([S)Ljava/nio/ShortBuffer;
+    invoke-virtual {v2, v4}, Ljava/nio/ShortBuffer;->get([S)Ljava/nio/ShortBuffer;
 
+    div-int/2addr v3, v8
+
+    iget v2, v0, Lcom/k4/media/K4SlowMoExport;->mExpected:I
+
+    int-to-long v12, v2
+
+    iget-wide v14, v0, Lcom/k4/media/K4SlowMoExport;->mFrameUs:J
+
+    mul-long/2addr v12, v14
+
+    int-to-long v14, v9
+
+    mul-long/2addr v12, v14
+
+    div-long v12, v12, v31
+
+    iget v2, v0, Lcom/k4/media/K4SlowMoExport;->mEndMs:I
+
+    iget v5, v0, Lcom/k4/media/K4SlowMoExport;->mStartMs:I
+    :try_end_1fb
+    .catchall {:try_start_1c2 .. :try_end_1fb} :catchall_403
+
+    sub-int/2addr v2, v5
+
+    move-object v7, v6
+
+    int-to-long v5, v2
+
+    mul-long/2addr v5, v14
+
+    :try_start_1ff
+    div-long v5, v5, v16
+
+    move-wide/from16 v19, v5
+
+    int-to-long v5, v3
+
+    sub-long v21, v5, v19
+
+    invoke-static/range {v21 .. v22}, Ljava/lang/Math;->abs(J)J
+
+    move-result-wide v21
+
+    const-wide/16 v23, 0x32
+
+    div-long v19, v19, v23
+
+    cmp-long v2, v21, v19
+
+    if-gtz v2, :cond_216
+
+    long-to-double v12, v12
+
+    int-to-double v2, v3
+
+    :goto_214
+    div-double/2addr v12, v2
+
+    goto :goto_21c
+
+    :cond_216
     iget v2, v0, Lcom/k4/media/K4SlowMoExport;->mRate:F
 
-    float-to-double v4, v2
+    float-to-double v2, v2
 
     const-wide/high16 v12, 0x3ff0000000000000L    # 1.0
 
-    div-double/2addr v12, v4
+    goto :goto_214
 
-    invoke-static {v3, v8, v9, v12, v13}, Lcom/k4/media/K4TimeStretch;->stretch([SIID)[S
+    :goto_21c
+    invoke-static {v4, v8, v9, v12, v13}, Lcom/k4/media/K4TimeStretch;->stretch([SIID)[S
 
     move-result-object v2
 
@@ -2086,30 +2211,30 @@
 
     const-string v4, "bitrate"
 
-    const v5, 0xfa00
+    const v10, 0xfa00
 
-    mul-int/2addr v5, v8
+    mul-int/2addr v10, v8
 
-    invoke-virtual {v3, v4, v5}, Landroid/media/MediaFormat;->setInteger(Ljava/lang/String;I)V
+    invoke-virtual {v3, v4, v10}, Landroid/media/MediaFormat;->setInteger(Ljava/lang/String;I)V
 
     const-string v4, "max-input-size"
 
-    const/16 v5, 0x4000
+    const/16 v10, 0x4000
 
-    invoke-virtual {v3, v4, v5}, Landroid/media/MediaFormat;->setInteger(Ljava/lang/String;I)V
+    invoke-virtual {v3, v4, v10}, Landroid/media/MediaFormat;->setInteger(Ljava/lang/String;I)V
 
     invoke-static {v1}, Landroid/media/MediaCodec;->createEncoderByType(Ljava/lang/String;)Landroid/media/MediaCodec;
 
     move-result-object v1
-    :try_end_214
-    .catchall {:try_start_1c2 .. :try_end_214} :catchall_3b7
+    :try_end_23e
+    .catchall {:try_start_1ff .. :try_end_23e} :catchall_3cf
 
     const/4 v4, 0x1
 
-    const/4 v5, 0x0
+    const/4 v10, 0x0
 
-    :try_start_216
-    invoke-virtual {v1, v3, v5, v5, v4}, Landroid/media/MediaCodec;->configure(Landroid/media/MediaFormat;Landroid/view/Surface;Landroid/media/MediaCrypto;I)V
+    :try_start_240
+    invoke-virtual {v1, v3, v10, v10, v4}, Landroid/media/MediaCodec;->configure(Landroid/media/MediaFormat;Landroid/view/Surface;Landroid/media/MediaCrypto;I)V
 
     invoke-virtual {v1}, Landroid/media/MediaCodec;->start()V
 
@@ -2117,67 +2242,74 @@
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v4
+    move-result-wide v12
 
-    const/4 v7, 0x0
+    const/4 v4, 0x0
 
     const/4 v10, 0x0
 
-    const/4 v12, 0x0
+    const/16 v19, 0x0
 
-    :goto_224
-    if-nez v7, :cond_318
+    :goto_24f
+    if-nez v19, :cond_34c
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v13
+    move-result-wide v20
+    :try_end_255
+    .catchall {:try_start_240 .. :try_end_255} :catchall_3cb
 
-    sub-long/2addr v13, v4
+    sub-long v20, v20, v12
 
-    const-wide/16 v17, 0x3a98
+    const-wide/16 v22, 0x3a98
 
-    cmp-long v13, v13, v17
+    cmp-long v20, v20, v22
 
-    if-gez v13, :cond_318
+    if-gez v20, :cond_34c
 
-    if-nez v10, :cond_290
+    if-nez v10, :cond_2bd
 
-    const-wide/16 v13, 0x1388
+    move-wide/from16 v20, v5
 
-    invoke-virtual {v1, v13, v14}, Landroid/media/MediaCodec;->dequeueInputBuffer(J)I
+    move-object/from16 v22, v7
 
-    move-result v15
+    const-wide/16 v5, 0x1388
 
-    if-ltz v15, :cond_290
+    :try_start_265
+    invoke-virtual {v1, v5, v6}, Landroid/media/MediaCodec;->dequeueInputBuffer(J)I
 
-    invoke-virtual {v1, v15}, Landroid/media/MediaCodec;->getInputBuffer(I)Ljava/nio/ByteBuffer;
+    move-result v7
 
-    move-result-object v10
+    if-ltz v7, :cond_2c1
 
-    invoke-virtual {v10}, Ljava/nio/ByteBuffer;->clear()Ljava/nio/ByteBuffer;
+    invoke-virtual {v1, v7}, Landroid/media/MediaCodec;->getInputBuffer(I)Ljava/nio/ByteBuffer;
 
-    sub-int v13, v3, v12
+    move-result-object v5
 
-    invoke-virtual {v10}, Ljava/nio/ByteBuffer;->capacity()I
+    invoke-virtual {v5}, Ljava/nio/ByteBuffer;->clear()Ljava/nio/ByteBuffer;
 
-    move-result v14
+    sub-int v6, v3, v4
 
-    const/16 v33, 0x2
+    invoke-virtual {v5}, Ljava/nio/ByteBuffer;->capacity()I
 
-    div-int/lit8 v14, v14, 0x2
-    :try_end_24c
-    .catchall {:try_start_216 .. :try_end_24c} :catchall_385
+    move-result v10
 
-    move-object/from16 v34, v1
+    const/16 v35, 0x2
+
+    div-int/lit8 v10, v10, 0x2
+    :try_end_27c
+    .catchall {:try_start_265 .. :try_end_27c} :catchall_3c9
+
+    move-object/from16 v36, v1
 
     mul-int/lit16 v1, v8, 0x1000
 
-    :try_start_250
-    invoke-static {v14, v1}, Ljava/lang/Math;->min(II)I
+    :try_start_280
+    invoke-static {v10, v1}, Ljava/lang/Math;->min(II)I
 
     move-result v1
 
-    invoke-static {v13, v1}, Ljava/lang/Math;->min(II)I
+    invoke-static {v6, v1}, Ljava/lang/Math;->min(II)I
 
     move-result v1
 
@@ -2185,304 +2317,323 @@
 
     mul-int/2addr v1, v8
 
-    div-int v13, v12, v8
+    div-int v6, v4, v8
 
-    int-to-long v13, v13
+    move/from16 v37, v7
 
-    mul-long v13, v13, v28
+    int-to-long v6, v6
 
-    move-wide/from16 v17, v4
+    mul-long v6, v6, v31
 
-    int-to-long v4, v9
+    div-long v40, v6, v14
 
-    div-long v38, v13, v4
+    sget-object v6, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
 
-    sget-object v4, Ljava/nio/ByteOrder;->LITTLE_ENDIAN:Ljava/nio/ByteOrder;
-
-    invoke-virtual {v10, v4}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
-
-    move-result-object v4
-
-    invoke-virtual {v4}, Ljava/nio/ByteBuffer;->asShortBuffer()Ljava/nio/ShortBuffer;
-
-    move-result-object v4
-
-    invoke-virtual {v4, v2, v12, v1}, Ljava/nio/ShortBuffer;->put([SII)Ljava/nio/ShortBuffer;
-
-    add-int/2addr v12, v1
-
-    if-lt v12, v3, :cond_276
-
-    const/4 v4, 0x1
-
-    goto :goto_277
-
-    :cond_276
-    const/4 v4, 0x0
-
-    :goto_277
-    mul-int/lit8 v37, v1, 0x2
-
-    if-eqz v4, :cond_27e
-
-    move/from16 v40, v30
-
-    goto :goto_280
-
-    :cond_27e
-    const/16 v40, 0x0
-
-    :goto_280
-    const/16 v36, 0x0
-
-    move/from16 v35, v15
-
-    invoke-virtual/range {v34 .. v40}, Landroid/media/MediaCodec;->queueInputBuffer(IIIJI)V
-    :try_end_287
-    .catchall {:try_start_250 .. :try_end_287} :catchall_28b
-
-    move-object/from16 v1, v34
-
-    move v10, v4
-
-    goto :goto_292
-
-    :catchall_28b
-    move-exception v0
-
-    move-object/from16 v1, v34
-
-    goto/16 :goto_3c5
-
-    :cond_290
-    move-wide/from16 v17, v4
-
-    :goto_292
-    const-wide/16 v13, 0x1388
-
-    :try_start_294
-    invoke-virtual {v1, v11, v13, v14}, Landroid/media/MediaCodec;->dequeueOutputBuffer(Landroid/media/MediaCodec$BufferInfo;J)I
-
-    move-result v4
-
-    const/4 v5, -0x2
-
-    if-ne v4, v5, :cond_2a2
-
-    invoke-virtual {v1}, Landroid/media/MediaCodec;->getOutputFormat()Landroid/media/MediaFormat;
-
-    move-result-object v4
-
-    iput-object v4, v0, Lcom/k4/media/K4SlowMoExport;->mAudioFormat:Landroid/media/MediaFormat;
-
-    goto :goto_309
-
-    :cond_2a2
-    if-ltz v4, :cond_309
-
-    iget v7, v11, Landroid/media/MediaCodec$BufferInfo;->size:I
-
-    if-lez v7, :cond_2ef
-
-    iget v7, v11, Landroid/media/MediaCodec$BufferInfo;->flags:I
-
-    const/16 v33, 0x2
-
-    and-int/lit8 v7, v7, 0x2
-
-    if-nez v7, :cond_2ef
-
-    invoke-virtual {v1, v4}, Landroid/media/MediaCodec;->getOutputBuffer(I)Ljava/nio/ByteBuffer;
-
-    move-result-object v7
-
-    iget v15, v11, Landroid/media/MediaCodec$BufferInfo;->offset:I
-
-    invoke-virtual {v7, v15}, Ljava/nio/ByteBuffer;->position(I)Ljava/nio/ByteBuffer;
-
-    iget v15, v11, Landroid/media/MediaCodec$BufferInfo;->offset:I
-
-    iget v5, v11, Landroid/media/MediaCodec$BufferInfo;->size:I
-
-    add-int/2addr v15, v5
-
-    invoke-virtual {v7, v15}, Ljava/nio/ByteBuffer;->limit(I)Ljava/nio/ByteBuffer;
-
-    iget v5, v11, Landroid/media/MediaCodec$BufferInfo;->size:I
-
-    invoke-static {v5}, Ljava/nio/ByteBuffer;->allocate(I)Ljava/nio/ByteBuffer;
+    invoke-virtual {v5, v6}, Ljava/nio/ByteBuffer;->order(Ljava/nio/ByteOrder;)Ljava/nio/ByteBuffer;
 
     move-result-object v5
 
-    invoke-virtual {v5, v7}, Ljava/nio/ByteBuffer;->put(Ljava/nio/ByteBuffer;)Ljava/nio/ByteBuffer;
+    invoke-virtual {v5}, Ljava/nio/ByteBuffer;->asShortBuffer()Ljava/nio/ShortBuffer;
 
-    invoke-virtual {v5}, Ljava/nio/ByteBuffer;->flip()Ljava/nio/ByteBuffer;
+    move-result-object v5
 
-    iget-object v7, v0, Lcom/k4/media/K4SlowMoExport;->mAudioData:Ljava/util/ArrayList;
+    invoke-virtual {v5, v2, v4, v1}, Ljava/nio/ShortBuffer;->put([SII)Ljava/nio/ShortBuffer;
 
-    invoke-virtual {v7, v5}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    add-int/2addr v4, v1
 
-    iget-object v5, v0, Lcom/k4/media/K4SlowMoExport;->mAudioInfo:Ljava/util/ArrayList;
+    if-lt v4, v3, :cond_2a5
 
-    iget-wide v13, v11, Landroid/media/MediaCodec$BufferInfo;->presentationTimeUs:J
+    const/4 v5, 0x1
 
-    iget v7, v11, Landroid/media/MediaCodec$BufferInfo;->flags:I
+    goto :goto_2a6
 
-    const/16 v31, 0x1
+    :cond_2a5
+    const/4 v5, 0x0
 
-    and-int/lit8 v7, v7, 0x1
+    :goto_2a6
+    mul-int/lit8 v39, v1, 0x2
 
-    move-object v15, v2
+    if-eqz v5, :cond_2ad
 
-    move/from16 v19, v3
+    move/from16 v42, v30
 
-    int-to-long v2, v7
+    goto :goto_2af
 
-    move-wide/from16 v20, v2
+    :cond_2ad
+    const/16 v42, 0x0
 
-    const/4 v7, 0x2
+    :goto_2af
+    const/16 v38, 0x0
 
-    new-array v2, v7, [J
+    invoke-virtual/range {v36 .. v42}, Landroid/media/MediaCodec;->queueInputBuffer(IIIJI)V
+    :try_end_2b4
+    .catchall {:try_start_280 .. :try_end_2b4} :catchall_2b8
 
-    const/16 v27, 0x0
+    move-object/from16 v1, v36
 
-    aput-wide v13, v2, v27
+    move v10, v5
 
-    aput-wide v20, v2, v31
+    goto :goto_2c1
 
-    invoke-virtual {v5, v2}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    :catchall_2b8
+    move-exception v0
 
-    goto :goto_2f5
+    move-object/from16 v1, v36
 
-    :cond_2ef
-    move-object v15, v2
+    goto/16 :goto_415
 
-    move/from16 v19, v3
+    :cond_2bd
+    move-wide/from16 v20, v5
 
-    const/4 v7, 0x2
+    move-object/from16 v22, v7
 
-    const/16 v31, 0x1
+    :cond_2c1
+    :goto_2c1
+    const-wide/16 v5, 0x1388
 
-    :goto_2f5
-    iget v2, v11, Landroid/media/MediaCodec$BufferInfo;->flags:I
+    :try_start_2c3
+    invoke-virtual {v1, v11, v5, v6}, Landroid/media/MediaCodec;->dequeueOutputBuffer(Landroid/media/MediaCodec$BufferInfo;J)I
 
-    and-int/lit8 v2, v2, 0x4
+    move-result v7
 
-    if-eqz v2, :cond_2fe
+    const/4 v5, -0x2
 
-    move/from16 v27, v31
+    if-ne v7, v5, :cond_2d1
 
-    goto :goto_300
+    invoke-virtual {v1}, Landroid/media/MediaCodec;->getOutputFormat()Landroid/media/MediaFormat;
 
-    :cond_2fe
-    const/16 v27, 0x0
+    move-result-object v6
 
-    :goto_300
-    const/4 v2, 0x0
+    iput-object v6, v0, Lcom/k4/media/K4SlowMoExport;->mAudioFormat:Landroid/media/MediaFormat;
 
-    invoke-virtual {v1, v4, v2}, Landroid/media/MediaCodec;->releaseOutputBuffer(IZ)V
+    goto :goto_33a
 
-    move/from16 v33, v7
+    :cond_2d1
+    if-ltz v7, :cond_33a
 
-    move/from16 v7, v27
+    iget v6, v11, Landroid/media/MediaCodec$BufferInfo;->size:I
 
-    goto :goto_311
+    if-lez v6, :cond_321
 
-    :cond_309
-    :goto_309
-    move-object v15, v2
+    iget v6, v11, Landroid/media/MediaCodec$BufferInfo;->flags:I
 
-    move/from16 v19, v3
+    const/16 v35, 0x2
 
-    const/4 v2, 0x0
+    and-int/lit8 v6, v6, 0x2
 
-    const/16 v31, 0x1
+    if-nez v6, :cond_321
 
-    const/16 v33, 0x2
+    invoke-virtual {v1, v7}, Landroid/media/MediaCodec;->getOutputBuffer(I)Ljava/nio/ByteBuffer;
 
-    :goto_311
-    move-object v2, v15
+    move-result-object v6
 
-    move-wide/from16 v4, v17
+    iget v5, v11, Landroid/media/MediaCodec$BufferInfo;->offset:I
 
-    move/from16 v3, v19
+    invoke-virtual {v6, v5}, Ljava/nio/ByteBuffer;->position(I)Ljava/nio/ByteBuffer;
 
-    goto/16 :goto_224
+    iget v5, v11, Landroid/media/MediaCodec$BufferInfo;->offset:I
 
-    :cond_318
-    iget-object v2, v0, Lcom/k4/media/K4SlowMoExport;->mAudioFormat:Landroid/media/MediaFormat;
+    move/from16 v23, v3
 
-    if-eqz v2, :cond_361
+    iget v3, v11, Landroid/media/MediaCodec$BufferInfo;->size:I
 
-    iget-object v2, v0, Lcom/k4/media/K4SlowMoExport;->mAudioData:Ljava/util/ArrayList;
+    add-int/2addr v5, v3
 
-    invoke-virtual {v2}, Ljava/util/ArrayList;->isEmpty()Z
+    invoke-virtual {v6, v5}, Ljava/nio/ByteBuffer;->limit(I)Ljava/nio/ByteBuffer;
 
-    move-result v2
+    iget v3, v11, Landroid/media/MediaCodec$BufferInfo;->size:I
 
-    if-eqz v2, :cond_325
+    invoke-static {v3}, Ljava/nio/ByteBuffer;->allocate(I)Ljava/nio/ByteBuffer;
 
-    goto :goto_361
+    move-result-object v3
 
-    :cond_325
-    new-instance v2, Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v6}, Ljava/nio/ByteBuffer;->put(Ljava/nio/ByteBuffer;)Ljava/nio/ByteBuffer;
 
-    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-virtual {v3}, Ljava/nio/ByteBuffer;->flip()Ljava/nio/ByteBuffer;
 
-    const-string v3, "audio "
+    iget-object v5, v0, Lcom/k4/media/K4SlowMoExport;->mAudioData:Ljava/util/ArrayList;
 
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5, v3}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    invoke-virtual {v2, v9}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    iget-object v3, v0, Lcom/k4/media/K4SlowMoExport;->mAudioInfo:Ljava/util/ArrayList;
 
-    const-string v3, " Hz x"
+    iget-wide v5, v11, Landroid/media/MediaCodec$BufferInfo;->presentationTimeUs:J
 
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move/from16 v24, v4
 
-    invoke-virtual {v2, v8}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    iget v4, v11, Landroid/media/MediaCodec$BufferInfo;->flags:I
 
-    const-string v3, " stretched "
+    const/16 v33, 0x1
 
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    and-int/lit8 v4, v4, 0x1
 
-    iget v3, v0, Lcom/k4/media/K4SlowMoExport;->mRate:F
+    move-wide/from16 v25, v5
 
-    const/high16 v4, 0x3f800000    # 1.0f
+    int-to-long v4, v4
 
-    div-float/2addr v4, v3
+    move-wide/from16 v27, v4
 
-    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+    const/4 v6, 0x2
 
-    const-string v3, "x, "
+    new-array v4, v6, [J
 
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const/16 v29, 0x0
+
+    aput-wide v25, v4, v29
+
+    aput-wide v27, v4, v33
+
+    invoke-virtual {v3, v4}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+
+    goto :goto_328
+
+    :cond_321
+    move/from16 v23, v3
+
+    move/from16 v24, v4
+
+    const/4 v6, 0x2
+
+    const/16 v33, 0x1
+
+    :goto_328
+    iget v3, v11, Landroid/media/MediaCodec$BufferInfo;->flags:I
+
+    and-int/lit8 v3, v3, 0x4
+
+    if-eqz v3, :cond_331
+
+    move/from16 v29, v33
+
+    goto :goto_333
+
+    :cond_331
+    const/16 v29, 0x0
+
+    :goto_333
+    const/4 v3, 0x0
+
+    invoke-virtual {v1, v7, v3}, Landroid/media/MediaCodec;->releaseOutputBuffer(IZ)V
+
+    move/from16 v19, v29
+
+    goto :goto_342
+
+    :cond_33a
+    :goto_33a
+    move/from16 v23, v3
+
+    move/from16 v24, v4
+
+    const/4 v3, 0x0
+
+    const/4 v6, 0x2
+
+    const/16 v33, 0x1
+
+    :goto_342
+    move-wide/from16 v5, v20
+
+    move-object/from16 v7, v22
+
+    move/from16 v3, v23
+
+    move/from16 v4, v24
+
+    goto/16 :goto_24f
+
+    :cond_34c
+    move-wide/from16 v20, v5
+
+    move-object/from16 v22, v7
+
+    iget-object v3, v0, Lcom/k4/media/K4SlowMoExport;->mAudioFormat:Landroid/media/MediaFormat;
+
+    if-eqz v3, :cond_3a5
 
     iget-object v3, v0, Lcom/k4/media/K4SlowMoExport;->mAudioData:Ljava/util/ArrayList;
 
-    invoke-virtual {v3}, Ljava/util/ArrayList;->size()I
+    invoke-virtual {v3}, Ljava/util/ArrayList;->isEmpty()Z
 
     move-result v3
 
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    if-eqz v3, :cond_35d
 
-    const-string v3, " AAC frames"
+    goto :goto_3a5
 
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    :cond_35d
+    new-instance v3, Ljava/lang/StringBuilder;
 
-    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v4, "audio "
+
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3, v9}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v4, " Hz x"
+
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3, v8}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v4, ", "
+
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    mul-long v5, v20, v16
+
+    div-long/2addr v5, v14
+
+    invoke-virtual {v3, v5, v6}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+
+    const-string v4, " ms stretched to "
+
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    array-length v2, v2
+
+    div-int/2addr v2, v8
+
+    int-to-long v4, v2
+
+    mul-long v4, v4, v16
+
+    div-long/2addr v4, v14
+
+    invoke-virtual {v3, v4, v5}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+
+    const-string v2, " ms, "
+
+    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-object v2, v0, Lcom/k4/media/K4SlowMoExport;->mAudioData:Ljava/util/ArrayList;
+
+    invoke-virtual {v2}, Ljava/util/ArrayList;->size()I
+
+    move-result v2
+
+    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v2, " AAC frames"
+
+    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v2
 
-    :goto_35e
+    :goto_3a2
     iput-object v2, v0, Lcom/k4/media/K4SlowMoExport;->mAudioNote:Ljava/lang/String;
 
-    goto :goto_371
+    goto :goto_3b5
 
-    :cond_361
-    :goto_361
-    const/4 v5, 0x0
+    :cond_3a5
+    :goto_3a5
+    const/4 v10, 0x0
 
-    iput-object v5, v0, Lcom/k4/media/K4SlowMoExport;->mAudioFormat:Landroid/media/MediaFormat;
+    iput-object v10, v0, Lcom/k4/media/K4SlowMoExport;->mAudioFormat:Landroid/media/MediaFormat;
 
     iget-object v2, v0, Lcom/k4/media/K4SlowMoExport;->mAudioData:Ljava/util/ArrayList;
 
@@ -2493,50 +2644,64 @@
     invoke-virtual {v2}, Ljava/util/ArrayList;->clear()V
 
     const-string v2, "audio left out: encoder gave nothing"
-    :try_end_370
-    .catchall {:try_start_294 .. :try_end_370} :catchall_385
+    :try_end_3b4
+    .catchall {:try_start_2c3 .. :try_end_3b4} :catchall_3c9
 
-    goto :goto_35e
+    goto :goto_3a2
 
-    :goto_371
-    :try_start_371
-    invoke-virtual/range {v16 .. v16}, Landroid/media/MediaExtractor;->release()V
-    :try_end_374
-    .catchall {:try_start_371 .. :try_end_374} :catchall_374
+    :goto_3b5
+    :try_start_3b5
+    invoke-virtual/range {v18 .. v18}, Landroid/media/MediaExtractor;->release()V
+    :try_end_3b8
+    .catchall {:try_start_3b5 .. :try_end_3b8} :catchall_3b8
 
-    :catchall_374
-    if-eqz v6, :cond_37c
+    :catchall_3b8
+    if-eqz v22, :cond_3c0
 
-    :try_start_376
-    invoke-virtual {v6}, Landroid/media/MediaCodec;->stop()V
+    :try_start_3ba
+    invoke-virtual/range {v22 .. v22}, Landroid/media/MediaCodec;->stop()V
 
-    invoke-virtual {v6}, Landroid/media/MediaCodec;->release()V
-    :try_end_37c
-    .catchall {:try_start_376 .. :try_end_37c} :catchall_37c
+    invoke-virtual/range {v22 .. v22}, Landroid/media/MediaCodec;->release()V
+    :try_end_3c0
+    .catchall {:try_start_3ba .. :try_end_3c0} :catchall_3c0
 
-    :catchall_37c
-    :cond_37c
-    if-eqz v1, :cond_3b4
+    :catchall_3c0
+    :cond_3c0
+    if-eqz v1, :cond_400
 
-    :try_start_37e
+    :try_start_3c2
     invoke-virtual {v1}, Landroid/media/MediaCodec;->stop()V
 
     invoke-virtual {v1}, Landroid/media/MediaCodec;->release()V
-    :try_end_384
-    .catchall {:try_start_37e .. :try_end_384} :catchall_3b4
+    :try_end_3c8
+    .catchall {:try_start_3c2 .. :try_end_3c8} :catchall_400
 
-    goto :goto_3b4
+    goto :goto_400
 
-    :catchall_385
+    :catchall_3c9
     move-exception v0
 
-    goto :goto_3c5
+    goto :goto_415
 
-    :cond_387
-    :goto_387
-    const/4 v5, 0x0
+    :catchall_3cb
+    move-exception v0
 
-    :try_start_388
+    move-object/from16 v22, v7
+
+    goto :goto_415
+
+    :catchall_3cf
+    move-exception v0
+
+    goto :goto_40a
+
+    :cond_3d1
+    :goto_3d1
+    move-object/from16 v22, v6
+
+    const/4 v10, 0x0
+
+    :try_start_3d4
     new-instance v1, Ljava/lang/StringBuilder;
 
     invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
@@ -2564,108 +2729,111 @@
     move-result-object v1
 
     iput-object v1, v0, Lcom/k4/media/K4SlowMoExport;->mAudioNote:Ljava/lang/String;
-    :try_end_3a9
-    .catchall {:try_start_388 .. :try_end_3a9} :catchall_3b5
+    :try_end_3f5
+    .catchall {:try_start_3d4 .. :try_end_3f5} :catchall_401
 
-    :try_start_3a9
-    invoke-virtual/range {v16 .. v16}, Landroid/media/MediaExtractor;->release()V
-    :try_end_3ac
-    .catchall {:try_start_3a9 .. :try_end_3ac} :catchall_3ac
+    :try_start_3f5
+    invoke-virtual/range {v18 .. v18}, Landroid/media/MediaExtractor;->release()V
+    :try_end_3f8
+    .catchall {:try_start_3f5 .. :try_end_3f8} :catchall_3f8
 
-    :catchall_3ac
-    if-eqz v6, :cond_3b4
+    :catchall_3f8
+    if-eqz v22, :cond_400
 
-    :try_start_3ae
-    invoke-virtual {v6}, Landroid/media/MediaCodec;->stop()V
+    :try_start_3fa
+    invoke-virtual/range {v22 .. v22}, Landroid/media/MediaCodec;->stop()V
 
-    invoke-virtual {v6}, Landroid/media/MediaCodec;->release()V
-    :try_end_3b4
-    .catchall {:try_start_3ae .. :try_end_3b4} :catchall_3b4
+    invoke-virtual/range {v22 .. v22}, Landroid/media/MediaCodec;->release()V
+    :try_end_400
+    .catchall {:try_start_3fa .. :try_end_400} :catchall_400
 
-    :catchall_3b4
-    :cond_3b4
-    :goto_3b4
+    :catchall_400
+    :cond_400
+    :goto_400
     return-void
 
-    :catchall_3b5
+    :catchall_401
     move-exception v0
 
-    goto :goto_3c4
+    goto :goto_414
 
-    :catchall_3b7
+    :catchall_403
     move-exception v0
 
-    goto :goto_3bd
+    move-object/from16 v22, v6
 
-    :catchall_3b9
+    goto :goto_40c
+
+    :catchall_407
     move-exception v0
 
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
-    move-object v6, v7
+    :goto_40a
+    move-object/from16 v22, v7
 
-    :goto_3bd
-    const/4 v5, 0x0
+    :goto_40c
+    const/4 v10, 0x0
 
-    goto :goto_3c4
+    goto :goto_414
 
-    :catchall_3bf
+    :catchall_40e
     move-exception v0
 
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
-    move-object v6, v7
+    move-object/from16 v22, v7
 
-    move-object v5, v11
+    move-object v10, v11
 
-    :goto_3c4
-    move-object v1, v5
+    :goto_414
+    move-object v1, v10
 
-    :goto_3c5
-    move-object v11, v6
+    :goto_415
+    move-object/from16 v11, v22
 
-    goto :goto_3cd
+    goto :goto_41e
 
-    :catchall_3c7
+    :catchall_418
     move-exception v0
 
-    move-object/from16 v16, v5
+    move-object/from16 v18, v5
 
-    move-object v5, v11
+    move-object v10, v11
 
-    move-object v1, v5
+    move-object v1, v10
 
     move-object v11, v1
 
-    :goto_3cd
-    :try_start_3cd
-    invoke-virtual/range {v16 .. v16}, Landroid/media/MediaExtractor;->release()V
-    :try_end_3d0
-    .catchall {:try_start_3cd .. :try_end_3d0} :catchall_3d0
+    :goto_41e
+    :try_start_41e
+    invoke-virtual/range {v18 .. v18}, Landroid/media/MediaExtractor;->release()V
+    :try_end_421
+    .catchall {:try_start_41e .. :try_end_421} :catchall_421
 
-    :catchall_3d0
-    if-eqz v11, :cond_3d8
+    :catchall_421
+    if-eqz v11, :cond_429
 
-    :try_start_3d2
+    :try_start_423
     invoke-virtual {v11}, Landroid/media/MediaCodec;->stop()V
 
     invoke-virtual {v11}, Landroid/media/MediaCodec;->release()V
-    :try_end_3d8
-    .catchall {:try_start_3d2 .. :try_end_3d8} :catchall_3d8
+    :try_end_429
+    .catchall {:try_start_423 .. :try_end_429} :catchall_429
 
-    :catchall_3d8
-    :cond_3d8
-    if-eqz v1, :cond_3e0
+    :catchall_429
+    :cond_429
+    if-eqz v1, :cond_431
 
-    :try_start_3da
+    :try_start_42b
     invoke-virtual {v1}, Landroid/media/MediaCodec;->stop()V
 
     invoke-virtual {v1}, Landroid/media/MediaCodec;->release()V
-    :try_end_3e0
-    .catchall {:try_start_3da .. :try_end_3e0} :catchall_3e0
+    :try_end_431
+    .catchall {:try_start_42b .. :try_end_431} :catchall_431
 
-    :catchall_3e0
-    :cond_3e0
+    :catchall_431
+    :cond_431
     throw v0
 .end method
 
@@ -3546,7 +3714,7 @@
     const/4 v5, 0x0
 
     :goto_41
-    if-eqz v5, :cond_12a
+    if-eqz v5, :cond_13a
 
     const-string v4, "width"
 
@@ -3613,7 +3781,7 @@
 
     const/16 v1, 0x1f
 
-    if-gt v0, v1, :cond_fd
+    if-gt v0, v1, :cond_10d
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mWidth:I
 
@@ -3625,7 +3793,7 @@
 
     const/16 v1, 0x780
 
-    if-gt v0, v1, :cond_fd
+    if-gt v0, v1, :cond_10d
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mWidth:I
 
@@ -3637,13 +3805,13 @@
 
     const/16 v1, 0x440
 
-    if-gt v0, v1, :cond_fd
+    if-gt v0, v1, :cond_10d
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mEndMs:I
 
     iget v1, p0, Lcom/k4/media/K4SlowMoExport;->mStartMs:I
 
-    if-le v0, v1, :cond_fd
+    if-le v0, v1, :cond_10d
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mFps:I
 
@@ -3655,7 +3823,7 @@
 
     iput-wide v5, p0, Lcom/k4/media/K4SlowMoExport;->mFrameUs:J
     :try_end_a7
-    .catchall {:try_start_9 .. :try_end_a7} :catchall_132
+    .catchall {:try_start_9 .. :try_end_a7} :catchall_142
 
     invoke-virtual {v2}, Landroid/media/MediaExtractor;->release()V
 
@@ -3666,6 +3834,30 @@
     mul-float/2addr v0, v1
 
     iput v0, p0, Lcom/k4/media/K4SlowMoExport;->mPlayRate:F
+
+    sget-boolean v0, Lcom/k4/media/K4SlowMoExport;->sAudio:Z
+
+    if-nez v0, :cond_be
+
+    invoke-static {}, Lcom/k4/media/K4SlowMoExport;->audioProperty()Z
+
+    move-result v0
+
+    if-eqz v0, :cond_bc
+
+    goto :goto_be
+
+    :cond_bc
+    move v0, v3
+
+    goto :goto_bf
+
+    :cond_be
+    :goto_be
+    move v0, v4
+
+    :goto_bf
+    iput-boolean v0, p0, Lcom/k4/media/K4SlowMoExport;->mAudio:Z
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mEndMs:I
 
@@ -3699,11 +3891,11 @@
 
     const/16 v4, 0x1f4
 
-    if-lt v1, v4, :cond_cb
+    if-lt v1, v4, :cond_db
 
     move v3, v4
 
-    :cond_cb
+    :cond_db
     iput v3, p0, Lcom/k4/media/K4SlowMoExport;->mPreRollMs:I
 
     int-to-long v3, v3
@@ -3760,8 +3952,8 @@
 
     return-void
 
-    :cond_fd
-    :try_start_fd
+    :cond_10d
+    :try_start_10d
     new-instance v0, Ljava/lang/IllegalStateException;
 
     new-instance v1, Ljava/lang/StringBuilder;
@@ -3800,7 +3992,7 @@
 
     throw v0
 
-    :cond_12a
+    :cond_13a
     new-instance p0, Ljava/lang/IllegalStateException;
 
     const-string v0, "no video track"
@@ -3808,10 +4000,10 @@
     invoke-direct {p0, v0}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
 
     throw p0
-    :try_end_132
-    .catchall {:try_start_fd .. :try_end_132} :catchall_132
+    :try_end_142
+    .catchall {:try_start_10d .. :try_end_142} :catchall_142
 
-    :catchall_132
+    :catchall_142
     move-exception v0
 
     move-object p0, v0
