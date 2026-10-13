@@ -44,3 +44,42 @@ void k4n_warp_to(const K4nSession* s, const uint8_t* prev, const uint8_t* next, 
 // scheduling of a thread that does frame work (big = keep it on the big cores); the engine's own threads call it
 void k4n_thread_setup(int big);
 extern int k4n_warp_scalar;     // 1: reference C warp (tests)
+
+// ---------------------------------------------------------------------------------------------------------------
+// Repeated source frames. Videos converted from 24/25/27 to 30 fps repeat a frame every few frames. Interpolating
+// between a frame and its copy gives `factor` identical outputs = a freeze. The pipe holds such a frame back and
+// bridges the doubled interval instead: the next frame is interpolated against the frame before the copy, in
+// 2 * factor steps. Only an isolated copy is bridged; two or more in a row are a still picture and go the usual way.
+// The decisions are here (plain functions, no state of their own) so that the host test runs the same code.
+
+// mean |a - b| of two network inputs, in 8-bit levels
+float k4n_net_diff(const float* a, const float* b);
+// A frame is taken as a copy of the one before below this. Measured (levels): copies in a 27->30 fps re-encode
+// 0.006..0.097 (74 of 742 pairs); every other pair of that clip >= 0.37; the same clip slowed down x4 by this pipe
+// >= 0.24; five camera/test clips at 24/30/60 fps >= 0.95.
+#define K4N_REPEAT_MAD 0.15f
+
+typedef struct { int pend, run, pend_factor; } K4nSeq;      // pend: a frame is held back; run: copies in a row so far
+enum { K4N_SEQ_PAIR, K4N_SEQ_HOLD, K4N_SEQ_BRIDGE, K4N_SEQ_UNHOLD };
+// What to do with a new frame that has a predecessor. rep: it is a copy of the frame before it; last: the stream ends with it.
+//   PAIR   interpolate (previous, new) as always
+//   HOLD   nothing goes out for it yet
+//   BRIDGE a frame was held: interpolate (frame before the held one, new) in 2 * factor steps
+//   UNHOLD a frame was held and this one is a copy too (or the factor changed): (before, held) and (held, new) as always
+static inline int k4n_seq_step(K4nSeq* q, int enabled, int rep, int factor, int last) {
+    if (q->pend) { q->pend = 0;
+        if (rep || factor != q->pend_factor) { q->run = rep ? 2 : 0; return K4N_SEQ_UNHOLD; }
+        q->run = 0; return K4N_SEQ_BRIDGE; }
+    if (enabled && rep && !q->run && !last) { q->pend = 1; q->pend_factor = factor; return K4N_SEQ_HOLD; }
+    q->run = rep ? q->run + 1 : 0; return K4N_SEQ_PAIR;
+}
+// Generated frame k (1 .. n-1; n = factor, or 2 * factor for a bridge) between ts0 and ts1 (tsm: time stamp of the
+// held frame in the middle of a bridge): its position between the two frames, its time stamp, and which source
+// frame stands in for it when the guard refuses to interpolate (0 = the older one). Returns n.
+static inline int k4n_slot(int bridge, int factor, int k, long long ts0, long long tsm, long long ts1, float* t, long long* ts, int* newer) {
+    if (!bridge) { *t = (float) k / factor; *ts = ts0 + (ts1 - ts0) * k / factor; *newer = !(*t < 0.5f); return factor; }
+    *t = (float) k / (2 * factor);
+    if (k <= factor) { *ts = ts0 + (tsm - ts0) * k / factor; *newer = 0; }                     // k == factor: the slot of the held frame
+    else { *ts = tsm + (ts1 - tsm) * (k - factor) / factor; *newer = !((float) (k - factor) / factor < 0.5f); }
+    return 2 * factor;
+}

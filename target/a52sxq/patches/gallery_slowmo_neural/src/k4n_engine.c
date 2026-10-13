@@ -357,6 +357,13 @@ int k4n_infer(K4nSession* s, const float* netPrev, const float* netNext, double*
     if (ms) { ms[0] = t1 - t0; ms[1] = k4n_now_ms() - t1; }
     return 0;
 }
+float k4n_net_diff(const float* a, const float* b) {
+    double sum = 0;
+    for (int v = 0; v < NH; v++) { float r = 0; const float* x = a + (size_t) v * NW; const float* y = b + (size_t) v * NW;
+        for (int u = 0; u < NW; u++) r += fabsf(x[u] - y[u]);
+        sum += r; }
+    return (float) (sum * 255.0 / ((double) NW * NH));
+}
 void k4n_last_stats(const K4nSession* s, float* src, float* warp, float* flow) { *src = s->last_src; *warp = s->last_warp; *flow = s->last_flow; }
 
 // ---------------------------------------------------------------------------------------------------------------
