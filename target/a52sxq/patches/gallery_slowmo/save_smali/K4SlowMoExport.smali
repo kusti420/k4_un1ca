@@ -295,7 +295,7 @@
 
     if-nez v0, :cond_22
 
-    goto :goto_54
+    goto :goto_59
 
     :cond_22
     invoke-static {}, Landroid/os/Parcel;->obtain()Landroid/os/Parcel;
@@ -306,25 +306,29 @@
 
     move-result-object v2
     :try_end_2a
-    .catchall {:try_start_0 .. :try_end_2a} :catchall_40
+    .catchall {:try_start_0 .. :try_end_2a} :catchall_45
+
+    :try_start_2a
+    const-string v3, "vendor.samsung.hardware.media.mpp.ISehMppStore"
+
+    invoke-virtual {v1, v3}, Landroid/os/Parcel;->writeInterfaceToken(Ljava/lang/String;)V
 
     const v3, 0x4b3402
 
     const/4 v4, 0x0
 
-    :try_start_2e
     invoke-interface {v0, v3, v1, v2, v4}, Landroid/os/IBinder;->transact(ILandroid/os/Parcel;Landroid/os/Parcel;I)Z
-    :try_end_31
-    .catchall {:try_start_2e .. :try_end_31} :catchall_38
+    :try_end_36
+    .catchall {:try_start_2a .. :try_end_36} :catchall_3d
 
-    :try_start_31
+    :try_start_36
     invoke-virtual {v1}, Landroid/os/Parcel;->recycle()V
 
     invoke-virtual {v2}, Landroid/os/Parcel;->recycle()V
 
     return-void
 
-    :catchall_38
+    :catchall_3d
     move-exception v0
 
     invoke-virtual {v1}, Landroid/os/Parcel;->recycle()V
@@ -332,10 +336,10 @@
     invoke-virtual {v2}, Landroid/os/Parcel;->recycle()V
 
     throw v0
-    :try_end_40
-    .catchall {:try_start_31 .. :try_end_40} :catchall_40
+    :try_end_45
+    .catchall {:try_start_36 .. :try_end_45} :catchall_45
 
-    :catchall_40
+    :catchall_45
     move-exception v0
 
     new-instance v1, Ljava/lang/StringBuilder;
@@ -354,7 +358,7 @@
 
     invoke-static {v1, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    :goto_54
+    :goto_59
     return-void
 .end method
 

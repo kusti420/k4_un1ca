@@ -243,7 +243,10 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
                     .invoke(null, "vendor.samsung.hardware.media.mpp.ISehMppStore/k4front");
             if (b == null) return;
             android.os.Parcel data = android.os.Parcel.obtain(), reply = android.os.Parcel.obtain();
-            try { b.transact(0x4B3402, data, reply, 0); } finally { data.recycle(); reply.recycle(); }
+            try {
+                data.writeInterfaceToken("vendor.samsung.hardware.media.mpp.ISehMppStore");     // the NDK binder class checks it
+                b.transact(0x4B3402, data, reply, 0);
+            } finally { data.recycle(); reply.recycle(); }
         } catch (Throwable t) { Log.w(TAG, "save: could not announce the recording to the neural front: " + t); }
     }
 
