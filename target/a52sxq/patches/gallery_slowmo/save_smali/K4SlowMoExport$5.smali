@@ -39,42 +39,17 @@
 
 # virtual methods
 .method public blacklist run()V
-    .registers 4
-
-    :goto_0
-    const-wide/16 v0, 0x3e8
-
-    :try_start_2
-    invoke-static {v0, v1}, Ljava/lang/Thread;->sleep(J)V
+    .registers 3
 
     sget-object v0, Ljava/lang/System;->out:Ljava/io/PrintStream;
 
-    new-instance v1, Ljava/lang/StringBuilder;
-
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
-
-    const-string v2, "K4E progress "
-
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    iget-object v2, p0, Lcom/k4/media/K4SlowMoExport$5;->val$e:Lcom/k4/media/K4SlowMoExport;
-
-    invoke-virtual {v2}, Lcom/k4/media/K4SlowMoExport;->getProgress()F
-
-    move-result v2
-
-    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
-
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object v1
+    const-string v1, "K4E cancel"
 
     invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
-    :try_end_21
-    .catch Ljava/lang/InterruptedException; {:try_start_2 .. :try_end_21} :catch_22
 
-    goto :goto_0
+    iget-object p0, p0, Lcom/k4/media/K4SlowMoExport$5;->val$e:Lcom/k4/media/K4SlowMoExport;
 
-    :catch_22
+    invoke-virtual {p0}, Lcom/k4/media/K4SlowMoExport;->cancel()V
+
     return-void
 .end method

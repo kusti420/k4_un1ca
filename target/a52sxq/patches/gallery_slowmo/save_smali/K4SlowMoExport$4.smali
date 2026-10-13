@@ -2,7 +2,7 @@
 .super Ljava/lang/Object;
 
 # interfaces
-.implements Ljava/lang/Runnable;
+.implements Lcom/k4/media/K4SlowMoExport$Listener;
 
 
 # annotations
@@ -17,19 +17,19 @@
 
 
 # instance fields
-.field final synthetic blacklist val$e:Lcom/k4/media/K4SlowMoExport;
+.field final synthetic blacklist val$t0:J
 
 
 # direct methods
-.method constructor blacklist <init>(Lcom/k4/media/K4SlowMoExport;)V
-    .registers 2
+.method constructor blacklist <init>(J)V
+    .registers 3
     .annotation system Ldalvik/annotation/Signature;
         value = {
             "()V"
         }
     .end annotation
 
-    iput-object p1, p0, Lcom/k4/media/K4SlowMoExport$4;->val$e:Lcom/k4/media/K4SlowMoExport;
+    iput-wide p1, p0, Lcom/k4/media/K4SlowMoExport$4;->val$t0:J
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -38,18 +38,52 @@
 
 
 # virtual methods
-.method public blacklist run()V
-    .registers 3
+.method public blacklist onFinished(Lcom/k4/media/K4SlowMoExport;ZLjava/lang/String;)V
+    .registers 9
 
-    sget-object v0, Ljava/lang/System;->out:Ljava/io/PrintStream;
+    sget-object p1, Ljava/lang/System;->out:Ljava/io/PrintStream;
 
-    const-string v1, "K4E cancel"
+    new-instance v0, Ljava/lang/StringBuilder;
 
-    invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+    const-string v1, "K4E finished ok="
 
-    iget-object p0, p0, Lcom/k4/media/K4SlowMoExport$4;->val$e:Lcom/k4/media/K4SlowMoExport;
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
-    invoke-virtual {p0}, Lcom/k4/media/K4SlowMoExport;->cancel()V
+    invoke-virtual {v0, p2}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+
+    const-string v1, " "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string p3, " after "
+
+    invoke-virtual {v0, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+
+    move-result-wide v1
+
+    iget-wide v3, p0, Lcom/k4/media/K4SlowMoExport$4;->val$t0:J
+
+    sub-long/2addr v1, v3
+
+    invoke-virtual {v0, v1, v2}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+
+    const-string p0, " ms"
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p0
+
+    invoke-virtual {p1, p0}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
+
+    xor-int/lit8 p0, p2, 0x1
+
+    invoke-static {p0}, Ljava/lang/System;->exit(I)V
 
     return-void
 .end method
