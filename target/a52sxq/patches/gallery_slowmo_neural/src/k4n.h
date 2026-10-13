@@ -39,3 +39,8 @@ void k4n_flow_from_fm(K4nSession* s, const float* fm, const float* netPrev, cons
 void k4n_last_stats(const K4nSession* s, float* src, float* warp, float* flow);
 // frame at time tpos (0 = prev, 1 = next) from two packed NV12 frames (stride = w)
 void k4n_warp(const K4nSession* s, const uint8_t* prev, const uint8_t* next, uint8_t* out, float tpos);
+// the same, written into an NV12 buffer with its own stride (oy: luma rows, ouv: chroma rows)
+void k4n_warp_to(const K4nSession* s, const uint8_t* prev, const uint8_t* next, uint8_t* oy, uint8_t* ouv, int ostride, float tpos);
+// scheduling of a thread that does frame work (big = keep it on the big cores); the engine's own threads call it
+void k4n_thread_setup(int big);
+extern int k4n_warp_scalar;     // 1: reference C warp (tests)

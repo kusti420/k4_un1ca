@@ -76,13 +76,19 @@ typedef struct { int id; long long ts; int flag; } InItem;
 typedef struct Pipe {
     pthread_mutex_t mu; pthread_cond_t cv; pthread_t th; int th_started, quit, flushing, busy;
     AIBinder* cb;
-    int w, h, stride, elev, factor, range_factor;
+    int w, h, stride, elev, factor, range_factor, hold_factor;
     Buf in[MAXBUF], out[MAXBUF]; int out_free[MAXBUF];
     InItem q[MAXBUF]; int qn;
-    K4nSession* ses;
-    uint8_t *prev, *cur; float *nprev, *ncur; int have_prev; long long prev_ts;
+    // Two stages: the pipe thread loads a frame and runs the network for the pair (prev, cur); the output thread warps
+    // and hands out the frames of the pair before. One pair per stage at most, so three frames and two flow sets.
+    K4nSession *ses, *ses_b;
+    uint8_t *prev, *cur, *spare; float *nprev, *ncur; int have_prev, have_ts; long long prev_ts;
+    pthread_t oth; int oth_started, out_busy, work_has, pipelined; struct Work { const uint8_t *prev, *cur; K4nSession* ses; long long ts0, ts1; int factor, repeat; double ms_inf; } work;
     // statistics of this hold
-    int n_in, n_out, n_gen, n_repeat; double ms_inf, ms_warp, ms_prep, t_first_in, t_first_out, t_init, t_last; float max_flow;
+    int n_in, n_out, n_gen, n_repeat, n_pairs;
+    // one hold (factor > 1): when each frame was handed to the player. The player returns an output buffer when it has
+    // queued a frame for display, so these intervals follow the display cadence unless this pipe is the slow part.
+    struct { int active, factor, n, waited, late50, late100, repeats; double t0, t_prev, max_gap, max_inf, max_warp, max_pair; float gap[2048]; } hs; double ms_inf, ms_warp, ms_prep, t_first_in, t_first_out, t_init, t_last; float max_flow;
 } Pipe;
 
 static void write_ok(AParcel* out) { AStatus* s = AStatus_newOk(); AParcel_writeStatusHeader(out, s); AStatus_delete(s); }
@@ -99,14 +105,37 @@ static void cb_send(Pipe* p, int code, int nargs, int id, long long ts, int flag
     if (in) AParcel_delete(in);
 }
 
+static void hold_frame(Pipe* p, int factor, int waited);
+// Event trace of a hold (K4N_TRACE=<file>): one line per event, "ms kind a b value". Kinds: I input queued (id, queue
+// length), F output buffer returned (id, free buffers), P load+prep ms, N inference ms, O post-processing ms, H ms the
+// network stage waited for the output stage, W warp ms (k), C copy ms, E frame handed out (kind 0 generated / 1 source /
+// 2 guard repeat, free buffers left, ms waited for a buffer).
+static struct { pthread_mutex_t mu; const char* path; int n, cap; struct TrEv { double t; char k; int a, b; float v; } *e; } TR = { .mu = PTHREAD_MUTEX_INITIALIZER };
+static void tr(char k, int a, int b, double v) {
+    if (!TR.path) return;
+    pthread_mutex_lock(&TR.mu);
+    if (!TR.e) { TR.cap = 1 << 16; TR.e = malloc(sizeof(struct TrEv) * TR.cap); }
+    if (TR.e && TR.n < TR.cap) TR.e[TR.n++] = (struct TrEv) { k4n_now_ms(), k, a, b, (float) v };
+    pthread_mutex_unlock(&TR.mu);
+}
+static void tr_dump(const char* head) {
+    if (!TR.path) return;
+    pthread_mutex_lock(&TR.mu);
+    FILE* f = fopen(TR.path, "a");
+    if (f) { fprintf(f, "# %s\n", head); for (int i = 0; i < TR.n; i++) fprintf(f, "%.2f %c %d %d %.2f\n", TR.e[i].t, TR.e[i].k, TR.e[i].a, TR.e[i].b, TR.e[i].v); fclose(f); }
+    TR.n = 0;
+    pthread_mutex_unlock(&TR.mu);
+}
+static int free_outs(Pipe* p) { int n = 0; pthread_mutex_lock(&p->mu); for (int i = 0; i < MAXBUF; i++) n += p->out_free[i] && p->out[i].valid; pthread_mutex_unlock(&p->mu); return n; }
 // wait for a free output buffer; -1 when the pipe is flushing/quitting
-static int take_out(Pipe* p) {
-    int id = -1;
+static int take_out(Pipe* p, int* waited) {
+    int id = -1; if (waited) *waited = 0;
     pthread_mutex_lock(&p->mu);
     for (;;) {
         if (p->quit || p->flushing) break;
         for (int i = 0; i < MAXBUF; i++) if (p->out_free[i] && p->out[i].valid) { id = i; p->out_free[i] = 0; break; }
         if (id >= 0) break;
+        if (waited) *waited = 1;
         pthread_cond_wait(&p->cv, &p->mu);
     }
     pthread_mutex_unlock(&p->mu);
@@ -132,30 +161,137 @@ static void load_nv12(const Pipe* p, const uint8_t* src, uint8_t* packed) {
     const uint8_t* s = src + (size_t) p->stride * p->elev; uint8_t* uv = packed + (size_t) p->w * p->h;
     for (int y = 0; y < p->h / 2; y++) memcpy(uv + (size_t) y * p->w, s + (size_t) y * p->stride, p->w);
 }
-static int emit(Pipe* p, const uint8_t* packed, long long ts, int flag) {
-    int id = take_out(p);
+static int emit(Pipe* p, const uint8_t* packed, long long ts, int flag, int hold, int kind) {
+    double t0 = k4n_now_ms(); int waited = 0, id = take_out(p, &waited);
     if (id < 0) return -1;
-    if (packed) store_nv12(p, packed, &p->out[id]);
+    double t1 = k4n_now_ms();
+    if (hold > 1 && flag == FLAG_FRAME) hold_frame(p, hold, waited);
+    if (packed) { store_nv12(p, packed, &p->out[id]); tr('C', 0, 0, k4n_now_ms() - t1); }
     if (!p->n_out) p->t_first_out = k4n_now_ms();
     p->n_out++; p->t_last = k4n_now_ms();
     cb_send(p, 2, 3, id, ts, flag);
+    if (TR.path && hold > 1) tr('E', kind, free_outs(p), t1 - t0);
+    return 0;
+}
+// a generated frame, warped straight into the output buffer. *ms = time of the warp
+static int emit_warp(Pipe* p, const struct Work* w, float t, long long ts, int k, double* ms) {
+    double t0 = k4n_now_ms(); int waited = 0, id = take_out(p, &waited);
+    if (id < 0) return -1;
+    double t1 = k4n_now_ms(); const Buf* o = &p->out[id];
+    if (o->dmabuf) dmabuf_sync(o->fd, 0);
+    k4n_warp_to(w->ses, w->prev, w->cur, o->p, o->p + (size_t) o->stride * o->scan, o->stride, t);
+    if (o->dmabuf) dmabuf_sync(o->fd, 1);
+    *ms = k4n_now_ms() - t1; tr('W', k, 0, *ms);
+    pthread_mutex_lock(&p->mu); int drop = p->flushing || p->quit; if (drop) p->out_free[id] = 1; pthread_mutex_unlock(&p->mu);
+    if (drop) return -1;                                                            // flushed meanwhile: the buffer stays ours
+    hold_frame(p, w->factor, waited);
+    if (!p->n_out) p->t_first_out = k4n_now_ms();
+    p->n_out++; p->t_last = k4n_now_ms();
+    cb_send(p, 2, 3, id, ts, FLAG_FRAME);
+    if (TR.path) tr('E', 0, free_outs(p), t1 - t0);
     return 0;
 }
 
+// pass-through (no hold): input buffer -> output buffer in one copy
+static int emit_direct(Pipe* p, const Buf* in, long long ts) {
+    int id = take_out(p, NULL);
+    if (id < 0) return -1;
+    const Buf* o = &p->out[id]; const uint8_t* sy = in->p; const uint8_t* suv = in->p + (size_t) p->stride * p->elev; uint8_t* duv = o->p + (size_t) o->stride * o->scan;
+    if (o->dmabuf) dmabuf_sync(o->fd, 0);
+    if (o->stride == p->stride) { memcpy(o->p, sy, (size_t) p->stride * p->h); memcpy(duv, suv, (size_t) p->stride * (p->h / 2)); }
+    else { for (int y = 0; y < p->h; y++) memcpy(o->p + (size_t) y * o->stride, sy + (size_t) y * p->stride, p->w);
+           for (int y = 0; y < p->h / 2; y++) memcpy(duv + (size_t) y * o->stride, suv + (size_t) y * p->stride, p->w); }
+    if (o->dmabuf) dmabuf_sync(o->fd, 1);
+    if (!p->n_out) p->t_first_out = k4n_now_ms();
+    p->n_out++; p->t_last = k4n_now_ms();
+    if (k4n_verbose > 2) K4N_LOG("out id %d ts %lld (direct)", id, ts);
+    cb_send(p, 2, 3, id, ts, FLAG_FRAME);
+    return 0;
+}
+
+static int cmp_float(const void* a, const void* b) { float x = *(const float*) a, y = *(const float*) b; return x < y ? -1 : x > y; }
+static void hold_frame(Pipe* p, int factor, int waited) {      // called for every frame emitted while factor > 1
+    double now = k4n_now_ms();
+    if (!p->hs.active) { memset(&p->hs, 0, sizeof p->hs); p->hs.active = 1; p->hs.t0 = now; }
+    else { double g = now - p->hs.t_prev; if (p->hs.n < 2048) p->hs.gap[p->hs.n] = (float) g; if (g > p->hs.max_gap) p->hs.max_gap = g; if (g > 50) p->hs.late50++; if (g > 100) p->hs.late100++; p->hs.n++; }
+    p->hs.t_prev = now; p->hs.factor = factor; p->hs.waited += waited;
+}
+static void hold_end(Pipe* p, const char* why) {
+    if (!p->hs.active) return;
+    p->hs.active = 0;
+    int n = p->hs.n < 2048 ? p->hs.n : 2048; if (n < 2) return;
+    // the first two intervals belong to the start of the hold (first pair + the player's own start-up)
+    double start = p->hs.gap[0] + p->hs.gap[1]; float* g = p->hs.gap + 2; n -= 2; double sum = 0, mx = 0; int l50 = 0;
+    for (int i = 0; i < n; i++) { sum += g[i]; if (g[i] > mx) mx = g[i]; if (g[i] > 50) l50++; }
+    qsort(g, n, sizeof(float), cmp_float);
+    K4N_LOG("hold stats (%s): x%d %dx%d, %d frames in %.1f s = %.1f fps; frame intervals after the start: median %.0f ms, 95%% %.0f ms, max %.0f ms, %d over 50 ms; "
+            "start-up %.0f ms; pipe was ahead of the player for %d%% of the frames; worst pair: inference %.0f ms, warp %.0f ms/frame, total %.0f ms; guard repeats %d",
+            why, p->hs.factor, p->w, p->h, p->hs.n + 1, (p->hs.t_prev - p->hs.t0) / 1000.0, n > 0 ? 1000.0 * n / sum : 0.0,
+            n ? g[n / 2] : 0.0, n ? g[(int) (n * 0.95)] : 0.0, mx, l50, start, 100 * p->hs.waited / (p->hs.n + 1),
+            p->hs.max_inf, p->hs.max_warp, p->hs.max_pair, p->hs.repeats);
+    { char head[128]; snprintf(head, sizeof head, "hold %s x%d %dx%d frames %d pipelined %d", why, p->hs.factor, p->w, p->h, p->hs.n + 1, p->pipelined); tr_dump(head); }
+}
+
 static void log_summary(Pipe* p, const char* why) {
+    hold_end(p, why);
     if (!p->n_in) return;
     double span = p->t_last - p->t_first_out;
     K4N_LOG("pipe summary (%s): neural, last factor x%d, %dx%d, %d in -> %d out (%d generated, %d repeated by the guard), %.1f fps out, "
             "first frame after %.0f ms (engine init %.0f ms), per pair: prep %.1f + inference %.1f ms, warp %.1f ms/frame, max mean flow %.1f px",
             why, p->factor, p->w, p->h, p->n_in, p->n_out, p->n_gen, p->n_repeat, span > 0 ? (p->n_out - 1) * 1000.0 / span : 0.0,
-            p->t_first_out - p->t_first_in, p->t_init, p->n_in > 1 ? p->ms_prep / p->n_in : 0.0, p->n_in > 1 ? p->ms_inf / (p->n_in - 1) : 0.0,
+            p->t_first_out - p->t_first_in, p->t_init, p->n_pairs ? p->ms_prep / p->n_pairs : 0.0, p->n_pairs ? p->ms_inf / p->n_pairs : 0.0,
             p->n_gen ? p->ms_warp / p->n_gen : 0.0, p->max_flow);
-    p->n_in = p->n_out = p->n_gen = p->n_repeat = 0; p->ms_inf = p->ms_warp = p->ms_prep = 0; p->max_flow = 0;
+    p->n_in = p->n_out = p->n_gen = p->n_repeat = p->n_pairs = 0; p->ms_inf = p->ms_warp = p->ms_prep = 0; p->max_flow = 0;
+}
+
+// output stage: the frames of one pair (generated ones, then the newer source frame), in order
+static void out_pair(Pipe* p, const struct Work* w) {
+    int failed = 0; double wsum = 0;
+    if (w->prev) {
+        for (int k = 1; k < w->factor && !failed; k++) {
+            float t = (float) k / w->factor; long long ts = w->ts0 + (w->ts1 - w->ts0) * k / w->factor;
+            if (w->repeat) { p->n_repeat++; failed = emit(p, t < 0.5f ? w->prev : w->cur, ts, FLAG_FRAME, w->factor, 2) < 0; if (!failed) p->hs.repeats++; }
+            else { double ms = 0; failed = emit_warp(p, w, t, ts, k, &ms) < 0; if (!failed) { p->ms_warp += ms; wsum += ms; if (ms > p->hs.max_warp) p->hs.max_warp = ms; p->n_gen++; } }
+        }
+    }
+    if (!failed) failed = emit(p, w->cur, w->ts1, FLAG_FRAME, w->factor, 1) < 0;
+    if (w->prev && p->hs.active) { if (w->ms_inf > p->hs.max_inf) p->hs.max_inf = w->ms_inf; if (w->ms_inf + wsum > p->hs.max_pair) p->hs.max_pair = w->ms_inf + wsum; }  // computing only, without waiting for buffers
+}
+static void* out_main(void* arg) {
+    Pipe* p = arg; k4n_thread_setup(1);
+    for (;;) {
+        struct Work w;
+        pthread_mutex_lock(&p->mu);
+        p->out_busy = 0; pthread_cond_broadcast(&p->cv);
+        while (!p->quit && !p->work_has) pthread_cond_wait(&p->cv, &p->mu);
+        if (p->quit) { pthread_mutex_unlock(&p->mu); break; }
+        w = p->work; p->work_has = 0; p->out_busy = 1; int drop = p->flushing;
+        pthread_mutex_unlock(&p->mu);
+        if (!drop) out_pair(p, &w);
+    }
+    return NULL;
+}
+// wait until the output stage has handed out everything it was given; -1 when the pipe is flushing/quitting
+static int out_idle(Pipe* p) {
+    pthread_mutex_lock(&p->mu);
+    while ((p->work_has || p->out_busy) && !p->quit && !p->flushing) pthread_cond_wait(&p->cv, &p->mu);
+    int r = p->quit || p->flushing ? -1 : 0;
+    pthread_mutex_unlock(&p->mu);
+    return r;
+}
+// give one pair to the output stage. It has to be idle first: it still reads the buffers that the next pair overwrites.
+static int out_submit(Pipe* p, const struct Work* w) {
+    if (!p->pipelined) { out_pair(p, w); return 0; }
+    double t0 = k4n_now_ms();
+    if (out_idle(p) < 0) return -1;
+    tr('H', 0, 0, k4n_now_ms() - t0);
+    pthread_mutex_lock(&p->mu); p->work = *w; p->work_has = 1; pthread_cond_broadcast(&p->cv); pthread_mutex_unlock(&p->mu);
+    return 0;
 }
 
 static void* pipe_main(void* arg) {
-    Pipe* p = arg; size_t fsz = (size_t) p->w * p->h * 3 / 2;
-    uint8_t* gen = malloc(fsz);
+    Pipe* p = arg;
+    k4n_thread_setup(1);
     for (;;) {
         InItem it;
         pthread_mutex_lock(&p->mu);
@@ -165,47 +301,54 @@ static void* pipe_main(void* arg) {
         it = p->q[0]; memmove(p->q, p->q + 1, sizeof(InItem) * --p->qn); p->busy = 1;
         pthread_mutex_unlock(&p->mu);
         if (!p->n_in) p->t_first_in = k4n_now_ms();
-        int marker_only = (it.flag & FLAG_EOS) && p->have_prev && it.ts <= p->prev_ts;    // end marker that repeats the last time stamp
+        int marker_only = (it.flag & FLAG_EOS) && p->have_ts && it.ts <= p->prev_ts;    // end marker that repeats the last time stamp
         int bad = it.id < 0 || it.id >= MAXBUF || !p->in[it.id].valid;
-        if (!marker_only && !bad) {
+        pthread_mutex_lock(&p->mu); int factor = p->factor; pthread_mutex_unlock(&p->mu);
+        if (factor <= 1 || marker_only || bad) out_idle(p);                           // everything below this line that hands out frames itself comes after the pairs
+        if (factor <= 1 && p->hs.active) hold_end(p, "released");
+        p->hold_factor = factor;
+        int failed = 0, direct = factor <= 1 && !marker_only && !bad;
+        if (direct) {                                                               // not held: no copy of our own, no network input
+            failed = emit_direct(p, &p->in[it.id], it.ts) < 0;
+            p->have_prev = 0;
+        } else if (!marker_only && !bad) {
             double t0 = k4n_now_ms();
             load_nv12(p, p->in[it.id].p, p->cur);
             k4n_prep(p->ses, p->cur, p->w, p->ncur);
-            p->ms_prep += k4n_now_ms() - t0;
+            p->ms_prep += k4n_now_ms() - t0; tr('P', 0, 0, k4n_now_ms() - t0);
         }
         cb_send(p, 1, 1, it.id, 0, 0);                                              // input buffer is free again
         if (bad) continue;
         p->n_in++;
-        int failed = 0;
-        if (!marker_only) {
-            pthread_mutex_lock(&p->mu); int factor = p->factor; pthread_mutex_unlock(&p->mu);
-            if (p->have_prev && factor > 1) {
+        if (!marker_only && !direct) {
+            struct Work w = { .prev = NULL, .cur = p->cur, .ses = p->ses, .ts0 = p->prev_ts, .ts1 = it.ts, .factor = factor };
+            if (p->have_prev) {
                 double ms[2] = { 0, 0 }; float src = 0, wrp = 0, flow = 0;
                 int ok = k4n_infer(p->ses, p->nprev, p->ncur, ms) == 0;
-                if (ok) { p->ms_inf += ms[0] + ms[1]; k4n_last_stats(p->ses, &src, &wrp, &flow); if (flow > p->max_flow) p->max_flow = flow; }
+                if (ok) { p->ms_inf += ms[0] + ms[1]; p->n_pairs++; k4n_last_stats(p->ses, &src, &wrp, &flow); if (flow > p->max_flow) p->max_flow = flow; }
+                tr('N', 0, 0, ms[0]); tr('O', 0, 0, ms[1]);
                 // guard: scene cut or flows that do not explain the change -> repeat the nearer source frame
                 // (PC calibration, 1080p: 22 good pairs src <= 0.066, warp/src 0.18..0.91; 8 scene cuts src >= 0.156, warp/src >= 0.94)
-                int repeat = !ok || (src > 0.10f && wrp > 0.85f * src);
-                if (k4n_verbose > 1) K4N_LOG("pair ts %lld..%lld: |src| %.4f |warp| %.4f flow %.2f px, inference %.1f+%.1f ms%s", p->prev_ts, it.ts, src, wrp, flow, ms[0], ms[1], repeat ? " -> REPEAT" : "");
-                for (int k = 1; k < factor && !failed; k++) {
-                    float t = (float) k / factor; long long ts = p->prev_ts + (it.ts - p->prev_ts) * k / factor;
-                    if (repeat) { p->n_repeat++; failed = emit(p, t < 0.5f ? p->prev : p->cur, ts, FLAG_FRAME) < 0; }
-                    else { double t0 = k4n_now_ms(); k4n_warp(p->ses, p->prev, p->cur, gen, t); p->ms_warp += k4n_now_ms() - t0; p->n_gen++; failed = emit(p, gen, ts, FLAG_FRAME) < 0; }
-                }
+                w.repeat = !ok || (src > 0.10f && wrp > 0.85f * src);
+                if (k4n_verbose > 1) K4N_LOG("pair ts %lld..%lld: |src| %.4f |warp| %.4f flow %.2f px, inference %.1f+%.1f ms%s", p->prev_ts, it.ts, src, wrp, flow, ms[0], ms[1], w.repeat ? " -> REPEAT" : "");
+                w.prev = p->prev; w.ms_inf = ms[0] + ms[1];
             }
-            if (!failed) failed = emit(p, p->cur, it.ts, FLAG_FRAME) < 0;
-            uint8_t* t8 = p->prev; p->prev = p->cur; p->cur = t8; float* tf = p->nprev; p->nprev = p->ncur; p->ncur = tf;
-            p->have_prev = 1; p->prev_ts = it.ts;
+            failed = out_submit(p, &w) < 0;
+            // the output stage now reads prev and cur and this flow set: the next frame goes into the third buffer and the other set
+            uint8_t* t8 = p->spare; p->spare = p->prev; p->prev = p->cur; p->cur = t8; float* tf = p->nprev; p->nprev = p->ncur; p->ncur = tf;
+            K4nSession* ts = p->ses; p->ses = p->ses_b; p->ses_b = ts;
+            p->have_prev = 1;
         }
-        if ((it.flag & FLAG_EOS) && !failed) { emit(p, p->have_prev ? p->prev : NULL, it.ts, FLAG_EOS); log_summary(p, "end of stream"); }
+        if (!marker_only) { p->have_ts = 1; p->prev_ts = it.ts; }
+        if (it.flag & FLAG_EOS) { if (out_idle(p) == 0 && !failed) emit(p, p->have_prev ? p->prev : NULL, it.ts, FLAG_EOS, 0, 1); log_summary(p, "end of stream"); }
     }
-    free(gen);
     return NULL;
 }
 
 static void pipe_stop(Pipe* p) {
     pthread_mutex_lock(&p->mu); p->quit = 1; pthread_cond_broadcast(&p->cv); pthread_mutex_unlock(&p->mu);
     if (p->th_started) { pthread_join(p->th, NULL); p->th_started = 0; }
+    if (p->oth_started) { pthread_join(p->oth, NULL); p->oth_started = 0; }
 }
 static void pipe_free_bufs(Pipe* p) {
     for (int i = 0; i < MAXBUF; i++) {
@@ -219,7 +362,7 @@ static void pipe_destroy(void* ud) {
     pipe_stop(p); log_summary(p, "pipe released"); engine_touch(-1);
     pipe_free_bufs(p);
     if (p->cb) AIBinder_decStrong(p->cb);
-    k4n_session_destroy(p->ses); free(p->prev); free(p->cur); free(p->nprev); free(p->ncur);
+    k4n_session_destroy(p->ses); k4n_session_destroy(p->ses_b); free(p->prev); free(p->cur); free(p->spare); free(p->nprev); free(p->ncur);
     pthread_mutex_destroy(&p->mu); pthread_cond_destroy(&p->cv); free(p);
 }
 
@@ -284,9 +427,13 @@ static binder_status_t mpp_tx(AIBinder* b, transaction_code_t code, const AParce
         p->factor = p->range_factor ? p->range_factor : 4;      // clients without range infos (probe): x4
         if (getenv("K4N_FACTOR")) p->factor = atoi(getenv("K4N_FACTOR"));
         size_t fsz = (size_t) w * h * 3 / 2;
-        p->ses = k4n_session_create(w, h); p->prev = malloc(fsz); p->cur = malloc(fsz);
+        p->ses = k4n_session_create(w, h); p->ses_b = k4n_session_create(w, h); p->prev = malloc(fsz); p->cur = malloc(fsz); p->spare = malloc(fsz);
         p->nprev = malloc(sizeof(float) * 960 * 544); p->ncur = malloc(sizeof(float) * 960 * 544);
+        // both switches are read per pipe, so a setprop applies to the next hold without restarting the daemon
+        p->pipelined = getenv("K4N_PIPELINE") ? atoi(getenv("K4N_PIPELINE")) : prop_int("persist.sys.k4.slowmo_pipeline", 1);
+        k4n_warp_scalar = getenv("K4N_WARP_SCALAR") ? 1 : !prop_int("persist.sys.k4.slowmo_neon", 1); p->work_has = p->out_busy = 0;
         pthread_create(&p->th, NULL, pipe_main, p); p->th_started = 1;
+        if (p->pipelined) { pthread_create(&p->oth, NULL, out_main, p); p->oth_started = 1; }
         write_ok(out); AParcel_writeInt32(out, 1); AParcel_writeInt32(out, 4 + 7 * 4);
         int32_t om[7] = { w, h, stride, elev, m[4], (int32_t) ((size_t) stride * elev * 3 / 2), CF_NV12 };
         for (int i = 0; i < 7; i++) AParcel_writeInt32(out, om[i]);
@@ -321,6 +468,7 @@ static binder_status_t mpp_tx(AIBinder* b, transaction_code_t code, const AParce
         if (k4n_verbose > 1) K4N_LOG("emptyBuffer id %d ts %lld flag %d", a, (long long) ts, c);
         pthread_mutex_lock(&p->mu);
         if (p->qn < MAXBUF) { p->q[p->qn++] = (InItem) { a, ts, c }; d = 1; }
+        if (p->hold_factor > 1 || p->factor > 1) tr('I', a, p->qn, 0);
         pthread_cond_broadcast(&p->cv); pthread_mutex_unlock(&p->mu);
         if (!d) return write_err(out, -12);
         write_ok(out); return STATUS_OK;
@@ -328,6 +476,8 @@ static binder_status_t mpp_tx(AIBinder* b, transaction_code_t code, const AParce
         AParcel_readInt32(in, &a);
         if (!p->th_started || a < 0 || a >= MAXBUF) return write_err(out, -22);
         pthread_mutex_lock(&p->mu); p->out_free[a] = 1; pthread_cond_broadcast(&p->cv); pthread_mutex_unlock(&p->mu);
+        if (TR.path && p->hold_factor > 1) tr('F', a, free_outs(p), 0);
+        if (k4n_verbose > 2) K4N_LOG("fillBuffer id %d", a);
         write_ok(out); return STATUS_OK;
     case 6: case 7: {   // flush / reset
         K4N_LOG(code == 6 ? "flush" : "reset");
@@ -336,17 +486,17 @@ static binder_status_t mpp_tx(AIBinder* b, transaction_code_t code, const AParce
             InItem q[MAXBUF]; int n;
             pthread_mutex_lock(&p->mu);
             p->flushing = 1; pthread_cond_broadcast(&p->cv);
-            while (p->busy) pthread_cond_wait(&p->cv, &p->mu);
+            while (p->busy || p->out_busy || p->work_has) pthread_cond_wait(&p->cv, &p->mu);
             n = p->qn; memcpy(q, p->q, sizeof(InItem) * n); p->qn = 0;
             pthread_mutex_unlock(&p->mu);
             for (int i = 0; i < n; i++) cb_send(p, 1, 1, q[i].id, 0, 0);
             if (code == 7) {    // back to the state before init()
                 pipe_stop(p); log_summary(p, "reset"); pipe_free_bufs(p);
-                k4n_session_destroy(p->ses); p->ses = NULL; free(p->prev); free(p->cur); free(p->nprev); free(p->ncur); p->prev = p->cur = NULL; p->nprev = p->ncur = NULL;
+                k4n_session_destroy(p->ses); k4n_session_destroy(p->ses_b); p->ses = p->ses_b = NULL; free(p->prev); free(p->cur); free(p->spare); free(p->nprev); free(p->ncur); p->prev = p->cur = p->spare = NULL; p->nprev = p->ncur = NULL;
                 if (p->cb) { AIBinder_decStrong(p->cb); p->cb = NULL; }
                 p->quit = 0;
             }
-            pthread_mutex_lock(&p->mu); p->have_prev = 0; p->flushing = 0; pthread_cond_broadcast(&p->cv); pthread_mutex_unlock(&p->mu);
+            pthread_mutex_lock(&p->mu); p->have_prev = 0; p->have_ts = 0; p->flushing = 0; pthread_cond_broadcast(&p->cv); pthread_mutex_unlock(&p->mu);
         }
         write_ok(out);
         if (code == 6) cb_send(p, 3, 0, 0, 0, 0);
@@ -470,7 +620,7 @@ static binder_status_t store_tx(AIBinder* b, transaction_code_t code, const APar
         int32_t pos = AParcel_getDataPosition(in), type = 0; AParcel_readInt32(in, &type); AParcel_setDataPosition(in, pos);
         if (type == TYPE_FRC) { pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED); pthread_create(&t, &at, warm_main, NULL); }
     }
-    if (code == TX_K4_WARMUP) { pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED); pthread_create(&t, &at, warm_main, NULL); return STATUS_OK; }
+    if (code == TX_K4_WARMUP) { K4N_LOG("warm-up requested (uid %d): engine %s", (int) AIBinder_getCallingUid(), k4n_engine_ready() ? "already built" : "is being built"); pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED); pthread_create(&t, &at, warm_main, NULL); return STATUS_OK; }
     if (code == 1) {
         int32_t pos = AParcel_getDataPosition(in), type = 0; AParcel_readInt32(in, &type); AParcel_setDataPosition(in, pos);
         int mode = neural_mode(); char err[256] = "";
@@ -553,6 +703,7 @@ int main(int argc, char** argv) {
     // Register first and never exit afterwards: the system MPP client blocks in waitForService() for a declared
     // instance, so this process has to be there even when the classic store or the neural engine is not.
     g_stock_name = stock;
+    TR.path = getenv("K4N_TRACE"); if (getenv("K4N_WARP_SCALAR")) k4n_warp_scalar = 1;
     g_vintf = !getenv("K4N_NO_VINTF");      // test registrations under a name that is not in the VINTF manifest
     AIBinder* self = AIBinder_new(cStore, NULL); if (g_vintf) markVintf(self);
     binder_exception_t e = sm_addService(self, serve);
