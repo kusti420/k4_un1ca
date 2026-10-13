@@ -21,4 +21,14 @@
     <dimen name="status_bar_camera_top_margin">2.0485mm</dimen>
     <dimen name="status_bar_height_portrait">5.3985mm</dimen>
     <dimen name="status_bar_indicator_corner_padding">4.4679mm</dimen>
+    <!-- k4: SystemUI IndicatorScaleGardener.getLatestScaleModel() takes this ratio as is when it is >= 0.75 and then
+         never calls getMaxRatio(), which reads IndicatorGardenPresenter.cachedGardenModel. That model is half updated
+         while a resolution switch (Display > Screen resolution) is delivered - new status bar height, camera top
+         margin of the previous resolution - and callers that sample the ratio at that moment keep a wrong one until
+         SystemUI restarts: the status bar notification icons were 20 % smaller at HD+ / 540p (ratio clamped to 0.75)
+         and 9 % larger after switching back to FHD+ (0.934) than after a boot. 0.8588 = (88 px status bar - 33 px
+         camera top margin) / 68 px (24dp) + 0.05, the value the A52s settles on at FHD+ (see
+         patches/statusbar_icon_size), so clock, battery and status icons keep their FHD+ size; HD+ (was 0.872) and
+         540p (was 0.844) become identical to it. Side effect: the ratio no longer rises in landscape. -->
+    <dimen name="status_bar_scale_garden_fixed_ratio">0.8588</dimen>
 </resources>

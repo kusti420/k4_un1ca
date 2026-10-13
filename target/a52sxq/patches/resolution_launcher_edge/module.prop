@@ -1,0 +1,4 @@
+id=a52sxq_resolution_launcher_edge
+name=Galaxy A52s 5G: edge panel handle window follows Display > Screen resolution
+author=kusti420
+description=UNTESTED-ON-DEVICE. One UI Home (edge panel CocktailBarService) sizes the edge-handle window with two raw pixel dimens: window_width_on_trigger = 80px and touch_minimum_width = 41px. Measured with resaudit: the handle window stays 80 px wide at every resolution (80 / 120 / 160 native px) and the touchable strip at the screen edge is 47 native px at FHD+, 60 at HD+ and 80 at 540p, i.e. the strip that steals touches from the app underneath gets up to 1.7x wider. Both are rewritten in dp for the 450 dpi panel (same pixel counts at FHD+).
