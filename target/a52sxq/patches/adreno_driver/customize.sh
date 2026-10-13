@@ -2,8 +2,9 @@ SKIPUNZIP=1
 
 # Driver set to install: "863" (V@0863.1, built 12/24/25) or "849" (V@0849.0, built 09/19/25). Both are from the
 # same Qualcomm branch (AU_LINUX_ANDROID_LA.VENDOR.14.3.4.11), carry the same 23 files with identical DT_NEEDED
-# lists and the very same a660 SQE microcode, so going back to the previous driver is this one line.
-ADRENO_DRIVER="863"
+# lists and the very same a660 SQE microcode, so switching is this one line. 849 is the default again since 9.3.26
+# (testers asked for the 863 set to be taken out).
+ADRENO_DRIVER="849"
 
 DRIVER_DIR="$MODPATH/v$ADRENO_DRIVER"
 [ -d "$DRIVER_DIR/vendor/lib64/egl" ] || ABORT "adreno_driver: no driver set for ADRENO_DRIVER=\"$ADRENO_DRIVER\" (${DRIVER_DIR//$SRC_DIR\//})"
