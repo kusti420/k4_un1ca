@@ -29,6 +29,8 @@ int k4n_engine_ready(void);
 void k4n_engine_release(void);
 K4nSession* k4n_session_create(int w, int h);
 void k4n_session_destroy(K4nSession* s);
+// picture quality mode of this session: 0 = original behaviour (default), 1 = improved, live-safe, 2 = best quality (saving)
+void k4n_session_set_quality(K4nSession* s, int q);
 // luma plane -> network input (960*544 floats)
 void k4n_prep(const K4nSession* s, const uint8_t* y, int stride, float* net);
 // flows prev<->next into the session; ms[0] = inference, ms[1] = post-processing

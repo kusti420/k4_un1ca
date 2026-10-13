@@ -506,6 +506,9 @@ static binder_status_t mpp_tx(AIBinder* b, transaction_code_t code, const AParce
         // both switches are read per pipe, so a setprop applies to the next hold without restarting the daemon
         p->pipelined = getenv("K4N_PIPELINE") ? atoi(getenv("K4N_PIPELINE")) : prop_int("persist.sys.k4.slowmo_pipeline", 1);
         k4n_warp_scalar = getenv("K4N_WARP_SCALAR") ? 1 : !prop_int("persist.sys.k4.slowmo_neon", 1); p->work_has = p->out_busy = 0;
+        // picture quality of this pipe (k4n.h): 0 = the original warp/blend (default), 1 = improved, 2 = for saving
+        { int q = getenv("K4N_QUALITY") ? atoi(getenv("K4N_QUALITY")) : prop_int("persist.sys.k4.slowmo_quality", 0);
+          k4n_session_set_quality(p->ses, q); k4n_session_set_quality(p->ses_b, q); if (q) K4N_LOG("init: picture quality mode %d", q); }
         pthread_create(&p->th, NULL, pipe_main, p); p->th_started = 1;
         if (p->pipelined) { pthread_create(&p->oth, NULL, out_main, p); p->oth_started = 1; }
         write_ok(out); AParcel_writeInt32(out, 1); AParcel_writeInt32(out, 4 + 7 * 4);

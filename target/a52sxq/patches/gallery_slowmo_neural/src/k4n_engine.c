@@ -227,6 +227,9 @@ struct K4nSession {
     int half;                           // 1: every second pixel column is a grid column (s = 2 exactly)
     int prep_half;                      // 1: a network input pixel is the mean of 2x2 image pixels (rows permitting)
     float last_src, last_warp, last_flow;
+    int quality;                        // 0 = original behaviour, 1 = improved (live), 2 = best (saving)
+    int16_t* G[4]; uint8_t* GA;         // quality >= 1: the flow grid moved to the time position of the frame being made
+    int16_t* U[2];                      // quality >= 1: half-resolution displacement of that move (Q4 grid cells)
 };
 
 K4nSession* k4n_session_create(int w, int h) {
@@ -247,10 +250,13 @@ K4nSession* k4n_session_create(int w, int h) {
     s->A = malloc(NW * NH);
     return s;
 }
+
 void k4n_session_destroy(K4nSession* s) {
     if (!s) return;
     free(s->xi); free(s->xw); free(s->yi); free(s->yw); free(s->ci); free(s->cw);
     for (int k = 0; k < 4; k++) free(s->F[k]);
+    for (int k = 0; k < 4; k++) free(s->G[k]);
+    free(s->GA); free(s->U[0]); free(s->U[1]);
     free(s->A); free(s);
 }
 
@@ -544,7 +550,258 @@ static void warp_part(void* c, int part, int parts) {
         }
     }
 }
+// ---------------------------------------------------------------------------------------------------------------
+// quality >= 1 (k4n_session_set_quality). The original path above is not touched by any of this.
+//  1. RE-TIMING (quality 1 and 2). The network gives the flows of the MID frame. For other time positions the original
+//     path scales them but reads them at the same place, i.e. up to a quarter of the motion away from where the
+//     object is at time t. Here the grid is first moved along the motion: G(g) = F(m), m = g - (t - 1/2) * V(m),
+//     V = flow to next - flow to prev (two fixed-point steps at half resolution). At t = 1/2 nothing moves.
+//  2. SHARPNESS (quality 1 and 2). Bilinear sampling at a fractional position is a low-pass, [1-f, f]. Followed by the
+//     3-tap filter [-c, 1+2c, -c] with c = f(1-f)/2 it is, at f = 1/2, exactly the Catmull-Rom kernel (-1, 9, 9, -1)/16,
+//     and it is nothing at f = 0. So the luma rows are sharpened by that amount, per pixel and per axis, from the
+//     fractions the sampler used (kappa/16 scales it). Pixels that do not move are not changed at all.
+//  3. ONE SOURCE WHERE POSSIBLE. The network's blend mask is ~0.5 nearly everywhere, so the original output is the mean
+//     of the two warped frames: grain and fine texture are averaged away (and come back in the next original frame:
+//     the sharpness pulses), and wherever the flow is wrong the two warps do not coincide (double, transparent
+//     fingers). Here the frame nearer in time is used alone (prev for t <= 1/2) unless the mask clearly says otherwise:
+//     quality 1: only where the two warped frames agree (nothing but the averaging is lost there); where they differ
+//                visibly the original time-weighted blend stays;
+//     quality 2: also where they differ, the more the further t is from 1/2 (all of it at 1/4 and 3/4): no double
+//                images there, but the errors of the flow are then shown sharp instead of soft, and the picture steps
+//                from "warped prev" to "warped next" around the mid frame.
+// Everything is integer arithmetic; the NEON code computes exactly what the C code computes (see bitexact_q.py).
+static int g_q_kappa = 16, g_q_flags;   // test switches (K4N_QKAPPA: sharpening in 1/16; K4N_QFLAGS: 1 no re-timing, 2 original blend, 4 no sharpening)
+typedef struct { WarpJob b; const int16_t* F[4]; const uint8_t* A; uint16_t side[256]; int wmax7, kappa; } WarpJobQ;
+#define QD0 1024        // |warped prev - warped next| (Q8 luma) below which the two agree: 4 levels ...
+#define QDS 4           // ... and the blend share (Q7) grows by 1/128 per 2^QDS above it: full at 12 levels
+
+// sample of an int16 / uint8 grid field at a Q4 grid position (clamped to the grid)
+static inline int gpos(int p, int n, int* f) { if (p < 0) p = 0; int i = p >> 4; *f = p & 15; if (i >= n - 1) { i = n - 2; *f = 16; } return i; }
+static inline int gs16(const int16_t* g, int gw, int gh, int px, int py) {
+    int fx, fy, ix = gpos(px, gw, &fx), iy = gpos(py, gh, &fy); const int16_t* p = g + (size_t) iy * gw + ix;
+    return ((p[0] * (16 - fx) + p[1] * fx) * (16 - fy) + (p[gw] * (16 - fx) + p[gw + 1] * fx) * fy + 128) >> 8;
+}
+static inline int gs8(const uint8_t* g, int gw, int gh, int px, int py) {
+    int fx, fy, ix = gpos(px, gw, &fx), iy = gpos(py, gh, &fy); const uint8_t* p = g + (size_t) iy * gw + ix;
+    return ((p[0] * (16 - fx) + p[1] * fx) * (16 - fy) + (p[gw] * (16 - fx) + p[gw + 1] * fx) * fy + 128) >> 8;
+}
+typedef struct { const K4nSession* s; int k12; } RtJob;     // k12 = -(t - 1/2) / (pixels per cell) in Q12: flow difference (Q4 px) -> Q4 cells
+static inline int rt_clamp(int v) { return v < -32000 ? -32000 : (v > 32000 ? 32000 : v); }
+static void retime_u_part(void* c, int part, int parts) {
+    const RtJob* j = c; const K4nSession* s = j->s; const int gw = s->gw, gh = s->gh, hw = gw / 2, hh = gh / 2;
+    int j0 = hh * part / parts, j1 = hh * (part + 1) / parts;
+    for (int v = j0; v < j1; v++) for (int u = 0; u < hw; u++) {
+        size_t o = (size_t) (2 * v) * gw + 2 * u;
+        int ux = ((s->F[2][o] - s->F[0][o]) * j->k12) >> 12, uy = ((s->F[3][o] - s->F[1][o]) * j->k12) >> 12;
+        int px = 2 * u * 16 + ux, py = 2 * v * 16 + uy;
+        ux = ((gs16(s->F[2], gw, gh, px, py) - gs16(s->F[0], gw, gh, px, py)) * j->k12) >> 12;
+        uy = ((gs16(s->F[3], gw, gh, px, py) - gs16(s->F[1], gw, gh, px, py)) * j->k12) >> 12;
+        s->U[0][(size_t) v * hw + u] = (int16_t) rt_clamp(ux); s->U[1][(size_t) v * hw + u] = (int16_t) rt_clamp(uy);
+    }
+}
+static void retime_f_part(void* c, int part, int parts) {
+    const RtJob* j = c; const K4nSession* s = j->s; const int gw = s->gw, gh = s->gh, hw = gw / 2, hh = gh / 2;
+    int y0 = gh * part / parts, y1 = gh * (part + 1) / parts;
+    for (int y = y0; y < y1; y++) { int v = y >> 1, v1 = v + 1 < hh ? v + 1 : v;
+        for (int x = 0; x < gw; x++) { int u = x >> 1, u1 = u + 1 < hw ? u + 1 : u, d[2];
+            for (int k = 0; k < 2; k++) { const int16_t* U = s->U[k]; int a = U[(size_t) v * hw + u], b = U[(size_t) v1 * hw + u];
+                if (x & 1) { a = (a + U[(size_t) v * hw + u1]) >> 1; b = (b + U[(size_t) v1 * hw + u1]) >> 1; }
+                d[k] = (y & 1) ? (a + b) >> 1 : a; }
+            int px = x * 16 + d[0], py = y * 16 + d[1]; size_t o = (size_t) y * gw + x;
+            for (int k = 0; k < 4; k++) s->G[k][o] = (int16_t) gs16(s->F[k], gw, gh, px, py);
+            s->GA[o] = (uint8_t) gs8(s->A, gw, gh, px, py); }
+    }
+}
+
+// the six fields of image row y: flows as in warp_fields(), the original time-weighted alpha, and the one-source alpha
+static void warp_fields_q(const WarpJobQ* j, int y, int32_t* restrict t, int32_t* restrict d, int ds) {
+    const K4nSession* s = j->b.s; const int w = s->w, gw = s->gw, gh = s->gh, gs = gw + 1;
+    float g = y / s->s; int iv = (int) g; if (iv > gh - 1) iv = gh - 1; int wv = (int) lrintf((g - iv) * 256); int iv1 = iv + 1; if (iv1 > gh - 1) { iv1 = gh - 1; wv = 0; }
+    for (int k = 0; k < 4; k++) { const int16_t* restrict a = j->F[k] + (size_t) iv * gw; const int16_t* restrict b = j->F[k] + (size_t) iv1 * gw; int m = k < 2 ? j->b.m0 : j->b.m1; int32_t* restrict o = t + k * gs;
+        for (int x = 0; x < gw; x++) o[x] = (((a[x] * (256 - wv) + b[x] * wv) >> 8) * m) >> 8;
+        o[gw] = o[gw - 1]; }
+    for (int k = 4; k < 6; k++) { const uint8_t* restrict a = j->A + (size_t) iv * gw; const uint8_t* restrict b = j->A + (size_t) iv1 * gw; int32_t* restrict o = t + k * gs; const uint16_t* lut = k == 4 ? j->b.lut : j->side;
+        for (int x = 0; x < gw; x++) o[x] = (lut[a[x]] * (256 - wv) + lut[b[x]] * wv) >> 8;
+        o[gw] = o[gw - 1]; }
+    for (int k = 0; k < 6; k++) { const int32_t* restrict tk = t + k * gs; int32_t* restrict o = d + k * ds; int x = 0;
+#ifdef __aarch64__
+        if (s->half && !k4n_warp_scalar) for (; x + 8 <= w; x += 8) {
+            int32x4_t a = vld1q_s32(tk + (x >> 1)), b = vld1q_s32(tk + (x >> 1) + 1);
+            int32x4x2_t z = { { a, vaddq_s32(a, vshrq_n_s32(vsubq_s32(b, a), 1)) } }; vst2q_s32(o + x, z); }
+#endif
+        for (; x < w; x++) { int i = s->ci[x]; o[x] = tk[i] + (((tk[i + 1] - tk[i]) * s->cw[x]) >> 8); } }
+}
+// bil() that also reports how much the sample was blurred: f * (16 - f) per axis (0..64)
+static inline int bilq(const uint8_t* img, int stride, int w, int h, int sx, int sy, int* cx, int* cy) {
+    if (sx < 0) sx = 0;
+    if (sy < 0) sy = 0;
+    int ix = sx >> 4, fx = sx & 15, iy = sy >> 4, fy = sy & 15;
+    if (ix >= w - 1) { ix = w - 2; fx = 16; }
+    if (iy >= h - 1) { iy = h - 2; fy = 16; }
+    const uint8_t* p = img + (size_t) iy * stride + ix;
+    int a = p[0] * 16 + (p[1] - p[0]) * fx, b = p[stride] * 16 + (p[stride + 1] - p[stride]) * fx;
+    *cx = fx * (16 - fx); *cy = fy * (16 - fy);
+    return a * 16 + (b - a) * fy;
+}
+// one luma row, not yet sharpened: o = pixels, cxr / cyr = sharpening amounts, alr = the alpha that was used (0..256)
+static void luma_q_c(const WarpJobQ* j, const int32_t* d, int ds, int y, int x0, uint8_t* o, uint8_t* cxr, uint8_t* cyr, uint16_t* alr) {
+    const int w = j->b.s->w, h = j->b.s->h;
+    for (int x = x0; x < w; x++) { int cxp, cyp, cxn, cyn;
+        int pv = bilq(j->b.py, w, w, h, x * 16 + d[x], y * 16 + d[ds + x], &cxp, &cyp), nv = bilq(j->b.ny, w, w, h, x * 16 + d[2 * ds + x], y * 16 + d[3 * ds + x], &cxn, &cyn);
+        int D = pv > nv ? pv - nv : nv - pv, wb = D > QD0 ? (D - QD0) >> QDS : 0; if (wb > j->wmax7) wb = j->wmax7;
+        int al = (d[5 * ds + x] * (128 - wb) + d[4 * ds + x] * wb + 64) >> 7;
+        o[x] = blend8(pv, nv, al); alr[x] = (uint16_t) al;
+        cxr[x] = (uint8_t) ((al * cxp + (256 - al) * cxn) >> 8); cyr[x] = (uint8_t) ((al * cyp + (256 - al) * cyn) >> 8); }
+}
+static void chroma_q_c(const WarpJobQ* j, const int32_t* d, int ds, int cy, int cx0, const uint16_t* alr, uint8_t* ouv) {
+    const int cw = j->b.s->w / 2, ch = j->b.s->h / 2;
+    for (int cx = cx0; cx < cw; cx++) { int x = cx * 2, al = alr[x];
+        int sx0 = cx * 16 + d[x] / 2, sy0 = cy * 16 + d[ds + x] / 2, sx1 = cx * 16 + d[2 * ds + x] / 2, sy1 = cy * 16 + d[3 * ds + x] / 2;
+        for (int q = 0; q < 2; q++) ouv[cx * 2 + q] = blend8(bil2(j->b.puv, cw, ch, sx0, sy0, q), bil2(j->b.nuv, cw, ch, sx1, sy1, q), al); }
+}
+// out = mid + (cx * (2 mid - left - right) + cy * (2 mid - up - down)) * kappa / 2^13, pixels x0 .. x1-1
+static void sharp_c(const uint8_t* up, const uint8_t* mid, const uint8_t* dn, const uint8_t* cx, const uint8_t* cy, uint8_t* out, int x0, int x1, int w, int kappa) {
+    for (int x = x0; x < x1; x++) { int o = mid[x], l = mid[x > 0 ? x - 1 : 0], r = mid[x < w - 1 ? x + 1 : w - 1];
+        int v = (cx[x] * (2 * o - l - r) + cy[x] * (2 * o - up[x] - dn[x])) * kappa; v = o + ((v + 4096) >> 13);
+        out[x] = (uint8_t) (v < 0 ? 0 : (v > 255 ? 255 : v)); }
+}
+#ifdef __aarch64__
+// luma8() that also returns the fractions (0..16) it used
+static inline uint16x8_t luma8q(const uint8_t* img, int w, Lim lx, Lim ly, int32x4_t xs, int32x4_t ys, const int32_t* dx, const int32_t* dy, uint16x8_t* pfx, uint16x8_t* pfy) {
+    int32_t off[8]; int32x4_t fx0, fx1, fy0, fy1; const int32x4_t vw = vdupq_n_s32(w);
+    int32x4_t ix0 = q4_split(vaddq_s32(xs, vld1q_s32(dx)), lx, &fx0), ix1 = q4_split(vaddq_s32(vaddq_s32(xs, vdupq_n_s32(64)), vld1q_s32(dx + 4)), lx, &fx1);
+    int32x4_t iy0 = q4_split(vaddq_s32(ys, vld1q_s32(dy)), ly, &fy0), iy1 = q4_split(vaddq_s32(ys, vld1q_s32(dy + 4)), ly, &fy1);
+    int32x4_t o0 = vmlaq_s32(ix0, iy0, vw), o1 = vmlaq_s32(ix1, iy1, vw);
+    uint16x8_t fx = vcombine_u16(vmovn_u32(vreinterpretq_u32_s32(fx0)), vmovn_u32(vreinterpretq_u32_s32(fx1)));
+    uint16x8_t fy = vcombine_u16(vmovn_u32(vreinterpretq_u32_s32(fy0)), vmovn_u32(vreinterpretq_u32_s32(fy1)));
+    uint8x16_t wx = vreinterpretq_u8_u16(vorrq_u16(vsubq_u16(vdupq_n_u16(16), fx), vshlq_n_u16(fx, 8)));
+    uint8x16_t r0, r1; const int32x4_t r03 = { 0, 1, 2, 3 }, r47 = { 4, 5, 6, 7 }, first = vdupq_laneq_s32(o0, 0);
+    if (vminvq_u32(vandq_u32(vceqq_s32(vsubq_s32(o0, r03), first), vceqq_s32(vsubq_s32(o1, r47), first)))) {
+        const uint8_t* p = img + vgetq_lane_s32(o0, 0);
+        uint8x8_t a = vld1_u8(p), b = vld1_u8(p + 1), c = vld1_u8(p + w), e = vld1_u8(p + w + 1);
+        r0 = vcombine_u8(vzip1_u8(a, b), vzip2_u8(a, b)); r1 = vcombine_u8(vzip1_u8(c, e), vzip2_u8(c, e));
+    } else {
+        vst1q_s32(off, o0); vst1q_s32(off + 4, o1);
+        r0 = vcombine_u8(vcreate_u8(g16(img, off)), vcreate_u8(g16(img, off + 4)));
+        r1 = vcombine_u8(vcreate_u8(g16(img + w, off)), vcreate_u8(g16(img + w, off + 4)));
+    }
+    uint16x8_t a = vpaddq_u16(vmull_u8(vget_low_u8(r0), vget_low_u8(wx)), vmull_high_u8(r0, wx));
+    uint16x8_t b = vpaddq_u16(vmull_u8(vget_low_u8(r1), vget_low_u8(wx)), vmull_high_u8(r1, wx));
+    *pfx = fx; *pfy = fy;
+    return vmlaq_u16(vmulq_u16(a, vsubq_u16(vdupq_n_u16(16), fy)), b, fy);
+}
+static inline uint16x8_t d16(const int32_t* p) { return vcombine_u16(vmovn_u32(vreinterpretq_u32_s32(vld1q_s32(p))), vmovn_u32(vreinterpretq_u32_s32(vld1q_s32(p + 4)))); }
+static int luma_q_neon(const WarpJobQ* j, const int32_t* d, int ds, int y, uint8_t* o, uint8_t* cxr, uint8_t* cyr, uint16_t* alr) {
+    const int w = j->b.s->w, h = j->b.s->h; int x = 0;
+    const Lim lx = { vdupq_n_s32(w - 1), vdupq_n_s32(w - 2) }, ly = { vdupq_n_s32(h - 1), vdupq_n_s32(h - 2) };
+    const int32x4_t ramp = { 0, 16, 32, 48 }, ys = vdupq_n_s32(y * 16);
+    const uint16x8_t c16 = vdupq_n_u16(16), c128 = vdupq_n_u16(128), c256 = vdupq_n_u16(256), wmax = vdupq_n_u16((uint16_t) j->wmax7);
+    for (; x + 8 <= w; x += 8) {
+        int32x4_t xs = vaddq_s32(vdupq_n_s32(x * 16), ramp); uint16x8_t fxp, fyp, fxn, fyn;
+        uint16x8_t pv = luma8q(j->b.py, w, lx, ly, xs, ys, d + x, d + ds + x, &fxp, &fyp), nv = luma8q(j->b.ny, w, lx, ly, xs, ys, d + 2 * ds + x, d + 3 * ds + x, &fxn, &fyn);
+        uint16x8_t wb = vminq_u16(vshrq_n_u16(vqsubq_u16(vabdq_u16(pv, nv), vdupq_n_u16(QD0)), QDS), wmax);
+        uint16x8_t al = vshrq_n_u16(vaddq_u16(vmlaq_u16(vmulq_u16(d16(d + 5 * ds + x), vsubq_u16(c128, wb)), d16(d + 4 * ds + x), wb), vdupq_n_u16(64)), 7);
+        vst1_u8(o + x, blend_n(pv, nv, al)); vst1q_u16(alr + x, al);
+        uint16x8_t na = vsubq_u16(c256, al);
+        vst1_u8(cxr + x, vshrn_n_u16(vmlaq_u16(vmulq_u16(al, vmulq_u16(fxp, vsubq_u16(c16, fxp))), na, vmulq_u16(fxn, vsubq_u16(c16, fxn))), 8));
+        vst1_u8(cyr + x, vshrn_n_u16(vmlaq_u16(vmulq_u16(al, vmulq_u16(fyp, vsubq_u16(c16, fyp))), na, vmulq_u16(fyn, vsubq_u16(c16, fyn))), 8));
+    }
+    return x;
+}
+static int chroma_q_neon(const WarpJobQ* j, const int32_t* d, int ds, int cy, const uint16_t* alr, uint8_t* ouv) {
+    const int cw = j->b.s->w / 2, ch = j->b.s->h / 2; int cx = 0;
+    const Lim lx = { vdupq_n_s32(cw - 1), vdupq_n_s32(cw - 2) }, ly = { vdupq_n_s32(ch - 1), vdupq_n_s32(ch - 2) };
+    const int32x4_t ramp = { 0, 16, 32, 48 }, ys = vdupq_n_s32(cy * 16);
+    for (; cx + 4 <= cw; cx += 4) {
+        int x = cx * 2; int32x4_t xs = vaddq_s32(vdupq_n_s32(cx * 16), ramp);
+        uint16x8_t pv = chroma4(j->b.puv, cw, lx, ly, xs, ys, d + x, d + ds + x), nv = chroma4(j->b.nuv, cw, lx, ly, xs, ys, d + 2 * ds + x, d + 3 * ds + x);
+        uint16x8_t a8 = vld1q_u16(alr + x); uint32x4_t a4 = vmovl_u16(vget_low_u16(vuzp1q_u16(a8, a8)));
+        vst1_u8(ouv + cx * 2, blend_n(pv, nv, vreinterpretq_u16_u32(vmulq_n_u32(a4, 0x00010001))));
+    }
+    return cx;
+}
+static int sharp_neon(const uint8_t* up, const uint8_t* mid, const uint8_t* dn, const uint8_t* cx, const uint8_t* cy, uint8_t* out, int x, int x1, int kappa) {
+    for (; x + 8 <= x1; x += 8) {       // x >= 1 and x1 <= w - 1: both neighbours exist
+        int16x8_t o = vreinterpretq_s16_u16(vmovl_u8(vld1_u8(mid + x))), o2 = vshlq_n_s16(o, 1);
+        int16x8_t hx = vsubq_s16(o2, vreinterpretq_s16_u16(vaddl_u8(vld1_u8(mid + x - 1), vld1_u8(mid + x + 1))));
+        int16x8_t hy = vsubq_s16(o2, vreinterpretq_s16_u16(vaddl_u8(vld1_u8(up + x), vld1_u8(dn + x))));
+        int16x8_t vcx = vreinterpretq_s16_u16(vmovl_u8(vld1_u8(cx + x))), vcy = vreinterpretq_s16_u16(vmovl_u8(vld1_u8(cy + x)));
+        int32x4_t lo = vmlal_s16(vmull_s16(vget_low_s16(vcx), vget_low_s16(hx)), vget_low_s16(vcy), vget_low_s16(hy));
+        int32x4_t hi = vmlal_high_s16(vmull_high_s16(vcx, hx), vcy, hy);
+        lo = vrshrq_n_s32(vmulq_n_s32(lo, kappa), 13); hi = vrshrq_n_s32(vmulq_n_s32(hi, kappa), 13);
+        vst1_u8(out + x, vqmovun_s16(vaddq_s16(o, vcombine_s16(vmovn_s32(lo), vmovn_s32(hi)))));
+    }
+    return x;
+}
+#endif
+// per-thread working memory of the quality path: field rows, three unsharpened luma rows with their amounts, one alpha row
+typedef struct { int32_t *t, *d; uint8_t *row[3], *cx[3], *cy[3]; uint16_t* al; int have[3]; } QScr;
+static void q_row(const WarpJobQ* j, QScr* q, int ds, int y, int slot, int chroma_too, uint8_t* ouv) {
+    const K4nSession* s = j->b.s; int x = 0;
+    warp_fields_q(j, y, q->t, q->d, ds);
+#ifdef __aarch64__
+    if (!k4n_warp_scalar) x = luma_q_neon(j, q->d, ds, y, q->row[slot], q->cx[slot], q->cy[slot], q->al);
+#endif
+    luma_q_c(j, q->d, ds, y, x, q->row[slot], q->cx[slot], q->cy[slot], q->al);
+    q->have[slot] = y;
+    if (chroma_too) { int cy = y >> 1, cx = 0;
+#ifdef __aarch64__
+        if (!k4n_warp_scalar) cx = chroma_q_neon(j, q->d, ds, cy, q->al, ouv);
+#endif
+        chroma_q_c(j, q->d, ds, cy, cx, q->al, ouv); }
+    (void) s;
+}
+static void warp_part_q(void* c, int part, int parts) {
+    WarpJobQ* j = c; const K4nSession* s = j->b.s; const int w = s->w, h = s->h, gs = s->gw + 1, ds = w + 8, ch = h / 2;
+    int y0 = (h * part / parts) & ~1, y1 = part == parts - 1 ? h : ((h * (part + 1) / parts) & ~1);
+    size_t n32 = (size_t) 6 * gs + (size_t) 6 * ds, rb = ((size_t) w + 15) & ~(size_t) 15;
+    int32_t* base = scratch(n32 + (9 * rb + 2 * rb) / 4 + 16);
+    QScr q; q.t = base; q.d = base + 6 * gs; uint8_t* m = (uint8_t*) (base + n32);
+    for (int k = 0; k < 3; k++) { q.row[k] = m + (size_t) k * 3 * rb; q.cx[k] = q.row[k] + rb; q.cy[k] = q.row[k] + 2 * rb; q.have[k] = -1; }
+    q.al = (uint16_t*) (m + 9 * rb);
+    // a row is sharpened from its two neighbour rows, so the rows just outside this part are computed here as well
+    // (their pixels and chroma are written by the part they belong to)
+    for (int y = y0; y < y1; y++) {
+        int yu = y > 0 ? y - 1 : 0, yd = y < h - 1 ? y + 1 : h - 1;
+        for (int r = yu; r <= yd; r++) if (q.have[r % 3] != r) {
+            int own = r >= y0 && r < y1, cr = own && !(r & 1) && (r >> 1) < ch;
+            q_row(j, &q, ds, r, r % 3, cr, cr ? j->b.ouv + (size_t) (r >> 1) * j->b.ostride : NULL); }
+        const uint8_t *up = q.row[yu % 3], *mid = q.row[y % 3], *dn = q.row[yd % 3], *cx = q.cx[y % 3], *cy = q.cy[y % 3]; uint8_t* out = j->b.oy + (size_t) y * j->b.ostride; int x = 1;
+        sharp_c(up, mid, dn, cx, cy, out, 0, 1, w, j->kappa);
+#ifdef __aarch64__
+        if (!k4n_warp_scalar) x = sharp_neon(up, mid, dn, cx, cy, out, 1, w - 1, j->kappa);
+#endif
+        sharp_c(up, mid, dn, cx, cy, out, x, w, w, j->kappa);
+    }
+}
+static void warp_q(const K4nSession* s, const uint8_t* prev, const uint8_t* next, uint8_t* oy, uint8_t* ouv, int ostride, float tpos) {
+    WarpJobQ j; j.b.s = s; size_t ys = (size_t) s->w * s->h;
+    j.b.py = prev; j.b.puv = prev + ys; j.b.ny = next; j.b.nuv = next + ys; j.b.oy = oy; j.b.ouv = ouv; j.b.ostride = ostride;
+    j.b.m0 = (int) lrintf(tpos * 512); j.b.m1 = (int) lrintf((1 - tpos) * 512);
+    int prevside = tpos <= 0.5f; float u = tpos < 0.5f ? 1 - 2 * tpos : 2 * tpos - 1, wm = 1 - 2 * u;
+    for (int a = 0; a < 256; a++) { float al = a / 255.0f, num = (1 - tpos) * al, den = num + tpos * (1 - al), sd = (al - (prevside ? 0.25f : 0.5f)) * 4;
+        j.b.lut[a] = (uint16_t) lrintf(256.0f * (den > 1e-6f ? num / den : 0.5f)); j.side[a] = (uint16_t) lrintf(256.0f * (sd < 0 ? 0 : (sd > 1 ? 1 : sd))); }
+    j.wmax7 = s->quality >= 2 ? (int) lrintf(128.0f * (wm < 0 ? 0 : wm)) : 128; j.kappa = g_q_kappa;
+    if (g_q_flags & 2) { memcpy(j.side, j.b.lut, sizeof j.side); j.wmax7 = 0; }      // test: the original blend weights everywhere
+    if (g_q_flags & 4) j.kappa = 0;                                                  // test: no sharpening
+    if (tpos != 0.5f && !(g_q_flags & 1)) {
+        RtJob r = { s, (int) lrintf(-(tpos - 0.5f) / s->s * 4096.0f) };
+        pool_run(retime_u_part, &r); pool_run(retime_f_part, &r);
+        for (int k = 0; k < 4; k++) j.F[k] = s->G[k];
+        j.A = s->GA;
+    } else { for (int k = 0; k < 4; k++) j.F[k] = s->F[k]; j.A = s->A; }
+    pool_run(warp_part_q, &j);
+}
+void k4n_session_set_quality(K4nSession* s, int q) {
+    if (!s) return;
+    s->quality = q < 0 ? 0 : (q > 2 ? 2 : q);
+    const char* e = getenv("K4N_QKAPPA"); if (e) g_q_kappa = atoi(e) < 0 ? 0 : (atoi(e) > 32 ? 32 : atoi(e));
+    e = getenv("K4N_QFLAGS"); if (e) g_q_flags = atoi(e);
+    if (s->quality && !s->GA) { for (int k = 0; k < 4; k++) s->G[k] = malloc(sizeof(int16_t) * NW * NH); s->GA = malloc(NW * NH);
+        for (int k = 0; k < 2; k++) s->U[k] = malloc(sizeof(int16_t) * (NW / 2) * (NH / 2)); }
+}
 void k4n_warp_to(const K4nSession* s, const uint8_t* prev, const uint8_t* next, uint8_t* oy, uint8_t* ouv, int ostride, float tpos) {
+    if (s->quality > 0) { warp_q(s, prev, next, oy, ouv, ostride, tpos); return; }
     WarpJob j; j.s = s; size_t ys = (size_t) s->w * s->h;
     j.py = prev; j.puv = prev + ys; j.ny = next; j.nuv = next + ys; j.oy = oy; j.ouv = ouv; j.ostride = ostride;
     j.m0 = (int) lrintf(tpos * 512); j.m1 = (int) lrintf((1 - tpos) * 512);
