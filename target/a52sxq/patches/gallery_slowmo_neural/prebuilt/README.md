@@ -5,7 +5,10 @@ Our own binary (plain C, NDK binder; no third-party code): the neural MPP front 
 - Source: `../src/{k4neuralmpp.c,k4n_engine.c,k4n.h}`; rebuild with `../src/build.sh` (AOSP prebuilt clang r596125,
   NDK sysroot API 30 and bionic crt objects of an AOSP tree; C only, no libc++). Working copy and test tools:
   `/mnt/B1/OneUi9/scratch/htpre/neural` on the build PC (NOTES.md one level up).
-- This copy: sha256 `d50916016db283f3d775cb3fdc2e2a017f7c1e4272772d432897b30cdae565f7`, 75128 bytes, built 2026-10-13.
+- This copy: sha256 `5f76a426e3efd51b9b7ecbd6c61315012775202014c52c014c060c3d2100ca24`, 85736 bytes, built 2026-10-13: the repeat
+  bridging build (d5091601...) plus the quality modes (`persist.sys.k4.slowmo_quality`, 0/1/2; tested as 2f5184b6...
+  with default 0, see `/mnt/B1/OneUi9/scratch/htpre/quality`) with the default set to 1. Modes 1/2 have NOT run in
+  the real Gallery yet.
   History: 2efeffd4... shipped in 9.3.21-9.3.25; 7361ddee... in 9.3.26 (NEON warp, two-stage pipeline, hold statistics,
   single-copy pass-through - real Gallery on 9.3.26, 720p x4: 31.7 fps, intervals median 33 ms, max 52 ms). This copy
   adds bridging of repeated source frames: an isolated repeat (mean abs difference of the prepared luma tensors < 0.15)
