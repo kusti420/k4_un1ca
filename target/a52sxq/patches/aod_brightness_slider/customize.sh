@@ -66,13 +66,17 @@ KEY = "k4_aod_brightness"
 LITERAL = "persist.sys.k4.aod_brightness"
 
 # value written to the property, label (order = order in the dialog)
+# The labels carry no nit figures on purpose: the four fixed levels are the panel driver's nominal low-power steps
+# (2 / 10 / 30 / 60 nit) while the panel is in its low-power mode, but in "tap to show" AOD the screen is briefly in
+# normal mode at the same backlight level, and none of it has been measured with a light meter. "Highest" is the
+# level stock only reaches above 100 lux; indoors it looks far too bright (owner's verdict, 2026-10-13).
 CHOICES = (
     (0, "Automatic"),
     (5, "Automatic, brighter"),
-    (1, "Lowest (2 nits)"),
-    (2, "Low (10 nits)"),
-    (3, "Medium (30 nits)"),
-    (4, "Highest (60 nits)"),
+    (1, "Lowest"),
+    (2, "Low"),
+    (3, "Medium"),
+    (4, "Highest"),
 )
 # NOTE: the controller picks the entry whose VALUE is nearest to the stored one (K4AdaptiveDelay's nearest()); with
 # the exact values written by this dialog that is always the right entry. The value array need not be sorted.
