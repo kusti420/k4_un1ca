@@ -133,7 +133,14 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
     private void begin() throws Exception {
         MediaFormat f = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, mWidth, mHeight);
         f.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-        f.setInteger(MediaFormat.KEY_BIT_RATE, (int) Math.min(24000000L, (long) (mWidth * mHeight * mFps * 0.353)));   // stock export: 720p30 at 9.8 Mbit/s
+        // Wanted in the file: the stock export's 720p30 at 9.8 Mbit/s. The encoder's rate control goes by the real time
+        // between the frames it is handed (they arrive mFps * mScale * mPlayRate times per second, i.e. 15 for 30 fps
+        // x4 at 0.125x) while the file plays them at mFps, so the request is scaled by that ratio. Constant bitrate:
+        // in the default mode the encoder spent a sixth of the request on slow motion (1.6 Mbit/s for 720p, originals
+        // down to 88 % of their detail); with CBR the file comes out at the wanted rate.
+        long wanted = Math.min(24000000L, (long) (mWidth * mHeight * mFps * 0.353));
+        f.setInteger(MediaFormat.KEY_BIT_RATE, (int) Math.max(1000000L, Math.min(60000000L, (long) (wanted * mScale * mPlayRate))));
+        f.setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR);
         f.setInteger(MediaFormat.KEY_FRAME_RATE, mFps);
         f.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
         f.setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh);

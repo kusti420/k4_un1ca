@@ -364,11 +364,43 @@
 
     move-result-wide v3
 
+    iget v1, p0, Lcom/k4/media/K4SlowMoExport;->mScale:I
+
+    int-to-long v5, v1
+
+    mul-long/2addr v3, v5
+
+    long-to-float v1, v3
+
+    iget v3, p0, Lcom/k4/media/K4SlowMoExport;->mPlayRate:F
+
+    mul-float/2addr v1, v3
+
+    float-to-long v3, v1
+
+    const-wide/32 v5, 0x3938700
+
+    invoke-static {v5, v6, v3, v4}, Ljava/lang/Math;->min(JJ)J
+
+    move-result-wide v3
+
+    const-wide/32 v5, 0xf4240
+
+    invoke-static {v5, v6, v3, v4}, Ljava/lang/Math;->max(JJ)J
+
+    move-result-wide v3
+
     long-to-int v1, v3
 
     const-string v3, "bitrate"
 
     invoke-virtual {v0, v3, v1}, Landroid/media/MediaFormat;->setInteger(Ljava/lang/String;I)V
+
+    const-string v1, "bitrate-mode"
+
+    const/4 v3, 0x2
+
+    invoke-virtual {v0, v1, v3}, Landroid/media/MediaFormat;->setInteger(Ljava/lang/String;I)V
 
     const-string v1, "frame-rate"
 
@@ -432,16 +464,16 @@
 
     iget-boolean v0, p0, Lcom/k4/media/K4SlowMoExport;->mAudio:Z
 
-    if-eqz v0, :cond_95
+    if-eqz v0, :cond_b2
 
-    :try_start_74
+    :try_start_91
     invoke-direct {p0}, Lcom/k4/media/K4SlowMoExport;->prepareAudio()V
-    :try_end_77
-    .catchall {:try_start_74 .. :try_end_77} :catchall_78
+    :try_end_94
+    .catchall {:try_start_91 .. :try_end_94} :catchall_95
 
-    goto :goto_95
+    goto :goto_b2
 
-    :catchall_78
+    :catchall_95
     move-exception v0
 
     iput-object v2, p0, Lcom/k4/media/K4SlowMoExport;->mAudioFormat:Landroid/media/MediaFormat;
@@ -468,8 +500,8 @@
 
     iput-object v0, p0, Lcom/k4/media/K4SlowMoExport;->mAudioNote:Ljava/lang/String;
 
-    :cond_95
-    :goto_95
+    :cond_b2
+    :goto_b2
     new-instance v0, Ljava/lang/Thread;
 
     new-instance v1, Lcom/k4/media/K4SlowMoExport$1;
