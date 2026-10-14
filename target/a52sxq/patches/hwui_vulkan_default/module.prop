@@ -1,4 +1,4 @@
 id=a52sxq_hwui_vulkan_default
 name=Galaxy A52s 5G: Vulkan UI renderer by default
 author=kusti420
-description=The A52s vendor sets ro.hwui.use_vulkan empty, so every app rendered with OpenGL (skiagl); on this port that path shows green tile artifacts in Instagram/Facebook videos, which testers report gone with Vulkan. Set ro.hwui.use_vulkan=true and default the UN1CA Vulkan toggle to on; an rc makes the toggle set skiavk or skiagl so turning it off still works. SurfaceFlinger RenderEngine is left at its default.
+description=The A52s vendor sets ro.hwui.use_vulkan empty, so every app rendered with OpenGL (skiagl); on this port that path shows green tile artifacts in Instagram/Facebook videos, which testers report gone with Vulkan. Default the UN1CA Vulkan toggle to on (ro.hwui.use_vulkan stays unset so the toggle stays visible); an rc makes the toggle set skiavk or skiagl so turning it off still works. SurfaceFlinger RenderEngine is left at its default.
