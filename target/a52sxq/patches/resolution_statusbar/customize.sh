@@ -76,20 +76,56 @@ body = body.replace(old, "    const p0, 0x40340000    # 2.8125f = 450 dpi / 160\
 s = s[:m.start()] + body + s[m.end():]
 open(f, "w").write(s)
 
-# --- C: KeyguardMessageArea: restore the AOSP margin update on configuration changes ----------------------------------
+# --- C: KeyguardMessageArea: refresh the inflate-time margins on configuration changes ---------------------------------
 # super_notification_shade.xml gives keyguard_message_area_container layout_marginTop="@dimen/status_bar_height" and
 # the AuthKeyguardMessageArea in it layout_marginTop="@dimen/keyguard_lock_padding" (20dp). Both are resolved once when
 # the shade window is inflated. AOSP's KeyguardMessageArea.onConfigChanged() rewrites the container margin; in this
 # build KeyguardMessageAreaController$2.onConfigChanged()/onDensityOrFontScaleChanged() are empty.
+# v2 (9.3.28 audit: v1 had no effect): v1 only hooked KeyguardMessageAreaController$2, but no controller is ever
+# created for the AuthKeyguardMessageArea of the shade window - the only caller of the controller's constructor is
+# KeyguardSecMessageAreaController (the bouncer's own message area, another view), and nothing looks the view up by
+# its id - so that listener is never registered for it. The view itself is in the hierarchy and receives
+# View.onConfigurationChanged() with every configuration change of the window (SystemUITextView already overrides it
+# for the font size), so the refresh now hangs there, and on onAttachedToWindow().
 SBH = res_id("dimen", "status_bar_height")
 PAD = res_id("dimen", "keyguard_lock_padding")
 KMA = "Lcom/android/keyguard/KeyguardMessageArea;"
+SUT = "Lcom/android/systemui/widget/SystemUITextView;"
 MLP = "Landroid/view/ViewGroup$MarginLayoutParams;"
+CFG = "Landroid/content/res/Configuration;"
+sf = one("com/android/systemui/widget/SystemUITextView.smali")
+ss = open(sf).read()
+assert re.search(r"^\.method public onConfigurationChanged\(%s\)V$" % re.escape(CFG), ss, re.M), "SystemUITextView.onConfigurationChanged is gone or final"
 f = one("com/android/keyguard/KeyguardMessageArea.smali")
 s = open(f).read()
+assert re.search(r"^\.super %s$" % re.escape(SUT), s, re.M), "KeyguardMessageArea no longer extends SystemUITextView"
 assert s.count(".field public mContainer:Landroid/view/ViewGroup;\n") == 1, "mContainer"
-assert "k4UpdateMargins" not in s
+assert "onConfigurationChanged(" not in s, "KeyguardMessageArea got its own onConfigurationChanged"
+for sub in glob.glob(A + "/smali*/com/android/keyguard/*MessageArea.smali"):
+    t = open(sub).read()
+    if re.search(r"^\.super %s$" % re.escape(KMA), t, re.M):
+        assert "onConfigurationChanged(" not in t, "%s overrides onConfigurationChanged" % sub
+# drop the v1 method if this runs on sources that already carry it
+s = re.sub(r"\n\.method public final k4UpdateMargins\(\)V\n.*?^\.end method\n", "\n", s, flags=re.M | re.S)
+att = re.search(r"^\.method public final onAttachedToWindow\(\)V\n.*?^\.end method\n", s, re.M | re.S)
+assert att, "onAttachedToWindow"
+store = "    iput-object v0, p0, %s->mContainer:Landroid/view/ViewGroup;\n" % KMA
+ab = att.group(0)
+assert ab.count(store) == 1 and ab.rstrip().endswith("return-void\n.end method".rstrip()), "onAttachedToWindow body"
+if "k4UpdateMargins" not in ab:
+    ab = ab.replace(store, store + "\n    invoke-virtual {p0}, %s->k4UpdateMargins()V\n" % KMA)
+    s = s[:att.start()] + ab + s[att.end():]
 s = s.rstrip("\n") + """
+
+.method public onConfigurationChanged(%(CFG)s)V
+    .locals 0
+
+    invoke-super {p0, p1}, %(SUT)s->onConfigurationChanged(%(CFG)s)V
+
+    invoke-virtual {p0}, %(KMA)s->k4UpdateMargins()V
+
+    return-void
+.end method
 
 .method public final k4UpdateMargins()V
     .locals 5
@@ -160,18 +196,7 @@ s = s.rstrip("\n") + """
     :cond_done
     return-void
 .end method
-""" % dict(KMA=KMA, MLP=MLP, SBH=SBH, PAD=PAD)
-open(f, "w").write(s)
-
-f = one("com/android/keyguard/KeyguardMessageAreaController$2.smali")
-s = open(f).read()
-m = re.search(r"^\.method public final onConfigChanged\(Landroid/content/res/Configuration;\)V\n.*?^\.end method\n", s, re.M | re.S)
-assert m, "KeyguardMessageAreaController$2.onConfigChanged"
-body = m.group(0)
-old = "    check-cast p0, %s\n\n    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;\n\n    return-void\n" % KMA
-assert body.count(old) == 1, "onConfigChanged body is no longer the empty stub"
-body = body.replace(old, "    check-cast p0, %s\n\n    invoke-virtual {p0}, %s->k4UpdateMargins()V\n\n    return-void\n" % (KMA, KMA))
-s = s[:m.start()] + body + s[m.end():]
+""" % dict(KMA=KMA, SUT=SUT, MLP=MLP, CFG=CFG, SBH=SBH, PAD=PAD)
 open(f, "w").write(s)
 PYEOF
 LOG "- Status bar / shade header / keyguard message area follow the screen resolution"
