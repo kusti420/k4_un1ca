@@ -19,7 +19,7 @@
 .method static constructor <clinit>()V
     .registers 7
 
-    .line 39
+    .line 42
     const-string v0, "content://com.sec.android.sdhms.fasprovider/ForcedAppStandby"
 
     invoke-static {v0}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
@@ -28,7 +28,7 @@
 
     sput-object v0, Lcom/k4/devicecare/K4RestrictList;->FAS:Landroid/net/Uri;
 
-    .line 41
+    .line 44
     const-string v5, "android.app.role.WALLET"
 
     const-string v6, "android.app.role.SYSTEM_GALLERY"
@@ -53,7 +53,7 @@
 .method private constructor <init>()V
     .registers 1
 
-    .line 44
+    .line 47
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
@@ -62,14 +62,14 @@
 .method private static varargs call(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;
     .registers 10
 
-    .line 269
+    .line 280
     const/4 v0, 0x0
 
     if-nez p0, :cond_4
 
     return-object v0
 
-    .line 271
+    .line 282
     :cond_4
     :try_start_4
     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
@@ -89,7 +89,7 @@
 
     aget-object v4, v1, v3
 
-    .line 272
+    .line 283
     invoke-virtual {v4}, Ljava/lang/reflect/Method;->getName()Ljava/lang/String;
 
     move-result-object v5
@@ -118,26 +118,26 @@
 
     return-object p0
 
-    .line 271
+    .line 282
     :cond_29
     add-int/lit8 v3, v3, 0x1
 
     goto :goto_e
 
-    .line 276
+    .line 287
     :cond_2c
     goto :goto_33
 
-    .line 274
+    .line 285
     :catchall_2d
     move-exception p0
 
-    .line 275
+    .line 286
     const-string p2, "K4RestrictList"
 
     invoke-static {p2, p1, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    .line 277
+    .line 288
     :goto_33
     return-object v0
 .end method
@@ -145,14 +145,14 @@
 .method public static canList(Lcom/samsung/android/sdhms/SemAppRestrictionManager;ILjava/lang/String;I)Z
     .registers 7
 
-    .line 48
+    .line 51
     const/4 v0, 0x0
 
     if-nez p2, :cond_4
 
     return v0
 
-    .line 49
+    .line 52
     :cond_4
     invoke-static {p0, p2, p3}, Lcom/k4/devicecare/K4RestrictList;->isTracked(Lcom/samsung/android/sdhms/SemAppRestrictionManager;Ljava/lang/String;I)Z
 
@@ -181,7 +181,7 @@
     :cond_1a
     return v0
 
-    .line 51
+    .line 54
     :cond_1b
     if-eqz p1, :cond_20
 
@@ -189,14 +189,14 @@
 
     return v0
 
-    .line 53
+    .line 56
     :cond_20
     :try_start_20
     invoke-static {p0}, Lcom/k4/devicecare/K4RestrictList;->context(Lcom/samsung/android/sdhms/SemAppRestrictionManager;)Landroid/content/Context;
 
     move-result-object p0
 
-    .line 54
+    .line 57
     if-eqz p0, :cond_37
 
     invoke-static {p0, p2, p3}, Lcom/k4/devicecare/K4RestrictList;->isCandidate(Landroid/content/Context;Ljava/lang/String;I)Z
@@ -207,7 +207,7 @@
 
     goto :goto_37
 
-    .line 55
+    .line 58
     :cond_2d
     if-eq p1, v2, :cond_35
 
@@ -225,16 +225,16 @@
     :cond_36
     return v0
 
-    .line 54
+    .line 57
     :cond_37
     :goto_37
     return v0
 
-    .line 56
+    .line 59
     :catchall_38
     move-exception p0
 
-    .line 57
+    .line 60
     new-instance p1, Ljava/lang/StringBuilder;
 
     invoke-direct {p1}, Ljava/lang/StringBuilder;-><init>()V
@@ -257,7 +257,7 @@
 
     invoke-static {p2, p1, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    .line 58
+    .line 61
     return v0
 .end method
 
@@ -274,17 +274,17 @@
         }
     .end annotation
 
-    .line 170
+    .line 173
     new-instance v0, Ljava/util/ArrayList;
 
     invoke-direct {v0}, Ljava/util/ArrayList;-><init>()V
 
-    .line 171
+    .line 174
     invoke-static {}, Lcom/k4/devicecare/K4RestrictList;->deviceIdle()Ljava/lang/Object;
 
     move-result-object v1
 
-    .line 172
+    .line 175
     const/4 v2, 0x0
 
     new-array v3, v2, [Ljava/lang/Object;
@@ -297,7 +297,7 @@
 
     check-cast v3, [Ljava/lang/String;
 
-    .line 173
+    .line 176
     if-eqz v3, :cond_b3
 
     array-length v4, v3
@@ -306,7 +306,7 @@
 
     goto/16 :goto_b3
 
-    .line 174
+    .line 177
     :cond_1b
     const-string v4, "getSystemPowerWhitelist"
 
@@ -318,7 +318,7 @@
 
     check-cast v1, [Ljava/lang/String;
 
-    .line 175
+    .line 178
     new-instance v4, Ljava/util/HashSet;
 
     if-nez v1, :cond_2f
@@ -337,7 +337,7 @@
     :goto_33
     invoke-direct {v4, v1}, Ljava/util/HashSet;-><init>(Ljava/util/Collection;)V
 
-    .line 176
+    .line 179
     new-instance v1, Ljava/util/HashSet;
 
     invoke-static {v3}, Ljava/util/Arrays;->asList([Ljava/lang/Object;)Ljava/util/List;
@@ -346,14 +346,14 @@
 
     invoke-direct {v1, v5}, Ljava/util/HashSet;-><init>(Ljava/util/Collection;)V
 
-    .line 177
+    .line 180
     const-string v5, "android.app.role.SMS"
 
     invoke-static {p0, v5}, Lcom/k4/devicecare/K4RestrictList;->roleHolders(Landroid/content/Context;Ljava/lang/String;)Ljava/util/List;
 
     move-result-object v5
 
-    .line 178
+    .line 181
     const-string v6, "android.app.role.DIALER"
 
     invoke-static {p0, v6}, Lcom/k4/devicecare/K4RestrictList;->roleHolders(Landroid/content/Context;Ljava/lang/String;)Ljava/util/List;
@@ -362,12 +362,12 @@
 
     invoke-interface {v5, v6}, Ljava/util/List;->addAll(Ljava/util/Collection;)Z
 
-    .line 179
+    .line 182
     invoke-virtual {p0}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
 
     move-result-object p0
 
-    .line 180
+    .line 183
     array-length v6, v3
 
     move v7, v2
@@ -377,7 +377,7 @@
 
     aget-object v8, v3, v7
 
-    .line 181
+    .line 184
     invoke-virtual {v4, v8}, Ljava/util/HashSet;->contains(Ljava/lang/Object;)Z
 
     move-result v9
@@ -392,7 +392,7 @@
 
     goto :goto_af
 
-    .line 184
+    .line 187
     :cond_65
     :try_start_65
     invoke-virtual {p0, v8, v2}, Landroid/content/pm/PackageManager;->getApplicationInfo(Ljava/lang/String;I)Landroid/content/pm/ApplicationInfo;
@@ -401,10 +401,10 @@
     :try_end_69
     .catch Landroid/content/pm/PackageManager$NameNotFoundException; {:try_start_65 .. :try_end_69} :catch_ad
 
-    .line 187
+    .line 190
     nop
 
-    .line 188
+    .line 191
     iget v10, v9, Landroid/content/pm/ApplicationInfo;->flags:I
 
     and-int/lit16 v10, v10, 0x81
@@ -413,7 +413,7 @@
 
     goto :goto_af
 
-    .line 189
+    .line 192
     :cond_71
     iget-boolean v10, v9, Landroid/content/pm/ApplicationInfo;->enabled:Z
 
@@ -431,18 +431,18 @@
 
     goto :goto_af
 
-    .line 190
+    .line 193
     :cond_80
     nop
 
-    .line 191
+    .line 194
     iget v9, v9, Landroid/content/pm/ApplicationInfo;->uid:I
 
     invoke-virtual {p0, v9}, Landroid/content/pm/PackageManager;->getPackagesForUid(I)[Ljava/lang/String;
 
     move-result-object v9
 
-    .line 192
+    .line 195
     if-eqz v9, :cond_a6
 
     array-length v10, v9
@@ -485,7 +485,7 @@
     :cond_a6
     move v12, v2
 
-    .line 193
+    .line 196
     :cond_a7
     if-nez v12, :cond_af
 
@@ -493,25 +493,25 @@
 
     goto :goto_af
 
-    .line 185
+    .line 188
     :catch_ad
     move-exception v8
 
-    .line 186
+    .line 189
     nop
 
-    .line 180
+    .line 183
     :cond_af
     :goto_af
     add-int/lit8 v7, v7, 0x1
 
     goto :goto_54
 
-    .line 195
+    .line 198
     :cond_b2
     return-object v0
 
-    .line 173
+    .line 176
     :cond_b3
     :goto_b3
     return-object v0
@@ -520,7 +520,7 @@
 .method private static context(Lcom/samsung/android/sdhms/SemAppRestrictionManager;)Landroid/content/Context;
     .registers 5
 
-    .line 245
+    .line 256
     :try_start_0
     const-class v0, Lcom/samsung/android/sdhms/SemAppRestrictionManager;
 
@@ -530,17 +530,17 @@
 
     move-result-object v0
 
-    .line 246
+    .line 257
     const/4 v1, 0x1
 
     invoke-virtual {v0, v1}, Ljava/lang/reflect/Field;->setAccessible(Z)V
 
-    .line 247
+    .line 258
     invoke-virtual {v0, p0}, Ljava/lang/reflect/Field;->get(Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object p0
 
-    .line 248
+    .line 259
     instance-of v0, p0, Landroid/content/Context;
 
     if-eqz v0, :cond_17
@@ -551,15 +551,15 @@
 
     return-object p0
 
-    .line 250
+    .line 261
     :cond_17
     goto :goto_19
 
-    .line 249
+    .line 260
     :catchall_18
     move-exception p0
 
-    .line 252
+    .line 263
     :goto_19
     const/4 p0, 0x0
 
@@ -592,18 +592,18 @@
 
     return-object v0
 
-    .line 253
+    .line 264
     :catchall_32
     move-exception v0
 
-    .line 254
+    .line 265
     return-object p0
 .end method
 
 .method private static deviceIdle()Ljava/lang/Object;
     .registers 6
 
-    .line 260
+    .line 271
     const-string v0, "deviceidle"
 
     const/4 v1, 0x0
@@ -637,7 +637,7 @@
 
     check-cast v2, Landroid/os/IBinder;
 
-    .line 261
+    .line 272
     const-string v3, "android.os.IDeviceIdleController$Stub"
 
     invoke-static {v3}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
@@ -668,55 +668,55 @@
 
     return-object v0
 
-    .line 262
+    .line 273
     :catchall_3a
     move-exception v2
 
-    .line 263
+    .line 274
     const-string v3, "K4RestrictList"
 
     invoke-static {v3, v0, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    .line 264
+    .line 275
     return-object v1
 .end method
 
 .method public static getAllList(Lcom/samsung/android/sdhms/SemAppRestrictionManager;)Ljava/util/List;
     .registers 10
 
-    .line 64
+    .line 67
     const-string v0, "K4RestrictList"
 
     invoke-virtual {p0}, Lcom/samsung/android/sdhms/SemAppRestrictionManager;->getAllList()Ljava/util/List;
 
     move-result-object v1
 
-    .line 65
+    .line 68
     const/4 v2, 0x0
 
     if-nez v1, :cond_a
 
     return-object v2
 
-    .line 67
+    .line 70
     :cond_a
     :try_start_a
     invoke-static {p0}, Lcom/k4/devicecare/K4RestrictList;->context(Lcom/samsung/android/sdhms/SemAppRestrictionManager;)Landroid/content/Context;
 
     move-result-object p0
 
-    .line 68
+    .line 71
     if-nez p0, :cond_11
 
     return-object v1
 
-    .line 69
+    .line 72
     :cond_11
     new-instance v3, Ljava/util/HashSet;
 
     invoke-direct {v3}, Ljava/util/HashSet;-><init>()V
 
-    .line 70
+    .line 73
     invoke-interface {v1}, Ljava/util/List;->iterator()Ljava/util/Iterator;
 
     move-result-object v4
@@ -742,11 +742,11 @@
 
     goto :goto_1a
 
-    .line 71
+    .line 74
     :cond_2e
     nop
 
-    .line 72
+    .line 75
     invoke-static {p0}, Lcom/k4/devicecare/K4RestrictList;->candidates(Landroid/content/Context;)Ljava/util/List;
 
     move-result-object v4
@@ -768,7 +768,7 @@
 
     check-cast v5, Ljava/lang/String;
 
-    .line 73
+    .line 76
     invoke-virtual {v3, v5}, Ljava/util/HashSet;->contains(Ljava/lang/Object;)Z
 
     move-result v6
@@ -777,7 +777,7 @@
 
     goto :goto_37
 
-    .line 74
+    .line 77
     :cond_4a
     invoke-virtual {p0}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
 
@@ -791,14 +791,14 @@
 
     iget v6, v6, Landroid/content/pm/ApplicationInfo;->uid:I
 
-    .line 75
+    .line 78
     if-nez v2, :cond_5c
 
     new-instance v2, Ljava/util/ArrayList;
 
     invoke-direct {v2, v1}, Ljava/util/ArrayList;-><init>(Ljava/util/Collection;)V
 
-    .line 76
+    .line 79
     :cond_5c
     new-instance v7, Lcom/samsung/android/sdhms/SemAppRestrictionManager$AppRestrictionInfo;
 
@@ -806,7 +806,7 @@
 
     invoke-virtual {v2, v7}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 77
+    .line 80
     new-instance v7, Ljava/lang/StringBuilder;
 
     invoke-direct {v7}, Ljava/lang/StringBuilder;-><init>()V
@@ -839,10 +839,10 @@
     :try_end_84
     .catchall {:try_start_a .. :try_end_84} :catchall_8a
 
-    .line 78
+    .line 81
     goto :goto_37
 
-    .line 79
+    .line 82
     :cond_85
     if-nez v2, :cond_88
 
@@ -854,23 +854,23 @@
     :goto_89
     return-object v1
 
-    .line 80
+    .line 83
     :catchall_8a
     move-exception p0
 
-    .line 81
+    .line 84
     const-string v2, "getAllList"
 
     invoke-static {v0, v2, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    .line 82
+    .line 85
     return-object v1
 .end method
 
 .method public static isCandidate(Landroid/content/Context;Ljava/lang/String;I)Z
     .registers 7
 
-    .line 164
+    .line 167
     const v0, 0x186a0
 
     div-int v1, p2, v0
@@ -893,7 +893,7 @@
 
     goto :goto_3e
 
-    .line 165
+    .line 168
     :cond_14
     invoke-static {p0}, Lcom/k4/devicecare/K4RestrictList;->candidates(Landroid/content/Context;)Ljava/util/List;
 
@@ -915,7 +915,7 @@
 
     if-eqz v0, :cond_3c
 
-    .line 166
+    .line 169
     invoke-virtual {p0}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
 
     move-result-object p0
@@ -941,11 +941,11 @@
     :cond_3c
     nop
 
-    .line 165
+    .line 168
     :goto_3d
     return v3
 
-    .line 164
+    .line 167
     :cond_3e
     :goto_3e
     return v3
@@ -954,7 +954,7 @@
 .method public static isTracked(Lcom/samsung/android/sdhms/SemAppRestrictionManager;Ljava/lang/String;I)Z
     .registers 4
 
-    .line 156
+    .line 159
     const/4 v0, 0x1
 
     :try_start_1
@@ -966,11 +966,11 @@
 
     return p0
 
-    .line 157
+    .line 160
     :catchall_6
     move-exception p0
 
-    .line 158
+    .line 161
     const/4 p0, 0x0
 
     return p0
@@ -979,7 +979,7 @@
 .method public static prepare(Landroid/content/Context;Ljava/util/List;IZ)Ljava/util/List;
     .registers 15
 
-    .line 91
+    .line 94
     const-string v0, "K4RestrictList"
 
     if-eqz p3, :cond_209
@@ -1003,24 +1003,24 @@
 
     goto/16 :goto_209
 
-    .line 93
+    .line 96
     :cond_15
     :try_start_15
     new-instance p3, Lcom/samsung/android/sdhms/SemAppRestrictionManager;
 
     invoke-direct {p3, p0}, Lcom/samsung/android/sdhms/SemAppRestrictionManager;-><init>(Landroid/content/Context;)V
 
-    .line 94
+    .line 97
     new-instance v1, Ljava/util/ArrayList;
 
     invoke-direct {v1}, Ljava/util/ArrayList;-><init>()V
 
-    .line 95
+    .line 98
     new-instance v2, Ljava/util/ArrayList;
 
     invoke-direct {v2}, Ljava/util/ArrayList;-><init>()V
 
-    .line 96
+    .line 99
     invoke-interface {p1}, Ljava/util/List;->iterator()Ljava/util/Iterator;
 
     move-result-object v3
@@ -1037,20 +1037,20 @@
 
     move-result-object v4
 
-    .line 97
+    .line 100
     instance-of v5, v4, Lkc/d;
 
     if-nez v5, :cond_37
 
     goto :goto_28
 
-    .line 98
+    .line 101
     :cond_37
     move-object v5, v4
 
     check-cast v5, Lkc/d;
 
-    .line 99
+    .line 102
     iget-object v6, v5, Lkc/d;->a:Ljava/lang/String;
 
     if-eqz v6, :cond_28
@@ -1077,7 +1077,7 @@
 
     goto :goto_28
 
-    .line 100
+    .line 103
     :cond_53
     if-nez p2, :cond_5e
 
@@ -1094,11 +1094,11 @@
     :cond_5e
     const/4 v6, 0x0
 
-    .line 101
+    .line 104
     :goto_5f
     if-eqz v6, :cond_87
 
-    .line 102
+    .line 105
     iget-object v5, v5, Lkc/d;->a:Ljava/lang/String;
 
     new-instance v7, Ljava/lang/StringBuilder;
@@ -1131,19 +1131,19 @@
 
     invoke-static {v0, v5}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 103
+    .line 106
     invoke-virtual {v2, v4}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 104
+    .line 107
     goto :goto_28
 
-    .line 106
+    .line 109
     :cond_87
     invoke-static {}, Lcom/k4/devicecare/K4RestrictList;->deviceIdle()Ljava/lang/Object;
 
     move-result-object v6
 
-    .line 107
+    .line 110
     const-string v7, "removePowerSaveWhitelistApp"
 
     iget-object v8, v5, Lkc/d;->a:Ljava/lang/String;
@@ -1154,7 +1154,7 @@
 
     invoke-static {v6, v7, v8}, Lcom/k4/devicecare/K4RestrictList;->call(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;
 
-    .line 108
+    .line 111
     sget-object v7, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
 
     const-string v8, "isPowerSaveWhitelistApp"
@@ -1175,7 +1175,7 @@
 
     if-eqz v6, :cond_cd
 
-    .line 109
+    .line 112
     iget-object v5, v5, Lkc/d;->a:Ljava/lang/String;
 
     new-instance v6, Ljava/lang/StringBuilder;
@@ -1204,13 +1204,13 @@
 
     invoke-static {v0, v5}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 110
+    .line 113
     invoke-virtual {v2, v4}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 111
+    .line 114
     goto/16 :goto_28
 
-    .line 113
+    .line 116
     :cond_cd
     iget-object v4, v5, Lkc/d;->a:Ljava/lang/String;
 
@@ -1240,20 +1240,20 @@
     :try_end_e9
     .catchall {:try_start_15 .. :try_end_e9} :catchall_202
 
-    .line 115
+    .line 118
     :try_start_e9
     new-instance v4, Landroid/content/ContentValues;
 
     invoke-direct {v4}, Landroid/content/ContentValues;-><init>()V
 
-    .line 116
+    .line 119
     const-string v6, "package_name"
 
     iget-object v7, v5, Lkc/d;->a:Ljava/lang/String;
 
     invoke-virtual {v4, v6, v7}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/String;)V
 
-    .line 117
+    .line 120
     const-string v6, "uid"
 
     iget v7, v5, Lkc/d;->c:I
@@ -1264,7 +1264,7 @@
 
     invoke-virtual {v4, v6, v7}, Landroid/content/ContentValues;->put(Ljava/lang/String;Ljava/lang/Integer;)V
 
-    .line 118
+    .line 121
     invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
 
     move-result-object v6
@@ -1275,14 +1275,14 @@
     :try_end_109
     .catchall {:try_start_e9 .. :try_end_109} :catchall_10a
 
-    .line 121
+    .line 124
     goto :goto_123
 
-    .line 119
+    .line 122
     :catchall_10a
     move-exception v4
 
-    .line 120
+    .line 123
     :try_start_10b
     iget-object v6, v5, Lkc/d;->a:Ljava/lang/String;
 
@@ -1306,14 +1306,14 @@
 
     invoke-static {v0, v6, v4}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    .line 122
+    .line 125
     :goto_123
     invoke-virtual {v1, v5}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 123
+    .line 126
     goto/16 :goto_28
 
-    .line 124
+    .line 127
     :cond_128
     invoke-static {}, Landroid/os/SystemClock;->uptimeMillis()J
 
@@ -1323,7 +1323,7 @@
 
     add-long/2addr v3, v5
 
-    .line 125
+    .line 128
     invoke-virtual {v1}, Ljava/util/ArrayList;->iterator()Ljava/util/Iterator;
 
     move-result-object p0
@@ -1341,7 +1341,7 @@
 
     check-cast v1, Lkc/d;
 
-    .line 126
+    .line 129
     :goto_13f
     iget-object v5, v1, Lkc/d;->a:Ljava/lang/String;
 
@@ -1367,7 +1367,7 @@
 
     goto :goto_13f
 
-    .line 127
+    .line 130
     :cond_157
     iget-object v5, v1, Lkc/d;->a:Ljava/lang/String;
 
@@ -1379,7 +1379,7 @@
 
     if-nez v5, :cond_17d
 
-    .line 128
+    .line 131
     iget-object v5, v1, Lkc/d;->a:Ljava/lang/String;
 
     new-instance v6, Ljava/lang/StringBuilder;
@@ -1402,13 +1402,13 @@
 
     invoke-static {v0, v5}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 129
+    .line 132
     invoke-virtual {v2, v1}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 130
+    .line 133
     goto :goto_133
 
-    .line 132
+    .line 135
     :cond_17d
     const-wide/16 v5, 0x0
 
@@ -1433,13 +1433,13 @@
     :cond_18f
     move-wide v7, v5
 
-    .line 133
+    .line 136
     :goto_190
     cmp-long v5, v7, v5
 
     if-eqz v5, :cond_1d4
 
-    .line 134
+    .line 137
     iget-object v5, v1, Lkc/d;->a:Ljava/lang/String;
 
     invoke-static {v7, v8}, Ljava/lang/Long;->toHexString(J)Ljava/lang/String;
@@ -1482,7 +1482,7 @@
 
     invoke-static {v0, v5}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 135
+    .line 138
     invoke-static {}, Lcom/k4/devicecare/K4RestrictList;->deviceIdle()Ljava/lang/Object;
 
     move-result-object v5
@@ -1497,13 +1497,13 @@
 
     invoke-static {v5, v6, v7}, Lcom/k4/devicecare/K4RestrictList;->call(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;
 
-    .line 136
+    .line 139
     invoke-virtual {v2, v1}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 137
+    .line 140
     goto/16 :goto_133
 
-    .line 139
+    .line 142
     :cond_1d4
     iget-object v1, v1, Lkc/d;->a:Ljava/lang/String;
 
@@ -1531,10 +1531,10 @@
 
     invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 140
+    .line 143
     goto/16 :goto_133
 
-    .line 141
+    .line 144
     :cond_1f2
     invoke-virtual {v2}, Ljava/util/ArrayList;->isEmpty()Z
 
@@ -1544,95 +1544,95 @@
 
     return-object p1
 
-    .line 142
+    .line 145
     :cond_1f9
     new-instance p0, Ljava/util/ArrayList;
 
     invoke-direct {p0, p1}, Ljava/util/ArrayList;-><init>(Ljava/util/Collection;)V
 
-    .line 143
+    .line 146
     invoke-virtual {p0, v2}, Ljava/util/ArrayList;->removeAll(Ljava/util/Collection;)Z
     :try_end_201
     .catchall {:try_start_10b .. :try_end_201} :catchall_202
 
-    .line 144
+    .line 147
     return-object p0
 
-    .line 145
+    .line 148
     :catchall_202
     move-exception p0
 
-    .line 146
+    .line 149
     const-string p2, "prepare"
 
     invoke-static {v0, p2, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    .line 147
+    .line 150
     return-object p1
 
-    .line 91
+    .line 94
     :cond_209
     :goto_209
     return-object p1
 .end method
 
 .method public static protection(Landroid/content/Context;Ljava/lang/String;I)Ljava/lang/String;
-    .registers 11
+    .registers 14
 
-    .line 200
-    const v0, 0x186a0
+    .line 203
+    const v1, 0x186a0
 
-    rem-int v1, p2, v0
+    rem-int v0, p2, v1
 
     const/16 v2, 0x3e8
 
-    if-ne v1, v2, :cond_c
+    if-ne v0, v2, :cond_c
 
     const-string p0, "system uid"
 
     return-object p0
 
-    .line 202
+    .line 205
     :cond_c
-    const/4 v1, 0x0
+    const/4 v2, 0x0
 
     :try_start_d
-    const-class v2, Landroid/app/admin/DevicePolicyManager;
+    const-class v0, Landroid/app/admin/DevicePolicyManager;
 
-    invoke-virtual {p0, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/Class;)Ljava/lang/Object;
+    invoke-virtual {p0, v0}, Landroid/content/Context;->getSystemService(Ljava/lang/Class;)Ljava/lang/Object;
 
-    move-result-object v2
+    move-result-object v0
 
-    check-cast v2, Landroid/app/admin/DevicePolicyManager;
+    check-cast v0, Landroid/app/admin/DevicePolicyManager;
 
-    .line 203
-    if-nez v2, :cond_19
+    .line 206
+    if-nez v0, :cond_19
 
-    move-object v2, v1
+    move-object v0, v2
 
     goto :goto_1d
 
     :cond_19
-    invoke-virtual {v2}, Landroid/app/admin/DevicePolicyManager;->getActiveAdmins()Ljava/util/List;
+    invoke-virtual {v0}, Landroid/app/admin/DevicePolicyManager;->getActiveAdmins()Ljava/util/List;
 
-    move-result-object v2
+    move-result-object v0
 
-    .line 204
+    .line 207
     :goto_1d
-    if-eqz v2, :cond_3c
+    if-eqz v0, :cond_3c
 
-    invoke-interface {v2}, Ljava/util/List;->iterator()Ljava/util/Iterator;
+    invoke-interface {v0}, Ljava/util/List;->iterator()Ljava/util/Iterator;
 
-    move-result-object v2
+    move-result-object v0
 
     :cond_23
-    invoke-interface {v2}, Ljava/util/Iterator;->hasNext()Z
+    invoke-interface {v0}, Ljava/util/Iterator;->hasNext()Z
 
     move-result v3
 
     if-eqz v3, :cond_3c
 
-    invoke-interface {v2}, Ljava/util/Iterator;->next()Ljava/lang/Object;
+    invoke-interface {v0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
 
     move-result-object v3
 
@@ -1654,19 +1654,19 @@
 
     return-object p0
 
-    .line 206
+    .line 209
     :cond_3c
     goto :goto_3e
 
-    .line 205
+    .line 208
     :catchall_3d
-    move-exception v2
+    move-exception v0
 
-    .line 207
+    .line 210
     :goto_3e
-    sget-object v2, Lcom/k4/devicecare/K4RestrictList;->ROLES:[Ljava/lang/String;
+    sget-object v0, Lcom/k4/devicecare/K4RestrictList;->ROLES:[Ljava/lang/String;
 
-    array-length v3, v2
+    array-length v3, v0
 
     const/4 v4, 0x0
 
@@ -1675,7 +1675,7 @@
     :goto_43
     if-ge v5, v3, :cond_55
 
-    aget-object v6, v2, v5
+    aget-object v6, v0, v5
 
     invoke-static {p0, v6}, Lcom/k4/devicecare/K4RestrictList;->roleHolders(Landroid/content/Context;Ljava/lang/String;)Ljava/util/List;
 
@@ -1694,44 +1694,44 @@
 
     goto :goto_43
 
-    .line 209
+    .line 212
     :cond_55
     :try_start_55
     invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
 
-    move-result-object v2
+    move-result-object v0
 
     const-string v3, "default_input_method"
 
-    invoke-static {v2, v3}, Landroid/provider/Settings$Secure;->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {v0, v3}, Landroid/provider/Settings$Secure;->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;
 
-    move-result-object v2
+    move-result-object v0
 
-    .line 210
-    if-nez v2, :cond_63
+    .line 213
+    if-nez v0, :cond_63
 
-    move-object v2, v1
+    move-object v0, v2
 
     goto :goto_67
 
     :cond_63
-    invoke-static {v2}, Landroid/content/ComponentName;->unflattenFromString(Ljava/lang/String;)Landroid/content/ComponentName;
+    invoke-static {v0}, Landroid/content/ComponentName;->unflattenFromString(Ljava/lang/String;)Landroid/content/ComponentName;
 
-    move-result-object v2
+    move-result-object v0
 
-    .line 211
+    .line 214
     :goto_67
-    if-eqz v2, :cond_76
+    if-eqz v0, :cond_76
 
-    invoke-virtual {v2}, Landroid/content/ComponentName;->getPackageName()Ljava/lang/String;
+    invoke-virtual {v0}, Landroid/content/ComponentName;->getPackageName()Ljava/lang/String;
 
-    move-result-object v2
+    move-result-object v0
 
-    invoke-virtual {p1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    move-result v2
+    move-result v0
 
-    if-eqz v2, :cond_76
+    if-eqz v0, :cond_76
 
     const-string p0, "keyboard"
     :try_end_75
@@ -1739,22 +1739,22 @@
 
     return-object p0
 
-    .line 213
+    .line 216
     :cond_76
     goto :goto_78
 
-    .line 212
-    :catchall_77
-    move-exception v2
-
     .line 215
+    :catchall_77
+    move-exception v0
+
+    .line 218
     :goto_78
     :try_start_78
     invoke-static {p0}, Landroid/app/WallpaperManager;->getInstance(Landroid/content/Context;)Landroid/app/WallpaperManager;
 
-    move-result-object v2
+    move-result-object v0
 
-    .line 216
+    .line 219
     const/4 v3, 0x2
 
     const/4 v5, 0x1
@@ -1763,76 +1763,78 @@
 
     move-result-object v5
 
-    :goto_82
-    if-ge v4, v3, :cond_9c
+    move v6, v4
 
-    aget v6, v5, v4
+    :goto_83
+    if-ge v6, v3, :cond_9d
 
-    .line 217
-    invoke-virtual {v2, v6}, Landroid/app/WallpaperManager;->getWallpaperInfo(I)Landroid/app/WallpaperInfo;
+    aget v7, v5, v6
 
-    move-result-object v6
+    .line 220
+    invoke-virtual {v0, v7}, Landroid/app/WallpaperManager;->getWallpaperInfo(I)Landroid/app/WallpaperInfo;
 
-    .line 218
-    if-eqz v6, :cond_99
+    move-result-object v7
 
-    invoke-virtual {v6}, Landroid/app/WallpaperInfo;->getPackageName()Ljava/lang/String;
+    .line 221
+    if-eqz v7, :cond_9a
 
-    move-result-object v6
+    invoke-virtual {v7}, Landroid/app/WallpaperInfo;->getPackageName()Ljava/lang/String;
 
-    invoke-virtual {p1, v6}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result-object v7
 
-    move-result v6
+    invoke-virtual {p1, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    if-eqz v6, :cond_99
+    move-result v7
+
+    if-eqz v7, :cond_9a
 
     const-string p0, "wallpaper"
-    :try_end_98
-    .catchall {:try_start_78 .. :try_end_98} :catchall_9d
+    :try_end_99
+    .catchall {:try_start_78 .. :try_end_99} :catchall_9e
 
     return-object p0
 
-    .line 216
-    :cond_99
-    add-int/lit8 v4, v4, 0x1
+    .line 219
+    :cond_9a
+    add-int/lit8 v6, v6, 0x1
 
-    goto :goto_82
+    goto :goto_83
 
-    .line 221
-    :cond_9c
-    goto :goto_9e
-
-    .line 220
-    :catchall_9d
-    move-exception v2
+    .line 224
+    :cond_9d
+    goto :goto_9f
 
     .line 223
-    :goto_9e
-    :try_start_9e
-    const-class v2, Landroid/content/pm/PackageManager;
+    :catchall_9e
+    move-exception v0
+
+    .line 226
+    :goto_9f
+    :try_start_9f
+    const-class v0, Landroid/content/pm/PackageManager;
 
     const-string v3, "isPackageStateProtected"
 
-    const-class v4, Ljava/lang/String;
+    const-class v5, Ljava/lang/String;
 
-    sget-object v5, Ljava/lang/Integer;->TYPE:Ljava/lang/Class;
+    sget-object v6, Ljava/lang/Integer;->TYPE:Ljava/lang/Class;
 
-    filled-new-array {v4, v5}, [Ljava/lang/Class;
+    filled-new-array {v5, v6}, [Ljava/lang/Class;
 
-    move-result-object v4
+    move-result-object v5
 
-    invoke-virtual {v2, v3, v4}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+    invoke-virtual {v0, v3, v5}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
 
-    move-result-object v2
+    move-result-object v0
 
-    .line 224
+    .line 227
     sget-object v3, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
 
     invoke-virtual {p0}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
 
-    move-result-object p0
+    move-result-object v5
 
-    div-int/2addr p2, v0
+    div-int/2addr p2, v1
 
     invoke-static {p2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 
@@ -1840,35 +1842,213 @@
 
     filled-new-array {p1, p2}, [Ljava/lang/Object;
 
-    move-result-object p1
+    move-result-object p2
 
-    invoke-virtual {v2, p0, p1}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-virtual {v0, v5, p2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
 
-    move-result-object p0
+    move-result-object p2
 
-    invoke-virtual {v3, p0}, Ljava/lang/Boolean;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v3, p2}, Ljava/lang/Boolean;->equals(Ljava/lang/Object;)Z
 
-    move-result p0
+    move-result p2
 
-    if-eqz p0, :cond_ca
+    if-eqz p2, :cond_cb
 
     const-string p0, "protected package"
-    :try_end_c9
-    .catchall {:try_start_9e .. :try_end_c9} :catchall_cb
+    :try_end_ca
+    .catchall {:try_start_9f .. :try_end_ca} :catchall_cc
 
     return-object p0
 
-    .line 226
-    :cond_ca
-    goto :goto_cc
-
-    .line 225
-    :catchall_cb
-    move-exception p0
-
     .line 229
-    :goto_cc
-    return-object v1
+    :cond_cb
+    goto :goto_cd
+
+    .line 228
+    :catchall_cc
+    move-exception v0
+
+    .line 231
+    :goto_cd
+    :try_start_cd
+    invoke-static {p0}, Landroid/accounts/AccountManager;->get(Landroid/content/Context;)Landroid/accounts/AccountManager;
+
+    move-result-object p2
+
+    invoke-virtual {p2}, Landroid/accounts/AccountManager;->getAuthenticatorTypes()[Landroid/accounts/AuthenticatorDescription;
+
+    move-result-object p2
+
+    array-length v0, p2
+
+    :goto_d6
+    if-ge v4, v0, :cond_14d
+
+    aget-object v1, p2, v4
+
+    .line 232
+    iget-object v3, v1, Landroid/accounts/AuthenticatorDescription;->packageName:Ljava/lang/String;
+
+    invoke-virtual {p1, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v3
+
+    if-eqz v3, :cond_14a
+
+    iget-object v3, v1, Landroid/accounts/AuthenticatorDescription;->type:Ljava/lang/String;
+
+    if-nez v3, :cond_e7
+
+    goto :goto_14a
+
+    .line 233
+    :cond_e7
+    const-string v3, "content://com.android.contacts/raw_contacts"
+
+    invoke-static {v3}, Landroid/net/Uri;->parse(Ljava/lang/String;)Landroid/net/Uri;
+
+    move-result-object v3
+
+    invoke-virtual {v3}, Landroid/net/Uri;->buildUpon()Landroid/net/Uri$Builder;
+
+    move-result-object v3
+
+    const-string v5, "limit"
+
+    const-string v6, "1"
+
+    invoke-virtual {v3, v5, v6}, Landroid/net/Uri$Builder;->appendQueryParameter(Ljava/lang/String;Ljava/lang/String;)Landroid/net/Uri$Builder;
+
+    move-result-object v3
+
+    invoke-virtual {v3}, Landroid/net/Uri$Builder;->build()Landroid/net/Uri;
+
+    move-result-object v6
+
+    .line 234
+    invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+
+    move-result-object v5
+
+    const-string v3, "_id"
+
+    filled-new-array {v3}, [Ljava/lang/String;
+
+    move-result-object v7
+
+    const-string v8, "account_type = ? "
+
+    iget-object v3, v1, Landroid/accounts/AuthenticatorDescription;->type:Ljava/lang/String;
+
+    filled-new-array {v3}, [Ljava/lang/String;
+
+    move-result-object v9
+
+    const/4 v10, 0x0
+
+    invoke-virtual/range {v5 .. v10}, Landroid/content/ContentResolver;->query(Landroid/net/Uri;[Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;Ljava/lang/String;)Landroid/database/Cursor;
+
+    move-result-object v3
+    :try_end_114
+    .catchall {:try_start_cd .. :try_end_114} :catchall_14e
+
+    .line 235
+    if-eqz v3, :cond_145
+
+    :try_start_116
+    invoke-interface {v3}, Landroid/database/Cursor;->getCount()I
+
+    move-result v5
+
+    if-lez v5, :cond_145
+
+    iget-object p0, v1, Landroid/accounts/AuthenticatorDescription;->type:Ljava/lang/String;
+
+    new-instance p1, Ljava/lang/StringBuilder;
+
+    invoke-direct {p1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string p2, "contacts account "
+
+    invoke-virtual {p1, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p1
+
+    invoke-virtual {p1, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p0
+
+    invoke-virtual {p0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p0
+    :try_end_131
+    .catchall {:try_start_116 .. :try_end_131} :catchall_137
+
+    .line 236
+    if-eqz v3, :cond_136
+
+    :try_start_133
+    invoke-interface {v3}, Landroid/database/Cursor;->close()V
+    :try_end_136
+    .catchall {:try_start_133 .. :try_end_136} :catchall_14e
+
+    .line 235
+    :cond_136
+    return-object p0
+
+    .line 234
+    :catchall_137
+    move-exception v0
+
+    move-object p0, v0
+
+    if-eqz v3, :cond_144
+
+    :try_start_13b
+    invoke-interface {v3}, Landroid/database/Cursor;->close()V
+    :try_end_13e
+    .catchall {:try_start_13b .. :try_end_13e} :catchall_13f
+
+    goto :goto_144
+
+    :catchall_13f
+    move-exception v0
+
+    move-object p1, v0
+
+    :try_start_141
+    invoke-virtual {p0, p1}, Ljava/lang/Throwable;->addSuppressed(Ljava/lang/Throwable;)V
+
+    :cond_144
+    :goto_144
+    throw p0
+
+    .line 236
+    :cond_145
+    if-eqz v3, :cond_14a
+
+    invoke-interface {v3}, Landroid/database/Cursor;->close()V
+    :try_end_14a
+    .catchall {:try_start_141 .. :try_end_14a} :catchall_14e
+
+    .line 231
+    :cond_14a
+    :goto_14a
+    add-int/lit8 v4, v4, 0x1
+
+    goto :goto_d6
+
+    .line 239
+    :cond_14d
+    goto :goto_14f
+
+    .line 238
+    :catchall_14e
+    move-exception v0
+
+    .line 240
+    :goto_14f
+    return-object v2
 .end method
 
 .method private static roleHolders(Landroid/content/Context;Ljava/lang/String;)Ljava/util/List;
@@ -1885,7 +2065,7 @@
         }
     .end annotation
 
-    .line 235
+    .line 246
     :try_start_0
     const-string v0, "role"
 
@@ -1893,7 +2073,7 @@
 
     move-result-object p0
 
-    .line 236
+    .line 247
     invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
     move-result-object v0
@@ -1910,7 +2090,7 @@
 
     move-result-object v0
 
-    .line 237
+    .line 248
     new-instance v1, Ljava/util/ArrayList;
 
     filled-new-array {p1}, [Ljava/lang/Object;
@@ -1929,11 +2109,11 @@
 
     return-object v1
 
-    .line 238
+    .line 249
     :catchall_26
     move-exception p0
 
-    .line 239
+    .line 250
     new-instance p0, Ljava/util/ArrayList;
 
     invoke-direct {p0}, Ljava/util/ArrayList;-><init>()V
