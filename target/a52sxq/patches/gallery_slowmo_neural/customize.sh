@@ -7,6 +7,7 @@
 SRC="$SRC_DIR/target/a52sxq/patches/gallery_slowmo_neural"
 QAIRT="$SRC_DIR/prebuilts/qairt/2.46.0"
 MODEL="$SRC_DIR/prebuilts/k4neural/k4n_v3_htp.dlc"
+FILM_MODEL="$SRC_DIR/prebuilts/k4neural/k4n_film256_htp.dlc"
 MPP_STORE="vendor.samsung.hardware.media.mpp.ISehMppStore"
 
 [ ! -f "$SRC_DIR/target/a52sxq/patches/gallery_slowmo/disable" ] || \
@@ -40,6 +41,13 @@ K4N_INSTALL "$SRC/prebuilt/k4neuralmpp" "bin/hw/k4neuralmpp" 0 2000 755 "u:objec
 K4N_INSTALL "$SRC/k4neuralmpp.rc" "etc/init/k4neuralmpp.rc" 0 0 644 "u:object_r:vendor_configs_file:s0"
 K4N_INSTALL "$SRC/k4neuralmpp.xml" "etc/vintf/manifest/k4neuralmpp.xml" 0 0 644 "u:object_r:vendor_configs_file:s0"
 K4N_INSTALL "$MODEL" "etc/k4neural/k4n_v3_htp.dlc" 0 0 644 "u:object_r:vendor_configs_file:s0"
+# FILM (Google film_net, Apache-2.0; A16W8, prepared for the SM7325 HTP) for the offline "Save slow-mo clip" (config A,
+# K4SlowMoExport). Optional: without it the daemon refuses the render session and the save records the neural playback.
+if [ -f "$FILM_MODEL" ]; then
+    K4N_INSTALL "$FILM_MODEL" "etc/k4neural/k4n_film256_htp.dlc" 0 0 644 "u:object_r:vendor_configs_file:s0"
+else
+    LOG "  (prebuilts/k4neural/k4n_film256_htp.dlc not found: Save slow-mo clip stays on the real-time recording)"
+fi
 K4N_INSTALL "$QAIRT/libSNPE.so" "lib64/k4neural/libSNPE.so" 0 0 644 "u:object_r:vendor_file:s0"
 K4N_INSTALL "$QAIRT/libSnpeHtpV68Stub.so" "lib64/k4neural/libSnpeHtpV68Stub.so" 0 0 644 "u:object_r:vendor_file:s0"
 K4N_INSTALL "$QAIRT/NOTICE.txt" "lib64/k4neural/NOTICE.txt" 0 0 644 "u:object_r:vendor_file:s0"

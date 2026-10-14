@@ -85,3 +85,27 @@ static inline int k4n_slot(int bridge, int factor, int k, long long ts0, long lo
     else { *ts = tsm + (ts1 - tsm) * (k - factor) / factor; *newer = !((float) (k - factor) / factor < 0.5f); }
     return 2 * factor;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Offline save, "config A": per source pair FILM (Google film_net, DLC prepared for the HTP) makes the middle frame on one
+// 256x256 crop around the motion, pasted with a 24 px feather into the v3 middle frame; the other positions come from
+// v3 on (prev, middle) and (middle, next). The crop is chosen from v3's own flows (k4n_render_score) and smoothed over
+// neighbouring pairs by the caller (K4SlowMoExport). Nothing of this runs in the live hold.
+#define K4N_FILM_CS 256
+#define K4N_FILM_FEATHER 24
+// FILM network: <datadir>/k4n_film256_htp.dlc on cfg->runtime (needs k4n_engine_init first: same libSNPE). 0 = ready.
+int k4n_film_init(const K4nConfig* cfg, char* err, size_t errlen);
+void k4n_film_release(void);
+typedef struct K4nRender K4nRender;
+K4nRender* k4n_render_create(int w, int h);
+void k4n_render_destroy(K4nRender* r);
+// pass 1: v3 on (prev, next) -> best crop score, its centre (image pixels) and the mean |prev - next| of the network
+// inputs in 8-bit levels (the repeated-frame test, K4N_REPEAT_MAD). 0 = ok, -1 = engine failure.
+int k4n_render_score(K4nRender* r, const uint8_t* prev, const uint8_t* next, float* score, float* cx, float* cy, float* diff);
+// pass 2: the frames at ts[0..n-1] (0 < t < 1) as packed NV12 into out[i]; film: FILM on the crop at (x0, y0) (even,
+// inside the frame), else plain v3. ms (optional): v3 inference, FILM, warps (all summed). 0 = ok, -1 = v3 failed,
+// -2 = FILM failed (the frames are then plain v3; the caller decides).
+int k4n_render_pair(K4nRender* r, const uint8_t* prev, const uint8_t* next, const float* ts, int n, int x0, int y0, int film, uint8_t** out, double* ms);
+// crop helpers (exposed for the host tests): NV12 (tight) <-> RGB float 0..1 NHWC, BT.601 limited range as the reference
+void k4n_rgb_crop(const uint8_t* nv12, int w, int h, int x0, int y0, float* rgb);
+void k4n_paste_crop(uint8_t* nv12, int w, int h, const float* rgb, int x0, int y0);

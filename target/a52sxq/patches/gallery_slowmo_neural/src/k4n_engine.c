@@ -811,3 +811,193 @@ void k4n_warp_to(const K4nSession* s, const uint8_t* prev, const uint8_t* next, 
 void k4n_warp(const K4nSession* s, const uint8_t* prev, const uint8_t* next, uint8_t* out, float tpos) {
     k4n_warp_to(s, prev, next, out, out + (size_t) s->w * s->h, s->w, tpos);
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Offline save, config A (k4n.h). Reference: quality/mid_ground.py cfg 256o0 + hybrid.py (score, paste) on the PC.
+static struct { H container, snpe, inmap, in0, in1; float *p0, *p1; int state; } FL;     // FILM network (g_lock)
+static void film_drop(void) {
+    if (FL.snpe && S.SNPE_Delete) S.SNPE_Delete(FL.snpe);
+    if (FL.inmap) S.TensorMap_Delete(FL.inmap);
+    if (FL.in0 && S.ITensor_Delete) S.ITensor_Delete(FL.in0);
+    if (FL.in1 && S.ITensor_Delete) S.ITensor_Delete(FL.in1);
+    if (FL.container && S.DlContainer_Delete) S.DlContainer_Delete(FL.container);
+    memset(&FL, 0, sizeof FL);
+}
+#undef SYM
+#define SYM(ret, var, name, args) ret (*var) args = (ret (*) args) dlsym(S.lib, name); \
+    if (!var) { snprintf(err, errlen, "libSNPE: missing %s", name); goto fail; }
+int k4n_film_init(const K4nConfig* cfg, char* err, size_t errlen) {
+    char path[512]; double t0 = k4n_now_ms(); const size_t n = (size_t) K4N_FILM_CS * K4N_FILM_CS * 3;
+    pthread_mutex_lock(&g_lock);
+    if (FL.state == 1) { pthread_mutex_unlock(&g_lock); return 0; }
+    if (g_state != 1 || !S.lib) { snprintf(err, errlen, "v3 engine not ready"); goto fail; }
+    {   SYM(H, DlContainer_Open, "Snpe_DlContainer_Open", (const char*))
+        SYM(H, Builder_Create, "Snpe_SNPEBuilder_Create", (H))
+        SYM(int, Builder_Delete, "Snpe_SNPEBuilder_Delete", (H))
+        SYM(H, RuntimeList_Create, "Snpe_RuntimeList_Create", (void))
+        SYM(int, RuntimeList_Add, "Snpe_RuntimeList_Add", (H, int))
+        SYM(int, RuntimeList_Delete, "Snpe_RuntimeList_Delete", (H))
+        SYM(int, SetRuntimeOrder, "Snpe_SNPEBuilder_SetRuntimeProcessorOrder", (H, H))
+        SYM(int, SetPerf, "Snpe_SNPEBuilder_SetPerformanceProfile", (H, int))
+        SYM(int, SetUB, "Snpe_SNPEBuilder_SetUseUserSuppliedBuffers", (H, int))
+        SYM(H, Build, "Snpe_SNPEBuilder_Build", (H))
+        SYM(H, GetInputDimensions, "Snpe_SNPE_GetInputDimensions", (H, const char*))
+        SYM(int, TensorShape_Delete, "Snpe_TensorShape_Delete", (H))
+        SYM(H, CreateITensor, "Snpe_Util_CreateITensor", (H))
+        const char* e = getenv("K4N_FILM_DLC");      // host tests: the float DLC on the CPU runtime
+        if (e && *e) snprintf(path, sizeof path, "%s", e); else snprintf(path, sizeof path, "%s/k4n_film256_htp.dlc", cfg->datadir);
+        if (access(path, R_OK)) { snprintf(err, errlen, "no FILM model %s", path); goto fail; }
+        FL.container = DlContainer_Open(path);
+        if (!FL.container) { snprintf(err, errlen, "cannot open %s: %.120s", path, S.LastError()); goto fail; }
+        H b = Builder_Create(FL.container), rl = RuntimeList_Create();
+        RuntimeList_Add(rl, cfg->runtime); SetRuntimeOrder(b, rl); SetPerf(b, 5 /* burst */); SetUB(b, 0);
+        FL.snpe = Build(b); RuntimeList_Delete(rl); Builder_Delete(b);
+        if (!FL.snpe) { snprintf(err, errlen, "FILM build failed (runtime %d): %.160s", cfg->runtime, S.LastError()); goto fail; }
+        FL.inmap = S.TensorMap_Create();
+        for (int i = 0; i < 2; i++) {
+            const char* nm = i ? "x1" : "x0"; H sh = GetInputDimensions(FL.snpe, nm);
+            if (!sh) { snprintf(err, errlen, "FILM model has no input %s", nm); goto fail; }
+            H t = CreateITensor(sh); TensorShape_Delete(sh);
+            if (!t || S.ITensor_GetSize(t) != n) { snprintf(err, errlen, "FILM input %s has an unexpected size", nm); goto fail; }
+            S.TensorMap_Add(FL.inmap, nm, t);
+            if (i) { FL.in1 = t; FL.p1 = S.ITensor_GetData(t); } else { FL.in0 = t; FL.p0 = S.ITensor_GetData(t); }
+        }
+    }
+    FL.state = 1; pthread_mutex_unlock(&g_lock);
+    K4N_LOG("FILM init ok in %.0f ms (runtime %d)", k4n_now_ms() - t0, cfg->runtime);
+    return 0;
+fail:
+    film_drop(); pthread_mutex_unlock(&g_lock);
+    K4N_LOG("FILM init FAILED: %s", err);
+    return -1;
+}
+void k4n_film_release(void) {
+    pthread_mutex_lock(&g_lock);
+    if (FL.state == 1) { film_drop(); K4N_LOG("FILM released"); }
+    pthread_mutex_unlock(&g_lock);
+}
+static int film_run(const float* x0, const float* x1, float* out) {     // 256x256x3 NHWC float in, same out
+    const size_t n = (size_t) K4N_FILM_CS * K4N_FILM_CS * 3; int r = -1;
+    pthread_mutex_lock(&g_lock);
+    if (FL.state == 1) {
+        memcpy(FL.p0, x0, n * sizeof(float)); memcpy(FL.p1, x1, n * sizeof(float));
+        H om = S.TensorMap_Create();
+        H t = S.SNPE_ExecuteITensors(FL.snpe, FL.inmap, om) ? NULL : S.TensorMap_GetTensor_Ref(om, "image");
+        if (t && S.ITensor_GetSize(t) == n) { memcpy(out, S.ITensor_GetData(t), n * sizeof(float)); r = 0; }
+        else K4N_LOG("FILM inference failed: %.160s", S.LastError());
+        S.TensorMap_Delete(om);
+    }
+    pthread_mutex_unlock(&g_lock);
+    return r;
+}
+
+static inline uint8_t u8r(float v) { v += 0.5f; return (uint8_t) (v <= 0 ? 0 : (v >= 255 ? 255 : (int) v)); }     // np.clip(x + .5, 0, 255).astype(uint8)
+void k4n_rgb_crop(const uint8_t* nv12, int w, int h, int x0, int y0, float* rgb) {        // qlib.rgb_of / 255
+    const int cs = K4N_FILM_CS; const uint8_t* uvp = nv12 + (size_t) w * h; (void) h;
+    for (int y = 0; y < cs; y++) for (int x = 0; x < cs; x++) {
+        int X = x0 + x, Y = y0 + y; const uint8_t* c = uvp + (size_t) (Y >> 1) * w + (X & ~1);
+        float yy = (nv12[(size_t) Y * w + X] - 16) * 1.164f, u = c[0] - 128.0f, v = c[1] - 128.0f; float* o = rgb + ((size_t) y * cs + x) * 3;
+        o[0] = u8r(yy + 1.596f * v) / 255.0f; o[1] = u8r(yy - 0.392f * u - 0.813f * v) / 255.0f; o[2] = u8r(yy + 2.017f * u) / 255.0f;
+    }
+}
+static float ramp1(int i, int n, int lo, int hi) {     // hybrid.paste ramp: linear over K4N_FILM_FEATHER px at inner edges
+    float r = 1.0f, a = (i + 0.5f) / K4N_FILM_FEATHER, b = (n - i - 0.5f) / K4N_FILM_FEATHER;
+    if (lo && a < r) r = a; if (hi && b < r) r = b; return r;
+}
+void k4n_paste_crop(uint8_t* nv12, int w, int h, const float* rgb, int x0, int y0) {       // hybrid.paste (+ to_nv12)
+    const int cs = K4N_FILM_CS; float ry[K4N_FILM_CS], rx[K4N_FILM_CS]; uint8_t* uvp = nv12 + (size_t) w * h;
+    for (int i = 0; i < cs; i++) { ry[i] = ramp1(i, cs, y0 > 0, y0 + cs < h); rx[i] = ramp1(i, cs, x0 > 0, x0 + cs < w); }
+    for (int y = 0; y < cs; y += 2) for (int x = 0; x < cs; x += 2) {
+        float su = 0, sv = 0, sw = 0;
+        for (int dy = 0; dy < 2; dy++) for (int dx = 0; dx < 2; dx++) {
+            const float* p = rgb + ((size_t) (y + dy) * cs + x + dx) * 3; float r = p[0], g = p[1], b = p[2];
+            r = (r < 0 ? 0 : (r > 1 ? 1 : r)) * 255; g = (g < 0 ? 0 : (g > 1 ? 1 : g)) * 255; b = (b < 0 ? 0 : (b > 1 ? 1 : b)) * 255;     // np.clip(M, 0, 1)
+            float yv = 16 + 0.257f * r + 0.504f * g + 0.098f * b; su += 128 - 0.148f * r - 0.291f * g + 0.439f * b; sv += 128 + 0.439f * r - 0.368f * g - 0.071f * b;
+            float wy = ry[y + dy] * rx[x + dx]; sw += wy; uint8_t* d = nv12 + (size_t) (y0 + y + dy) * w + x0 + x + dx;
+            *d = u8r(*d + wy * (yv - *d));
+        }
+        uint8_t* c = uvp + (size_t) ((y0 + y) >> 1) * w + x0 + x; float wu = sw / 4;
+        c[0] = u8r(c[0] + wu * (su / 4 - c[0])); c[1] = u8r(c[1] + wu * (sv / 4 - c[1]));
+    }
+}
+
+struct K4nRender { K4nSession *s, *s2; int w, h; float *np, *nn, *nm; uint8_t* mid; float *x0, *x1, *fo, *score; double* ii; uint8_t *ha, *hb; };
+K4nRender* k4n_render_create(int w, int h) {
+    K4nRender* r = calloc(1, sizeof *r); size_t nsz = sizeof(float) * NW * NH, cs3 = sizeof(float) * K4N_FILM_CS * K4N_FILM_CS * 3;
+    r->w = w; r->h = h; r->s = k4n_session_create(w, h); r->s2 = k4n_session_create(w, h);
+    k4n_session_set_quality(r->s, 1); k4n_session_set_quality(r->s2, 1);       // the save picture mode (k4neuralmpp.c)
+    r->np = malloc(nsz); r->nn = malloc(nsz); r->nm = malloc(nsz); r->mid = malloc((size_t) w * h * 3 / 2);
+    r->x0 = malloc(cs3); r->x1 = malloc(cs3); r->fo = malloc(cs3);
+    r->score = malloc(sizeof(float) * (w / 2) * (h / 2)); r->ii = malloc(sizeof(double) * (w / 2 + 1) * (h / 2 + 1));
+    r->ha = malloc((size_t) (w / 2) * (h / 2)); r->hb = malloc((size_t) (w / 2) * (h / 2));
+    return r;
+}
+void k4n_render_destroy(K4nRender* r) {
+    if (!r) return;
+    k4n_session_destroy(r->s); k4n_session_destroy(r->s2);
+    free(r->np); free(r->nn); free(r->nm); free(r->mid); free(r->x0); free(r->x1); free(r->fo); free(r->score); free(r->ii); free(r->ha); free(r->hb); free(r);
+}
+// hybrid.score_map (SEL=warp) on v3's mid flows, at half resolution: motion |F0| + |F1| where > 6 px, weighted by the
+// warp disagreement (1 + min(d, 60) / 10), plus 3 x |F0 + F1|; d = |prev warped - next warped| in luma levels x 1.164
+// (the reference uses the RGB mean). Then the 128 x 128 half-res window (= 256 image px) with the largest sum.
+static float crop_score(K4nRender* r, const uint8_t* prev, const uint8_t* next, float* cx, float* cy) {
+    const K4nSession* s = r->s; const int hw = r->w / 2, hh = r->h / 2, k = K4N_FILM_CS / 2, gw = s->gw, gh = s->gh;
+    for (int v = 0; v < hh; v++) for (int u = 0; u < hw; u++) { r->ha[(size_t) v * hw + u] = prev[(size_t) 2 * v * r->w + 2 * u]; r->hb[(size_t) v * hw + u] = next[(size_t) 2 * v * r->w + 2 * u]; }
+    for (int v = 0; v < hh; v++) for (int u = 0; u < hw; u++) {
+        int px = (int) lrintf(2 * u / s->s * 16), py = (int) lrintf(2 * v / s->s * 16);
+        float f[4]; for (int q = 0; q < 4; q++) f[q] = gs16(s->F[q], gw, gh, px, py) / 16.0f;    // image px
+        float mag = hypotf(f[0], f[1]) + hypotf(f[2], f[3]), dis = hypotf(f[0] + f[2], f[1] + f[3]);
+        // half-res luma (every second pixel) warped by F/2 in half-res pixels, bilinear, clamped
+        int a = bil(r->ha, hw, hw, hh, (int) lrintf((u + f[0] / 2) * 16), (int) lrintf((v + f[1] / 2) * 16));
+        int b = bil(r->hb, hw, hw, hh, (int) lrintf((u + f[2] / 2) * 16), (int) lrintf((v + f[3] / 2) * 16));
+        float d = fabsf((float) (a - b)) / 256.0f * 1.164f; if (d > 60) d = 60;
+        r->score[(size_t) v * hw + u] = (mag > 6 ? mag : 0) * (1 + d / 10) + 3 * dis;
+    }
+    // integral image, best window (first maximum in row-major order, as np.argmax)
+    double* ii = r->ii; const int iw = hw + 1;
+    for (int x = 0; x <= hw; x++) ii[x] = 0;
+    for (int v = 0; v < hh; v++) { double row = 0; ii[(size_t) (v + 1) * iw] = 0;
+        for (int u = 0; u < hw; u++) { row += r->score[(size_t) v * hw + u]; ii[(size_t) (v + 1) * iw + u + 1] = ii[(size_t) v * iw + u + 1] + row; } }
+    double best = -1; int bx = 0, by = 0;
+    for (int y = 0; y + k <= hh; y++) for (int x = 0; x + k <= hw; x++) {
+        double sm = ii[(size_t) (y + k) * iw + x + k] - ii[(size_t) y * iw + x + k] - ii[(size_t) (y + k) * iw + x] + ii[(size_t) y * iw + x];
+        if (sm > best) { best = sm; bx = x; by = y; } }
+    *cx = (bx + k / 2.0f) * 2; *cy = (by + k / 2.0f) * 2;
+    return (float) best;
+}
+int k4n_render_score(K4nRender* r, const uint8_t* prev, const uint8_t* next, float* score, float* cx, float* cy, float* diff) {
+    k4n_prep(r->s, prev, r->w, r->np); k4n_prep(r->s, next, r->w, r->nn);
+    *diff = k4n_net_diff(r->np, r->nn);
+    if (k4n_infer(r->s, r->np, r->nn, NULL)) return -1;
+    if (r->w < K4N_FILM_CS || r->h < K4N_FILM_CS) { *score = 0; *cx = r->w / 2.0f; *cy = r->h / 2.0f; return 0; }
+    *score = crop_score(r, prev, next, cx, cy);
+    return 0;
+}
+int k4n_render_pair(K4nRender* r, const uint8_t* prev, const uint8_t* next, const float* ts, int n, int x0, int y0, int film, uint8_t** out, double* ms) {
+    const size_t fsz = (size_t) r->w * r->h * 3 / 2; double t0 = k4n_now_ms(), tinf = 0, tfilm = 0; int rc = 0;
+    k4n_prep(r->s, prev, r->w, r->np); k4n_prep(r->s, next, r->w, r->nn);
+    if (k4n_infer(r->s, r->np, r->nn, NULL)) return -1;
+    tinf += k4n_now_ms() - t0;
+    k4n_warp(r->s, prev, next, r->mid, 0.5f);
+    if (film && r->w >= K4N_FILM_CS && r->h >= K4N_FILM_CS) {
+        x0 &= ~1; y0 &= ~1; if (x0 < 0) x0 = 0; if (y0 < 0) y0 = 0;
+        if (x0 > r->w - K4N_FILM_CS) x0 = (r->w - K4N_FILM_CS) & ~1; if (y0 > r->h - K4N_FILM_CS) y0 = (r->h - K4N_FILM_CS) & ~1;
+        double t1 = k4n_now_ms();
+        k4n_rgb_crop(prev, r->w, r->h, x0, y0, r->x0); k4n_rgb_crop(next, r->w, r->h, x0, y0, r->x1);
+        if (film_run(r->x0, r->x1, r->fo) == 0) k4n_paste_crop(r->mid, r->w, r->h, r->fo, x0, y0); else rc = -2;
+        tfilm = k4n_now_ms() - t1;
+    }
+    int lo = 0, hi = 0; for (int i = 0; i < n; i++) { if (ts[i] < 0.5f) lo = 1; if (ts[i] > 0.5f) hi = 1; }
+    if (lo || hi) k4n_prep(r->s2, r->mid, r->w, r->nm);
+    for (int half = 0; half < 2; half++) {
+        if (!(half ? hi : lo)) continue;
+        const uint8_t *a = half ? r->mid : prev, *b = half ? next : r->mid;
+        double t1 = k4n_now_ms();
+        if (k4n_infer(r->s2, half ? r->nm : r->np, half ? r->nn : r->nm, NULL)) return -1;
+        tinf += k4n_now_ms() - t1;
+        for (int i = 0; i < n; i++) if (half ? ts[i] > 0.5f : ts[i] < 0.5f) k4n_warp(r->s2, a, b, out[i], half ? 2 * ts[i] - 1 : 2 * ts[i]);
+    }
+    for (int i = 0; i < n; i++) if (ts[i] == 0.5f) memcpy(out[i], r->mid, fsz);
+    if (ms) { ms[0] += tinf; ms[1] += tfilm; ms[2] += k4n_now_ms() - t0 - tinf - tfilm; }
+    return rc;
+}

@@ -36,6 +36,8 @@ int k4n_verbose;
 #define TX_HASH    16777214
 #define TX_K4_WARMUP 0x4B3401   // k4neuralmpp only (oneway, no arguments): build the network now
 #define TX_K4_SAVE   0x4B3402   // k4neuralmpp only (no arguments): the next FRC pipe (within 20 s) records a clip, no real-time limit
+#define TX_K4_RENDER 0x4B3403   // k4neuralmpp only: (1, w, h, slots, ashmem fd) -> offline render session (config A, below)
+#define RENDER "com.k4.neural.IRender"
 #define TYPE_FRC 3
 #define CF_NV12 2
 #define FMT_NV12 0x109
@@ -58,7 +60,7 @@ static bool (*pool_setMax)(uint32_t);
 static void (*pool_start)(void);
 static void (*pool_join)(void);
 
-static AIBinder_Class *cStore, *cMpp, *cCb;
+static AIBinder_Class *cStore, *cMpp, *cCb, *cRender;
 static AIBinder* g_stock; static const char* g_stock_name; static pthread_mutex_t g_stock_mu = PTHREAD_MUTEX_INITIALIZER;
 static AIBinder* stock_get(void);
 static K4nConfig g_cfg = { "/vendor/lib64/k4neural", "/vendor/etc/k4neural", 2 };
@@ -697,6 +699,76 @@ static void* idle_main(void* a) {
     }
     return NULL;
 }
+// ---------------------------------------------------------------------------------------------------------------
+// Offline save ("config A", K4SlowMoExport offline mode): the export decodes the section itself and hands frame pairs
+// in one ashmem region of `slots` tightly packed NV12 frames; the session runs v3 + FILM on the DSP and writes the
+// generated frames back into the region. Store TX_K4_RENDER opens it (FILM is loaded then and freed when the last
+// session goes: CLOSE, or the client's reference dies). Calls on the session binder (interface RENDER):
+//   1 SCORE  (a, b)                              -> rc, score, cx, cy, diff      (k4n_render_score)
+//   2 RENDER (a, b, film, x0, y0, n, t[n], out0) -> rc, ms v3, ms FILM, ms warp  (k4n_render_pair; frames to out0..)
+//   3 CLOSE
+typedef struct { pthread_mutex_t mu; K4nRender* r; uint8_t* mem; size_t size, fsz; int w, h, slots, open; } Ren;
+static int g_renders;       // open sessions (g_use_mu)
+static void ren_close(Ren* s) {     // s->mu held
+    if (!s->open) return;
+    s->open = 0; k4n_render_destroy(s->r); s->r = NULL; munmap(s->mem, s->size);
+    pthread_mutex_lock(&g_use_mu); int last = --g_renders == 0; g_live_pipes--; g_last_use = k4n_now_ms(); pthread_mutex_unlock(&g_use_mu);
+    if (last) k4n_film_release();
+    K4N_LOG("render session closed");
+}
+static void ren_destroy(void* ud) { Ren* s = ud; if (!s) return; pthread_mutex_lock(&s->mu); ren_close(s); pthread_mutex_unlock(&s->mu); pthread_mutex_destroy(&s->mu); free(s); }
+static int ren_slot(const Ren* s, int i) { return i >= 0 && i < s->slots; }
+static binder_status_t ren_tx(AIBinder* b, transaction_code_t code, const AParcel* in, AParcel* out) {
+    Ren* s = AIBinder_getUserData(b); int32_t a = -1, c = -1, rc = 0;
+    pthread_mutex_lock(&s->mu);
+    if (!s->open) { pthread_mutex_unlock(&s->mu); return write_err(out, -19); }
+    engine_touch(0);
+    if (code == 1) {
+        AParcel_readInt32(in, &a); AParcel_readInt32(in, &c);
+        float sc = 0, cx = 0, cy = 0, d = 0;
+        if (!ren_slot(s, a) || !ren_slot(s, c)) { pthread_mutex_unlock(&s->mu); return write_err(out, -22); }
+        rc = k4n_render_score(s->r, s->mem + s->fsz * a, s->mem + s->fsz * c, &sc, &cx, &cy, &d);
+        write_ok(out); AParcel_writeInt32(out, rc); AParcel_writeFloat(out, sc); AParcel_writeFloat(out, cx); AParcel_writeFloat(out, cy); AParcel_writeFloat(out, d);
+    } else if (code == 2) {
+        int32_t film = 0, x0 = 0, y0 = 0, n = 0, o0 = -1; float ts[8]; uint8_t* outs[8]; double ms[3] = { 0, 0, 0 };
+        AParcel_readInt32(in, &a); AParcel_readInt32(in, &c); AParcel_readInt32(in, &film); AParcel_readInt32(in, &x0); AParcel_readInt32(in, &y0); AParcel_readInt32(in, &n);
+        for (int i = 0; i < n && i < 8; i++) AParcel_readFloat(in, &ts[i]);
+        AParcel_readInt32(in, &o0);
+        int bad = !ren_slot(s, a) || !ren_slot(s, c) || n < 1 || n > 8 || !ren_slot(s, o0) || !ren_slot(s, o0 + n - 1) || (a >= o0 && a < o0 + n) || (c >= o0 && c < o0 + n);
+        for (int i = 0; i < n && !bad; i++) { bad = !(ts[i] > 0 && ts[i] < 1); outs[i] = s->mem + s->fsz * (o0 + i); }
+        if (bad) { pthread_mutex_unlock(&s->mu); return write_err(out, -22); }
+        rc = k4n_render_pair(s->r, s->mem + s->fsz * a, s->mem + s->fsz * c, ts, n, x0, y0, film, outs, ms);
+        if (k4n_verbose > 1) K4N_LOG("render pair slots %d,%d film %d at %d,%d: rc %d, v3 %.0f FILM %.0f warp %.0f ms", a, c, film, x0, y0, rc, ms[0], ms[1], ms[2]);
+        write_ok(out); AParcel_writeInt32(out, rc); for (int i = 0; i < 3; i++) AParcel_writeDouble(out, ms[i]);
+    } else if (code == 3) { ren_close(s); write_ok(out); }
+    else { pthread_mutex_unlock(&s->mu); return STATUS_UNKNOWN_TRANSACTION; }
+    pthread_mutex_unlock(&s->mu);
+    return STATUS_OK;
+}
+static binder_status_t ren_open(const AParcel* in, AParcel* out) {
+    int32_t ver = 0, w = 0, h = 0, slots = 0; int fd = -1; char err[256] = "";
+    AParcel_readInt32(in, &ver); AParcel_readInt32(in, &w); AParcel_readInt32(in, &h); AParcel_readInt32(in, &slots);
+    AParcel_readParcelFileDescriptor(in, &fd);
+    size_t fsz = (size_t) w * h * 3 / 2, size = fsz * (size_t) slots;
+    const char* why = NULL; uint8_t* mem = MAP_FAILED;
+    if (ver != 1) why = "protocol version";
+    else if (neural_mode() <= 0) why = "persist.sys.k4.slowmo_neural is off";
+    else if (w < 64 || h < 64 || w > 1920 || h > 1920 || (w & 1) || (h & 1) || slots < 3 || slots > 16 || fd < 0) why = "bad arguments";
+    else if ((mem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0)) == MAP_FAILED) why = strerror(errno);
+    if (fd >= 0) close(fd);
+    if (!why) {
+        pthread_mutex_lock(&g_use_mu); g_live_pipes++; g_renders++; g_last_use = k4n_now_ms(); pthread_mutex_unlock(&g_use_mu);
+        if (k4n_engine_init(&g_cfg, err, sizeof err) || k4n_film_init(&g_cfg, err, sizeof err)) why = err;
+        if (why) { pthread_mutex_lock(&g_use_mu); g_live_pipes--; int last = --g_renders == 0; pthread_mutex_unlock(&g_use_mu); if (last) k4n_film_release(); }
+    }
+    if (why) { if (mem != MAP_FAILED) munmap(mem, size); K4N_LOG("render session refused (uid %d): %s", (int) AIBinder_getCallingUid(), why); return write_err(out, -38); }
+    Ren* s = calloc(1, sizeof *s); pthread_mutex_init(&s->mu, NULL);
+    s->r = k4n_render_create(w, h); s->mem = mem; s->size = size; s->fsz = fsz; s->w = w; s->h = h; s->slots = slots; s->open = 1;
+    AIBinder* rb = AIBinder_new(cRender, s); if (g_vintf) markVintf(rb);
+    write_ok(out); AParcel_writeStrongBinder(out, rb); AIBinder_decStrong(rb);
+    K4N_LOG("render session open (uid %d): %dx%d, %d slots", (int) AIBinder_getCallingUid(), w, h, slots);
+    return STATUS_OK;
+}
 static binder_status_t store_tx(AIBinder* b, transaction_code_t code, const AParcel* in, AParcel* out) {
     (void) b;
     if (code == 3 && neural_mode() > 0 && !k4n_engine_ready()) {     // getCapabilityByType(FRC): a player is getting ready to interpolate
@@ -704,6 +776,7 @@ static binder_status_t store_tx(AIBinder* b, transaction_code_t code, const APar
         if (type == TYPE_FRC) { pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED); pthread_create(&t, &at, warm_main, NULL); }
     }
     if (code == TX_K4_SAVE) { pthread_mutex_lock(&g_use_mu); g_save_until = k4n_now_ms() + 20000.0; pthread_mutex_unlock(&g_use_mu); K4N_LOG("save announced (uid %d): the next pipe is a recording", (int) AIBinder_getCallingUid()); return STATUS_OK; }
+    if (code == TX_K4_RENDER) return ren_open(in, out);
     if (code == TX_K4_WARMUP) { K4N_LOG("warm-up requested (uid %d): engine %s", (int) AIBinder_getCallingUid(), k4n_engine_ready() ? "already built" : "is being built"); pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED); pthread_create(&t, &at, warm_main, NULL); return STATUS_OK; }
     if (code == 1) {
         int32_t pos = AParcel_getDataPosition(in), type = 0; AParcel_readInt32(in, &type); AParcel_setDataPosition(in, pos);
@@ -782,6 +855,7 @@ int main(int argc, char** argv) {
     cStore = AIBinder_Class_define(STORE, cls_create, cls_destroy_none, store_tx);
     cMpp = AIBinder_Class_define(MPP, cls_create, pipe_destroy, mpp_tx);
     cCb = AIBinder_Class_define(CB, cls_create, cls_destroy_none, tx_none);
+    cRender = AIBinder_Class_define(RENDER, cls_create, ren_destroy, ren_tx);
     cSpy = AIBinder_Class_define(MPP, cls_create, spy_destroy, spy_tx); cSpyCb = AIBinder_Class_define(CB, cls_create, cls_destroy_none, spycb_tx);
     pool_setMax(4); pool_start();
     // Register first and never exit afterwards: the system MPP client blocks in waitForService() for a declared

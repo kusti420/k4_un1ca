@@ -27,3 +27,8 @@ Our own binary (plain C, NDK binder; no third-party code): the neural MPP front 
 
 Not here on purpose (see ../customize.sh): the Qualcomm AI Runtime libraries (`prebuilts/qairt/2.46.0/`)
 and the model (`prebuilts/k4neural/k4n_v3_htp.dlc`); both directories are in `.git/info/exclude`.
+
+- FILM (saved slow-mo clips): `prebuilts/k4neural/k4n_film256_htp.dlc` (not in git) is Google Research's FILM
+  frame interpolation network (film_net, https://github.com/google-research/frame-interpolation, code and weights
+  Apache-2.0), ported to PyTorch, rewritten without wide concats (exact), quantized to 16-bit activations / 8-bit
+  per-channel weights and prepared for the SM7325 HTP. Recipe: /mnt/B1/OneUi9/scratch/htpre/quality/film_qnn (NOTES.md).

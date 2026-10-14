@@ -7,7 +7,7 @@
 
 # annotations
 .annotation system Ldalvik/annotation/EnclosingMethod;
-    value = Lcom/k4/media/K4SlowMoExport;->main([Ljava/lang/String;)V
+    value = Lcom/k4/media/K4SlowMoExport;->beginOffline()V
 .end annotation
 
 .annotation system Ldalvik/annotation/InnerClass;
@@ -17,19 +17,22 @@
 
 
 # instance fields
-.field final synthetic blacklist val$e:Lcom/k4/media/K4SlowMoExport;
+.field final synthetic blacklist this$0:Lcom/k4/media/K4SlowMoExport;
 
 
 # direct methods
 .method constructor blacklist <init>(Lcom/k4/media/K4SlowMoExport;)V
     .registers 2
-    .annotation system Ldalvik/annotation/Signature;
-        value = {
-            "()V"
+    .annotation system Ldalvik/annotation/MethodParameters;
+        accessFlags = {
+            0x8010
+        }
+        names = {
+            null
         }
     .end annotation
 
-    iput-object p1, p0, Lcom/k4/media/K4SlowMoExport$5;->val$e:Lcom/k4/media/K4SlowMoExport;
+    iput-object p1, p0, Lcom/k4/media/K4SlowMoExport$5;->this$0:Lcom/k4/media/K4SlowMoExport;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -39,17 +42,11 @@
 
 # virtual methods
 .method public blacklist run()V
-    .registers 3
+    .registers 1
 
-    sget-object v0, Ljava/lang/System;->out:Ljava/io/PrintStream;
+    iget-object p0, p0, Lcom/k4/media/K4SlowMoExport$5;->this$0:Lcom/k4/media/K4SlowMoExport;
 
-    const-string v1, "K4E cancel"
-
-    invoke-virtual {v0, v1}, Ljava/io/PrintStream;->println(Ljava/lang/String;)V
-
-    iget-object p0, p0, Lcom/k4/media/K4SlowMoExport$5;->val$e:Lcom/k4/media/K4SlowMoExport;
-
-    invoke-virtual {p0}, Lcom/k4/media/K4SlowMoExport;->cancel()V
+    invoke-static {p0}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$mrenderOffline(Lcom/k4/media/K4SlowMoExport;)V
 
     return-void
 .end method

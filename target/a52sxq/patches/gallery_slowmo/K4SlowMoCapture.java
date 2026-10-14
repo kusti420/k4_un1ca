@@ -85,10 +85,12 @@ public final class K4SlowMoCapture implements K4SlowMoExport.Listener, Runnable 
             String why = s.refusal();
             if (why != null) { if (s.mDvCount > 0) Log.i(TAG, "save: stock path (" + why + ")"); return false; }
             s.mCapture = capture; s.mFinished = false; s.mCancelled = false;
-            s.mExport = new K4SlowMoExport(s.mIn, s.mInOffset, s.mInLength, s.mOut, s.mDvStart, s.mDvEnd, s.mDvRate, s);
+            // offline render (v3 + FILM, k4neuralmpp render session) unless switched off; it falls back to the real-time path
+            boolean offline = intProp(K4SlowMoExport.FILM_PROPERTY, 1) != 0;
+            s.mExport = new K4SlowMoExport(s.mIn, s.mInOffset, s.mInLength, s.mOut, s.mDvStart, s.mDvEnd, s.mDvRate, s, offline);
             s.mExport.start();
             s.mOurs = true;
-            Log.i(TAG, "save: neural export of " + s.mDvStart + ".." + s.mDvEnd + " ms at " + s.mDvRate + "x started (no audio track yet)");
+            Log.i(TAG, "save: neural export of " + s.mDvStart + ".." + s.mDvEnd + " ms at " + s.mDvRate + "x started (" + (offline ? "offline render" : "real time") + ")");
             return true;
         } catch (Throwable t) {
             Log.i(TAG, "save: stock path (neural export did not start: " + t + ")");
@@ -154,6 +156,11 @@ public final class K4SlowMoCapture implements K4SlowMoExport.Listener, Runnable 
             if (ok) { mFinished = true; Handler h = handler(capture); if (h != null) h.sendMessage(h.obtainMessage(MSG_RECORDING_COMPLETED)); return; }
             clearOutput();
             if (mCancelled) { mFinished = true; return; }
+            if (e.isOffline()) {        // the offline render failed: the real-time recording instead (same output, emptied)
+                Log.w(TAG, "save: offline render failed (" + detail + "), recording the neural playback instead");
+                try { K4SlowMoExport r = new K4SlowMoExport(mIn, mInOffset, mInLength, mOut, mDvStart, mDvEnd, mDvRate, this, false); mExport = r; r.start(); if (mCancelled) r.cancel(); return; }
+                catch (Throwable t) { detail = "real-time path did not start: " + t; }
+            }
             // our path failed: hand the capture to VEKit on SemMediaCapture's own thread, with an empty output file
             Log.w(TAG, "save: neural export failed (" + detail + "), falling back to the stock path");
             mOurs = false; mExport = null;
