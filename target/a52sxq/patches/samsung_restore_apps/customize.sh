@@ -1,3 +1,5 @@
+# Tips: the S26 Ultra images carry only its permission files and the Galaxy Store refuses stubDownload for it, so
+# the stock A52s preload copy (6.0.11.6, /system/preload/Tips) is staged; the Store can update it later.
 # Samsung Calculator and Clock: not in the S26 Ultra system images (Galaxy Store "restore" apps there), so the port
 # had neither. APKs are the Galaxy Store builds for SM-S948B / API 37 (stubDownload.as), signed by Samsung Cert.
 # Staged like the ReSukiSU manager: unica/patches/_debloat deletes /system/preload after the target patches run and
@@ -18,5 +20,6 @@ while read -r NAME APK SHA; do
 done << 'LIST'
 SecCalculator SecCalculator_12.6.00.35.apk 50aa3f9b70ee7af8e9243d826107605b358ef4af6e999e1a4b714e067e48b8d1
 ClockPackage ClockPackage_12.6.05.23.apk cba916854df8c8ab262b11e916dccde170e127bcde7c12119cdc61d24d0cb977
+Tips Tips_6.0.11.6.apk 26ba8925c2ea81a5f17cc3229fe99beea745db42f0b0060204eeec944b899ab1
 LIST
 unset RESTORE_APPS_DIR NAME APK SHA
