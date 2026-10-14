@@ -1,0 +1,4 @@
+id=a52sxq_bixby_wakeup_guard
+name=Galaxy A52s 5G: Bixby voice wake-up can no longer crash the phone
+author=kusti420
+description=Finishing "Hi Bixby" voice registration made the S26 Ultra Bixby Wakeup app (also its Galaxy Store updates) load its phrase model into the A52s sound trigger HAL; the A52s ADSP firmware faults on it in its LPI voice module and the SoC resets, and the app reloads the model about a minute after every boot - a boot loop. The sound trigger middleware now refuses models with Samsung's wake-up vendor UUID (the app gets "operation not supported"), so voice wake-up is unavailable but Bixby itself, the side key and Google's hotword are unaffected. persist.sys.k4.samsung_wakeup=1 lets such models through again.
