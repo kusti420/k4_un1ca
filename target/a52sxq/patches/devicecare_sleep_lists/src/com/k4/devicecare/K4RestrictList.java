@@ -1,7 +1,5 @@
 package com.k4.devicecare;
 
-import android.accounts.AccountManager;
-import android.accounts.AuthenticatorDescription;
 import android.app.WallpaperInfo;
 import android.app.WallpaperManager;
 import android.app.admin.DevicePolicyManager;
@@ -10,7 +8,6 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.IBinder;
 import android.os.Process;
@@ -198,7 +195,7 @@ public final class K4RestrictList {
         return out;
     }
 
-    /** Mirror of MARs' manual deep sleep chain (filters 9,10,11,14,22,25,30), without widget/tile. null = no objection. */
+    /** Mirror of MARs' manual deep sleep chain (filters 9,10,11,14,22 gallery role,25,30), without widget/tile. null = no objection. */
     public static String protection(Context c, String pkg, int uid) {
         if (uid % 100000 == 1000) return "system uid";
         try {
@@ -227,16 +224,8 @@ public final class K4RestrictList {
             if (Boolean.TRUE.equals(m.invoke(c.getPackageManager(), pkg, uid / 100000))) return "protected package";
         } catch (Throwable ignored) {
         }
-        try {
-            for (AuthenticatorDescription ad : AccountManager.get(c).getAuthenticatorTypes()) {
-                if (!pkg.equals(ad.packageName) || ad.type == null) continue;
-                Uri u = Uri.parse("content://com.android.contacts/raw_contacts").buildUpon().appendQueryParameter("limit", "1").build();
-                try (Cursor cur = c.getContentResolver().query(u, new String[] {"_id"}, "account_type = ? ", new String[] {ad.type}, null)) {
-                    if (cur != null && cur.getCount() > 0) return "contacts account " + ad.type;
-                }
-            }
-        } catch (Throwable ignored) {
-        }
+        // Contact-sync account owners (MARs filter 22, second half) are allowed: framework.jar keeps their
+        // authenticator and sync adapter registered while MARs deep-sleeps them (see services/framework part).
         return null;
     }
 
