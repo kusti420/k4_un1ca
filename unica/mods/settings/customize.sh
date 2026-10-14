@@ -317,7 +317,8 @@ SMALI_PATCH "system" "system/priv-app/SecSettingsIntelligence/SecSettingsIntelli
     > /dev/null
 
 # Show Vulkan renderer toggle if required
-if [[ "$(GET_PROP "vendor" "ro.hwui.use_vulkan")" != "true" ]]; then
+# (a target may already have chosen the default, e.g. a52sxq/patches/hwui_vulkan_default sets it to true)
+if [[ "$(GET_PROP "vendor" "ro.hwui.use_vulkan")" != "true" ]] && [[ -z "$(GET_PROP "system" "persist.sys.unica.vulkan")" ]]; then
     SET_PROP "system" "persist.sys.unica.vulkan" "false"
 fi
 
