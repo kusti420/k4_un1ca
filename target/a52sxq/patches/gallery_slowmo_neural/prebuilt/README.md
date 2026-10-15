@@ -5,7 +5,15 @@ Our own binary (plain C, NDK binder; no third-party code): the neural MPP front 
 - Source: `../src/{k4neuralmpp.c,k4n_engine.c,k4n.h}`; rebuild with `../src/build.sh` (AOSP prebuilt clang r596125,
   NDK sysroot API 30 and bionic crt objects of an AOSP tree; C only, no libc++). Working copy and test tools:
   `/mnt/B1/OneUi9/scratch/htpre/neural` on the build PC (NOTES.md one level up).
-- This copy: sha256 `0285ba7dc049450902d3a198fe92523d81f1f0a67981405b79029cf78ffa1653`, 86216 bytes, built 2026-10-13: repeat
+- This copy: sha256 `e9a97d837fb61869c60e6c9b2d6cfd79b9514ecb92b16e0620fcf412ad054249`, 104536 bytes, built 2026-10-15 with
+  `build.sh` (the same toolchain rebuilds the previous copy, b7e16c4f..., byte for byte from its sources). Robustness
+  on top of the FILM save (b7e16c4f..., 9.3.32-9.3.36): the network is built on a build thread only (binder calls wait
+  at most 8 s, then take the classic pipe; the engine state is read without the engine lock); transaction 0x4B3404
+  reports the engine state (1 ready / 0 not built / -1 not usable) without waiting; a known-bad engine sends FRC
+  creates straight to the classic pipe; init() hands a video the engine cannot take (size, format, no engine) to a
+  classic pipe instead of failing; flush/reset wait at most 3 s, then the pipe is failed (onError, every further call
+  an error, its memory kept); the idle release never blocks; 8 binder threads instead of 4. NOT yet run on a phone.
+  Previous copy: sha256 `0285ba7dc049450902d3a198fe92523d81f1f0a67981405b79029cf78ffa1653`, 86216 bytes, built 2026-10-13: repeat
   bridging (d5091601...) + quality modes (2f5184b6..., see `/mnt/B1/OneUi9/scratch/htpre/quality`) + the live/save
   split: a pipe announced by the recorder with transaction 0x4B3402 (K4SlowMoExport.announceSave) uses
   `persist.sys.k4.slowmo_quality_save` (default 1), every other pipe `persist.sys.k4.slowmo_quality` (default 0).

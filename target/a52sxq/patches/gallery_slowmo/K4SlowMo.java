@@ -1,5 +1,5 @@
 // Source of K4SlowMo.smali (the build only uses the .smali; this file is its readable form).
-// To regenerate after an edit: compile with "javac -g:none -XDstringConcat=inline" against android.jar plus stubs for
+// To regenerate after an edit: compile with "javac -g:source -XDstringConcat=inline" against android.jar plus stubs for
 // SemMediaPlayer (getPlaybackParams, setPlaybackParams, k4NativeVideoFrc), android.app.ActivityThread
 // (currentPackageName, currentApplication), android.os.SystemProperties (getInt) and android.os.ServiceManager
 // (checkService), dex it with "d8 --release --min-api 34 --no-desugaring", disassemble with the baksmali inside
@@ -33,6 +33,7 @@ public final class K4SlowMo implements Runnable {
     private static final String STORE = "vendor.samsung.hardware.media.mpp.ISehMppStore";
     private static final String NEURAL_SERVICE = STORE + "/k4front";
     private static final int NEURAL_WARM_UP = 0x4B3401;
+    private static final int NEURAL_STATUS = 0x4B3404;
 
     private static int sGallery;
     private static WeakReference<SemMediaPlayer> sSlowed;
@@ -143,14 +144,20 @@ public final class K4SlowMo implements Runnable {
         }
     }
 
-    // What the neural engine takes, on top of 8-bit SDR. The one place to widen once more is proven.
+    // What the neural engine takes, on top of 8-bit SDR. The one place to widen once more is proven. Mirrors the size
+    // checks of the k4neuralmpp pipe's init() (at least 320x240, even sizes, up to 1920x1088 either way round) and asks
+    // for a known frame rate of at most 30 fps (the real-time budget).
     public static boolean isNeuralEligible(MediaFormat f) {
         int w = f.getNumber("width", Integer.valueOf(0)).intValue();
         int h = f.getNumber("height", Integer.valueOf(0)).intValue();
-        if (w <= 0 || h <= 0 || Math.max(w, h) > 1920 || Math.min(w, h) > 1088) {
+        if (w < 320 || h < 240 || (w & 1) != 0 || (h & 1) != 0 || Math.max(w, h) > 1920 || Math.min(w, h) > 1088) {
             return false;
         }
-        return f.getNumber("frame-rate", Integer.valueOf(0)).floatValue() <= 30.5f;
+        if (!f.containsKey("frame-rate")) {
+            return false;
+        }
+        float fps = f.getNumber("frame-rate", Integer.valueOf(0)).floatValue();
+        return fps > 0.0f && fps <= 30.5f;
     }
 
     private static boolean neuralEnabled() {
@@ -222,6 +229,33 @@ public final class K4SlowMo implements Runnable {
         }
     }
 
+    // The daemon's own view of its network (transaction 0x4B3404, answered without waiting for the engine): 1 ready,
+    // 0 not built yet (worth a try: the pipe builds it), -1 not usable right now (the last build or inference failed,
+    // or a build hangs). A daemon that does not know the call counts as 0, one that is gone as -1.
+    public static int neuralEngineState(IBinder service) {
+        Parcel data = Parcel.obtain();
+        Parcel reply = Parcel.obtain();
+        try {
+            data.writeInterfaceToken(STORE);
+            if (!service.transact(NEURAL_STATUS, data, reply, 0)) {
+                return 0;
+            }
+            reply.readException();
+            return reply.readInt();
+        } catch (android.os.RemoteException e) {
+            synchronized (sSources) {
+                sNeural = null;
+                sNeuralLookup = 0L;
+            }
+            return -1;
+        } catch (Throwable t) {
+            return 0;
+        } finally {
+            data.recycle();
+            reply.recycle();
+        }
+    }
+
     public static boolean isEightBitSdr(String mime, MediaFormat f) {
         int transfer = f.getInteger("color-transfer", 0);
         if (transfer == 6 || transfer == 7 || f.getInteger("color-standard", 0) == 6) {
@@ -259,14 +293,17 @@ public final class K4SlowMo implements Runnable {
             int source = boxed == null ? 0 : boxed.intValue();
             String why;
             String noNeural;
+            IBinder neural = null;
             if (!neuralEnabled()) {
                 noNeural = "persist.sys.k4.slowmo_neural is off";
-            } else if (neuralService() == null) {
+            } else if ((neural = neuralService()) == null) {
                 noNeural = "no k4front service";
             } else if (boxed == null) {
                 noNeural = "source was not examined";
             } else if ((source & NEURAL) == 0) {
                 noNeural = "source not eligible";
+            } else if (neuralEngineState(neural) < 0) {
+                noNeural = "neural engine not usable (see the K4Neural log)";
             } else {
                 noNeural = null;
             }

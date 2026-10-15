@@ -37,6 +37,12 @@ int k4n_verbose;
 #define TX_K4_WARMUP 0x4B3401   // k4neuralmpp only (oneway, no arguments): build the network now
 #define TX_K4_SAVE   0x4B3402   // k4neuralmpp only (no arguments): the next FRC pipe (within 20 s) records a clip, no real-time limit
 #define TX_K4_RENDER 0x4B3403   // k4neuralmpp only: (1, w, h, slots, ashmem fd) -> offline render session (config A, below)
+#define TX_K4_STATUS 0x4B3404   // k4neuralmpp only (no arguments): -> engine health (1 ready, 0 not built, -1 not usable), mode, building
+// Binder calls never build the network themselves (that holds the engine lock for a second or more, longer when the DSP
+// misbehaves): a build thread does it and a call waits for it at most this long, then takes the classic pipe.
+#define K4N_BUILD_WAIT_MS 8000.0
+#define K4N_BUILD_STUCK_MS 10000.0  // a build running longer than this counts as "not usable" in TX_K4_STATUS
+#define K4N_FLUSH_WAIT_MS 3000.0    // flush/reset: how long the pipe may take to go idle before it is failed
 #define RENDER "com.k4.neural.IRender"
 #define TYPE_FRC 3
 #define CF_NV12 2
@@ -63,6 +69,8 @@ static void (*pool_join)(void);
 static AIBinder_Class *cStore, *cMpp, *cCb, *cRender;
 static AIBinder* g_stock; static const char* g_stock_name; static pthread_mutex_t g_stock_mu = PTHREAD_MUTEX_INITIALIZER;
 static AIBinder* stock_get(void);
+static AIBinder* classic_pipe(int32_t type);
+static binder_status_t forward_to(AIBinder* target, transaction_code_t code, const AParcel* in, AParcel* out);
 static K4nConfig g_cfg = { "/vendor/lib64/k4neural", "/vendor/etc/k4neural", 2 };
 static int g_vintf = 1;
 // engine life time: built on warm-up/create, released after K4N_IDLE_S seconds without a pipe
@@ -71,6 +79,56 @@ static double g_save_until;      // TX_K4_SAVE: the next FRC pipe created before
 static void engine_touch(int dpipes) { pthread_mutex_lock(&g_use_mu); g_live_pipes += dpipes; g_last_use = k4n_now_ms(); pthread_mutex_unlock(&g_use_mu); }
 static char g_hash[128]; static int g_version = 1;
 
+// pthread_cond_wait with a deadline on the monotonic clock (k4n_now_ms). Returns ETIMEDOUT once the deadline has passed.
+static int cv_wait_until(pthread_cond_t* cv, pthread_mutex_t* mu, double deadline_ms) {
+    double now = k4n_now_ms(); if (now >= deadline_ms) return ETIMEDOUT;
+    struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
+    double ns = t.tv_nsec + (deadline_ms - now) * 1e6;
+    t.tv_sec += (time_t) (ns / 1e9); t.tv_nsec = (long) (ns - (double) (time_t) (ns / 1e9) * 1e9);
+    return pthread_cond_clockwait(cv, mu, CLOCK_MONOTONIC, &t);
+}
+
+// The network is only ever built on its own thread (engine_build_async). Binder calls wait for it with a deadline
+// (engine_wait), so a slow or stuck build never holds a binder thread longer than K4N_BUILD_WAIT_MS and calls that do
+// not need the network (forwarded traffic, status) never wait for it at all.
+static pthread_mutex_t g_build_mu = PTHREAD_MUTEX_INITIALIZER; static pthread_cond_t g_build_cv = PTHREAD_COND_INITIALIZER;
+static int g_building; static double g_build_t0; static char g_build_err[256];
+static void* build_main(void* a) {
+    (void) a; char err[256] = "";
+    engine_touch(0);
+    int r = k4n_engine_init(&g_cfg, err, sizeof err);
+    engine_touch(0);
+    pthread_mutex_lock(&g_build_mu); g_building = 0; snprintf(g_build_err, sizeof g_build_err, "%s", r ? err : ""); pthread_cond_broadcast(&g_build_cv); pthread_mutex_unlock(&g_build_mu);
+    return NULL;
+}
+static void engine_build_async(void) {
+    pthread_mutex_lock(&g_build_mu);
+    if (!g_building && !k4n_engine_ready()) {
+        pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED);
+        g_building = 1; g_build_t0 = k4n_now_ms();
+        if (pthread_create(&t, &at, build_main, NULL)) { g_building = 0; K4N_LOG("engine build thread not started"); }
+        pthread_attr_destroy(&at);
+    }
+    pthread_mutex_unlock(&g_build_mu);
+}
+static int engine_wait(double timeout_ms, char* err, size_t errlen) {     // 0 = the network is ready
+    if (k4n_engine_ready()) return 0;
+    engine_build_async();
+    double deadline = k4n_now_ms() + timeout_ms;
+    pthread_mutex_lock(&g_build_mu);
+    while (g_building && !k4n_engine_ready()) if (cv_wait_until(&g_build_cv, &g_build_mu, deadline) == ETIMEDOUT) break;
+    int r = k4n_engine_ready() ? 0 : -1;
+    if (r) snprintf(err, errlen, "%s", g_building ? "the engine build did not finish in time" : g_build_err[0] ? g_build_err : "engine not available");
+    pthread_mutex_unlock(&g_build_mu);
+    return r;
+}
+static int engine_status(void) {        // TX_K4_STATUS: 1 ready, 0 not built (worth a try), -1 not usable right now
+    int h = k4n_engine_health();
+    if (h == 1) return 1;
+    pthread_mutex_lock(&g_build_mu); int stuck = g_building && k4n_now_ms() - g_build_t0 > K4N_BUILD_STUCK_MS; pthread_mutex_unlock(&g_build_mu);
+    return stuck ? -1 : h;
+}
+
 static int prop_int(const char* name, int def) { char v[PROP_VALUE_MAX] = ""; return __system_property_get(name, v) > 0 ? atoi(v) : def; }
 static int neural_mode(void) { const char* e = getenv("K4N_MODE"); return e ? atoi(e) : prop_int("persist.sys.k4.slowmo_neural", 1); }
 
@@ -78,8 +136,9 @@ static int neural_mode(void) { const char* e = getenv("K4N_MODE"); return e ? at
 typedef struct { int fd; uint8_t* p; size_t size; int valid, stride, scan, dmabuf; } Buf;
 typedef struct { int id; long long ts; int flag; } InItem;
 typedef struct Pipe {
-    pthread_mutex_t mu; pthread_cond_t cv; pthread_t th; int th_started, quit, flushing, busy;
+    pthread_mutex_t mu; pthread_cond_t cv; pthread_t th; int th_started, quit, flushing, busy, wedged;
     AIBinder* cb;
+    AIBinder* fwd;      // set when init() handed this video to a classic pipe: every call goes there from then on
     int w, h, stride, elev, factor, range_factor, hold_factor;
     Buf in[MAXBUF], out[MAXBUF]; int out_free[MAXBUF];
     InItem q[MAXBUF]; int qn;
@@ -434,6 +493,11 @@ static void pipe_free_frames(Pipe* p) {
 }
 static void pipe_destroy(void* ud) {
     Pipe* p = ud; if (!p) return;
+    if (p->fwd) { AIBinder_decStrong(p->fwd); engine_touch(-1); pthread_mutex_destroy(&p->mu); pthread_cond_destroy(&p->cv); free(p); return; }
+    if (p->wedged) {    // its threads were stuck at the flush/reset that failed it: no join (it could block forever), no free
+        pthread_mutex_lock(&p->mu); p->quit = 1; pthread_cond_broadcast(&p->cv); pthread_mutex_unlock(&p->mu);
+        engine_touch(-1); K4N_LOG("wedged pipe released (its memory is kept)"); return;
+    }
     pipe_stop(p); log_summary(p, "pipe released"); engine_touch(-1);
     pipe_free_bufs(p);
     if (p->cb) AIBinder_decStrong(p->cb);
@@ -479,9 +543,11 @@ static int read_buffer(const AParcel* in, Buf* b, int* id, int* gstride, int* gs
 static binder_status_t mpp_tx(AIBinder* b, transaction_code_t code, const AParcel* in, AParcel* out) {
     Pipe* p = AIBinder_getUserData(b);
     int32_t a = 0, c = 0, d = 0; int64_t ts = 0;
+    if (p->fwd) return forward_to(p->fwd, code, in, out);
+    if (p->wedged && code != TX_VERSION && code != TX_HASH) return write_err(out, -5);    // failed at a flush/reset, see there
     switch (code) {
     case 1: {   // init(SehMetadataInfo, SehRequestOutputInfo, ISehMppCallback) -> SehMetadataInfo
-        int32_t nn = 0, size = 0, m[7] = { 0 }, r[3] = { 0 };
+        int32_t nn = 0, size = 0, m[7] = { 0 }, r[3] = { 0 }, pos0 = AParcel_getDataPosition(in);
         AParcel_readInt32(in, &nn); int32_t st = AParcel_getDataPosition(in); AParcel_readInt32(in, &size);
         for (int i = 0; i < 7; i++) AParcel_readInt32(in, &m[i]);
         AParcel_setDataPosition(in, st + size);
@@ -491,13 +557,23 @@ static binder_status_t mpp_tx(AIBinder* b, transaction_code_t code, const AParce
         AIBinder* cb = NULL; AParcel_readStrongBinder(in, &cb);
         K4N_LOG("init: %dx%d stride %d elevation %d [4]=%d size %d colour format %d; requested %d %d format %d", m[0], m[1], m[2], m[3], m[4], m[5], m[6], r[0], r[1], r[2]);
         int w = m[0], h = m[1], stride = m[2] ? m[2] : m[0], elev = m[3] ? m[3] : m[1];
-        const char* why = NULL; char err[256] = "";
+        // K4SlowMo.isNeuralEligible() mirrors these checks; what still gets here goes to a classic pipe (the player
+        // asked for frame rate conversion, not for this engine)
+        const char* why = NULL; char err[256] = ""; int classic = 0;
         if (p->th_started) why = "already initialised";
-        else if (m[6] != CF_NV12 || r[2] != CF_NV12) why = "colour format is not NV12";
-        else if (w < 320 || h < 240 || (w > h ? w : h) > 1920 || (w > h ? h : w) > 1088 || (w & 1) || (h & 1) || stride < w || elev < h) why = "size not supported";
+        else if (m[6] != CF_NV12 || r[2] != CF_NV12) { why = "colour format is not NV12"; classic = 1; }
+        else if (w < 320 || h < 240 || (w > h ? w : h) > 1920 || (w > h ? h : w) > 1088 || (w & 1) || (h & 1) || stride < w || elev < h) { why = "size not supported"; classic = 1; }
         else if (!cb || !AIBinder_associateClass(cb, cCb)) why = "no callback";
-        else if (k4n_engine_init(&g_cfg, err, sizeof err)) why = err;
-        if (why) { K4N_LOG("init refused: %s", why); if (cb) AIBinder_decStrong(cb); return write_err(out, -22); }
+        else if (engine_wait(K4N_BUILD_WAIT_MS, err, sizeof err)) { why = err; classic = 1; }
+        if (why) {
+            if (cb) AIBinder_decStrong(cb);
+            if (classic && (p->fwd = classic_pipe(TYPE_FRC))) {
+                K4N_LOG("init: %s (%dx%d) -> classic pipe", why, w, h);
+                AParcel_setDataPosition(in, pos0);
+                return forward_to(p->fwd, code, in, out);
+            }
+            K4N_LOG("init refused: %s", why); return write_err(out, -22);
+        }
         p->cb = cb; p->w = w; p->h = h; p->stride = stride; p->elev = elev;
         p->factor = p->range_factor ? p->range_factor : 4;      // clients without range infos (probe): x4
         if (getenv("K4N_FACTOR")) p->factor = atoi(getenv("K4N_FACTOR"));
@@ -568,10 +644,21 @@ static binder_status_t mpp_tx(AIBinder* b, transaction_code_t code, const AParce
         K4N_LOG(code == 6 ? "flush" : "reset");
         if (p->th_started) {
             // the worker gives up waiting for output buffers while flushing; wait until it is idle, then drop the queue
-            InItem q[MAXBUF]; int n;
+            // bounded: a worker stuck in the DSP must not take this binder thread (and with it the store) down too
+            InItem q[MAXBUF]; int n; double deadline = k4n_now_ms() + K4N_FLUSH_WAIT_MS;
             pthread_mutex_lock(&p->mu);
             p->flushing = 1; pthread_cond_broadcast(&p->cv);
-            while (p->busy || p->out_busy || p->work_has) pthread_cond_wait(&p->cv, &p->mu);
+            while (p->busy || p->out_busy || p->work_has) if (cv_wait_until(&p->cv, &p->mu, deadline) == ETIMEDOUT) break;
+            if (p->busy || p->out_busy || p->work_has) {
+                // the pipe is failed for good: every further call gets an error, the player is told, and the pipe's
+                // memory is left alone (its threads may still be inside it; pipe_destroy does not free a wedged pipe)
+                p->wedged = 1; p->quit = 1; pthread_cond_broadcast(&p->cv);
+                pthread_mutex_unlock(&p->mu);
+                K4N_LOG("%s: the pipe did not go idle within %.0f ms (busy %d, output busy %d, work %d); pipe failed",
+                        code == 6 ? "flush" : "reset", K4N_FLUSH_WAIT_MS, p->busy, p->out_busy, p->work_has);
+                cb_send(p, 4, 1, -110, 0, 0);
+                return write_err(out, -110);
+            }
             n = p->qn; memcpy(q, p->q, sizeof(InItem) * n); p->qn = 0;
             pthread_mutex_unlock(&p->mu);
             for (int i = 0; i < n; i++) cb_send(p, 1, 1, q[i].id, 0, 0);
@@ -674,29 +761,45 @@ static int spy_create(int32_t type, AParcel* out) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-static binder_status_t forward(transaction_code_t code, const AParcel* in, AParcel* out) {
-    AIBinder* stock = stock_get();
-    if (!stock) return STATUS_DEAD_OBJECT;
+// one call, as it came (from the current data position on), to target; its reply back unchanged
+static binder_status_t forward_to(AIBinder* target, transaction_code_t code, const AParcel* in, AParcel* out) {
     AParcel *fin = NULL, *fout = NULL; int stage = 0;
-    binder_status_t st = AIBinder_prepareTransaction(stock, &fin);
+    binder_status_t st = AIBinder_prepareTransaction(target, &fin);
     if (st == STATUS_OK) { stage = 1; int32_t pos = AParcel_getDataPosition(in), size = parcel_getDataSize(in); if (size > pos) st = parcel_appendFrom(in, fin, pos, size - pos); }
-    if (st == STATUS_OK) { stage = 2; st = AIBinder_transact(stock, code, &fin, &fout, 0); }
+    if (st == STATUS_OK) { stage = 2; st = AIBinder_transact(target, code, &fin, &fout, 0); }
     if (st == STATUS_OK && fout) { stage = 3; int32_t size = parcel_getDataSize(fout); if (size > 0) st = parcel_appendFrom(fout, out, 0, size); }
     if (st != STATUS_OK) K4N_LOG("forward(%u) failed at stage %d: %d", code, stage, st);
     if (fin) AParcel_delete(fin);
     if (fout) AParcel_delete(fout);
+    return st;
+}
+static binder_status_t forward(transaction_code_t code, const AParcel* in, AParcel* out) {
+    AIBinder* stock = stock_get();
+    if (!stock) return STATUS_DEAD_OBJECT;
+    binder_status_t st = forward_to(stock, code, in, out);
     AIBinder_decStrong(stock);
     return st;
 }
-static void* warm_main(void* a) { (void) a; if (neural_mode() > 0) { engine_touch(0); k4n_engine_init(&g_cfg, NULL, 0); engine_touch(0); } return NULL; }
+// a pipe of the classic store (create(type)), for a neural pipe whose video the engine cannot take. NULL = none.
+static AIBinder* classic_pipe(int32_t type) {
+    AParcel *fin = NULL, *fout = NULL; AStatus* st = NULL; AIBinder* target = NULL;
+    AIBinder* stock = stock_get(); if (!stock) return NULL;
+    if (AIBinder_prepareTransaction(stock, &fin) == STATUS_OK) { AParcel_writeInt32(fin, type);
+        if (AIBinder_transact(stock, 1, &fin, &fout, 0) == STATUS_OK && fout && AParcel_readStatusHeader(fout, &st) == STATUS_OK && AStatus_isOk(st)) AParcel_readStrongBinder(fout, &target); }
+    if (st) AStatus_delete(st);
+    if (fin) AParcel_delete(fin);
+    if (fout) AParcel_delete(fout);
+    AIBinder_decStrong(stock);
+    if (target && !AIBinder_associateClass(target, cMpp)) { AIBinder_decStrong(target); target = NULL; }
+    if (!target) K4N_LOG("classic pipe (type %d) not available", type);
+    return target;
+}
+static double g_idle_ms;
+// called by k4n_engine_release_if() with the engine lock held (order: engine lock -> g_use_mu, never the other way)
+static int engine_idle(void) { pthread_mutex_lock(&g_use_mu); int r = g_live_pipes == 0 && k4n_now_ms() - g_last_use > g_idle_ms; pthread_mutex_unlock(&g_use_mu); return r; }
 static void* idle_main(void* a) {
-    (void) a; double idle_ms = (getenv("K4N_IDLE_S") ? atof(getenv("K4N_IDLE_S")) : 120.0) * 1000.0;
-    for (;;) {
-        sleep(5);
-        pthread_mutex_lock(&g_use_mu);
-        if (g_live_pipes == 0 && k4n_now_ms() - g_last_use > idle_ms) k4n_engine_release();     // no-op when it is not built
-        pthread_mutex_unlock(&g_use_mu);
-    }
+    (void) a; g_idle_ms = (getenv("K4N_IDLE_S") ? atof(getenv("K4N_IDLE_S")) : 120.0) * 1000.0;
+    for (;;) { sleep(5); k4n_engine_release_if(engine_idle); }     // no-op when it is not built or busy
     return NULL;
 }
 // ---------------------------------------------------------------------------------------------------------------
@@ -758,7 +861,7 @@ static binder_status_t ren_open(const AParcel* in, AParcel* out) {
     if (fd >= 0) close(fd);
     if (!why) {
         pthread_mutex_lock(&g_use_mu); g_live_pipes++; g_renders++; g_last_use = k4n_now_ms(); pthread_mutex_unlock(&g_use_mu);
-        if (k4n_engine_init(&g_cfg, err, sizeof err) || k4n_film_init(&g_cfg, err, sizeof err)) why = err;
+        if (engine_wait(K4N_BUILD_WAIT_MS, err, sizeof err) || k4n_film_init(&g_cfg, err, sizeof err)) why = err;
         if (why) { pthread_mutex_lock(&g_use_mu); g_live_pipes--; int last = --g_renders == 0; pthread_mutex_unlock(&g_use_mu); if (last) k4n_film_release(); }
     }
     if (why) { if (mem != MAP_FAILED) munmap(mem, size); K4N_LOG("render session refused (uid %d): %s", (int) AIBinder_getCallingUid(), why); return write_err(out, -38); }
@@ -773,11 +876,18 @@ static binder_status_t store_tx(AIBinder* b, transaction_code_t code, const APar
     (void) b;
     if (code == 3 && neural_mode() > 0 && !k4n_engine_ready()) {     // getCapabilityByType(FRC): a player is getting ready to interpolate
         int32_t pos = AParcel_getDataPosition(in), type = 0; AParcel_readInt32(in, &type); AParcel_setDataPosition(in, pos);
-        if (type == TYPE_FRC) { pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED); pthread_create(&t, &at, warm_main, NULL); }
+        if (type == TYPE_FRC) engine_build_async();
+    }
+    if (code == TX_K4_STATUS) {     // K4SlowMo, before it asks the player for x4: never waits for the engine
+        int st = neural_mode() > 0 ? engine_status() : 0, building;
+        pthread_mutex_lock(&g_build_mu); building = g_building; pthread_mutex_unlock(&g_build_mu);
+        if (st < 0 && k4n_verbose) K4N_LOG("status (uid %d): engine not usable", (int) AIBinder_getCallingUid());
+        write_ok(out); AParcel_writeInt32(out, st); AParcel_writeInt32(out, neural_mode()); AParcel_writeInt32(out, building);
+        return STATUS_OK;
     }
     if (code == TX_K4_SAVE) { pthread_mutex_lock(&g_use_mu); g_save_until = k4n_now_ms() + 20000.0; pthread_mutex_unlock(&g_use_mu); K4N_LOG("save announced (uid %d): the next pipe is a recording", (int) AIBinder_getCallingUid()); return STATUS_OK; }
     if (code == TX_K4_RENDER) return ren_open(in, out);
-    if (code == TX_K4_WARMUP) { K4N_LOG("warm-up requested (uid %d): engine %s", (int) AIBinder_getCallingUid(), k4n_engine_ready() ? "already built" : "is being built"); pthread_t t; pthread_attr_t at; pthread_attr_init(&at); pthread_attr_setdetachstate(&at, PTHREAD_CREATE_DETACHED); pthread_create(&t, &at, warm_main, NULL); return STATUS_OK; }
+    if (code == TX_K4_WARMUP) { K4N_LOG("warm-up requested (uid %d): engine %s", (int) AIBinder_getCallingUid(), k4n_engine_ready() ? "already built" : "is being built"); if (neural_mode() > 0) engine_build_async(); return STATUS_OK; }
     if (code == 1) {
         int32_t pos = AParcel_getDataPosition(in), type = 0; AParcel_readInt32(in, &type); AParcel_setDataPosition(in, pos);
         int mode = neural_mode(); char err[256] = "";
@@ -785,7 +895,9 @@ static binder_status_t store_tx(AIBinder* b, transaction_code_t code, const APar
         if (type == TYPE_FRC && mode > 0) {
             pthread_mutex_lock(&g_use_mu); g_live_pipes++; g_last_use = k4n_now_ms(); pthread_mutex_unlock(&g_use_mu);     // keeps the idle release away
             double t0 = k4n_now_ms(); int warm = k4n_engine_ready();
-            if (k4n_engine_init(&g_cfg, err, sizeof err) == 0) {
+            int bad = engine_status() < 0;     // known bad: no waiting, the classic pipe now and a retry in the background
+            if (bad) { engine_build_async(); snprintf(err, sizeof err, "engine not usable right now (last build failed or hangs)"); }
+            if (!bad && engine_wait(K4N_BUILD_WAIT_MS, err, sizeof err) == 0) {
                 Pipe* p = calloc(1, sizeof *p); pthread_mutex_init(&p->mu, NULL); pthread_cond_init(&p->cv, NULL); p->t_init = k4n_now_ms() - t0;
                 AIBinder* mb = AIBinder_new(cMpp, p); if (g_vintf) markVintf(mb);
                 write_ok(out); AParcel_writeStrongBinder(out, mb); AIBinder_decStrong(mb);
@@ -857,7 +969,7 @@ int main(int argc, char** argv) {
     cCb = AIBinder_Class_define(CB, cls_create, cls_destroy_none, tx_none);
     cRender = AIBinder_Class_define(RENDER, cls_create, ren_destroy, ren_tx);
     cSpy = AIBinder_Class_define(MPP, cls_create, spy_destroy, spy_tx); cSpyCb = AIBinder_Class_define(CB, cls_create, cls_destroy_none, spycb_tx);
-    pool_setMax(4); pool_start();
+    pool_setMax(8); pool_start();      // forwarded traffic must find a free thread even while some wait for the DSP
     // Register first and never exit afterwards: the system MPP client blocks in waitForService() for a declared
     // instance, so this process has to be there even when the classic store or the neural engine is not.
     g_stock_name = stock;

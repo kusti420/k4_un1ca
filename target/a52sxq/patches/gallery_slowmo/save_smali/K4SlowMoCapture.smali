@@ -842,30 +842,30 @@
     :cond_46
     iget-object v0, p0, Lcom/k4/media/K4SlowMoCapture;->mIn:Ljava/io/FileDescriptor;
 
-    if-eqz v0, :cond_c4
+    if-eqz v0, :cond_cf
 
     iget-object v0, p0, Lcom/k4/media/K4SlowMoCapture;->mOut:Ljava/io/FileDescriptor;
 
     if-nez v0, :cond_50
 
-    goto/16 :goto_c4
+    goto/16 :goto_cf
 
     :cond_50
     iget v0, p0, Lcom/k4/media/K4SlowMoCapture;->mDvEnd:I
 
     iget v1, p0, Lcom/k4/media/K4SlowMoCapture;->mDvStart:I
 
-    if-le v0, v1, :cond_9d
+    if-le v0, v1, :cond_a8
 
     iget v2, p0, Lcom/k4/media/K4SlowMoCapture;->mStart:I
 
-    if-ne v1, v2, :cond_9d
+    if-ne v1, v2, :cond_a8
 
     iget v1, p0, Lcom/k4/media/K4SlowMoCapture;->mEnd:I
 
     if-eq v0, v1, :cond_5f
 
-    goto :goto_9d
+    goto :goto_a8
 
     :cond_5f
     iget v0, p0, Lcom/k4/media/K4SlowMoCapture;->mDvRate:F
@@ -932,10 +932,23 @@
     return-object p0
 
     :cond_9c
+    check-cast p0, Landroid/os/IBinder;
+
+    invoke-static {p0}, Lcom/k4/media/K4SlowMo;->neuralEngineState(Landroid/os/IBinder;)I
+
+    move-result p0
+
+    if-gez p0, :cond_a7
+
+    const-string p0, "neural engine not usable (see the K4Neural log)"
+
+    return-object p0
+
+    :cond_a7
     return-object v1
 
-    :cond_9d
-    :goto_9d
+    :cond_a8
+    :goto_a8
     new-instance v0, Ljava/lang/StringBuilder;
 
     const-string v1, "section "
@@ -968,8 +981,8 @@
 
     goto/16 :goto_42
 
-    :cond_c4
-    :goto_c4
+    :cond_cf
+    :goto_cf
     const-string p0, "no file descriptors"
 
     return-object p0
@@ -1308,47 +1321,97 @@
 .end method
 
 .method public static blacklist stopCapture(Ljava/lang/Object;)Z
-    .registers 5
+    .registers 7
 
-    const/4 v0, 0x0
+    const-string v0, "save: Gallery stopped the capture at "
 
-    :try_start_1
-    invoke-static {p0, v0}, Lcom/k4/media/K4SlowMoCapture;->of(Ljava/lang/Object;Z)Lcom/k4/media/K4SlowMoCapture;
+    const/4 v1, 0x0
+
+    :try_start_3
+    invoke-static {p0, v1}, Lcom/k4/media/K4SlowMoCapture;->of(Ljava/lang/Object;Z)Lcom/k4/media/K4SlowMoCapture;
 
     move-result-object p0
 
-    if-eqz p0, :cond_1b
+    if-eqz p0, :cond_4e
 
-    iget-boolean v1, p0, Lcom/k4/media/K4SlowMoCapture;->mOurs:Z
+    iget-boolean v2, p0, Lcom/k4/media/K4SlowMoCapture;->mOurs:Z
 
-    if-nez v1, :cond_c
+    if-nez v2, :cond_e
 
-    goto :goto_1b
+    goto :goto_4e
 
-    :cond_c
-    iget-object v1, p0, Lcom/k4/media/K4SlowMoCapture;->mExport:Lcom/k4/media/K4SlowMoExport;
+    :cond_e
+    iget-object v2, p0, Lcom/k4/media/K4SlowMoCapture;->mExport:Lcom/k4/media/K4SlowMoExport;
 
-    iget-boolean v2, p0, Lcom/k4/media/K4SlowMoCapture;->mFinished:Z
+    iget-boolean v3, p0, Lcom/k4/media/K4SlowMoCapture;->mFinished:Z
 
-    const/4 v3, 0x1
+    const/4 v4, 0x1
 
-    if-nez v2, :cond_1a
+    if-nez v3, :cond_4d
 
-    if-eqz v1, :cond_1a
+    if-eqz v2, :cond_4d
 
-    iput-boolean v3, p0, Lcom/k4/media/K4SlowMoCapture;->mCancelled:Z
+    iput-boolean v4, p0, Lcom/k4/media/K4SlowMoCapture;->mCancelled:Z
 
-    invoke-virtual {v1}, Lcom/k4/media/K4SlowMoExport;->cancel()V
-    :try_end_1a
-    .catchall {:try_start_1 .. :try_end_1a} :catchall_1b
+    invoke-virtual {v2}, Lcom/k4/media/K4SlowMoExport;->cancel()V
 
-    :cond_1a
-    return v3
+    const-string p0, "K4SlowMo"
 
-    :catchall_1b
-    :cond_1b
-    :goto_1b
-    return v0
+    new-instance v3, Ljava/lang/StringBuilder;
+
+    invoke-direct {v3, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v2}, Lcom/k4/media/K4SlowMoExport;->getProgress()F
+
+    move-result v0
+
+    const/high16 v5, 0x42c80000    # 100.0f
+
+    mul-float/2addr v0, v5
+
+    float-to-int v0, v0
+
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v0, " % ("
+
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v2}, Lcom/k4/media/K4SlowMoExport;->isOffline()Z
+
+    move-result v0
+
+    if-eqz v0, :cond_3c
+
+    const-string v0, "offline render"
+
+    goto :goto_3e
+
+    :cond_3c
+    const-string v0, "real-time recording"
+
+    :goto_3e
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v0, "); nothing is saved"
+
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {p0, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_4d
+    .catchall {:try_start_3 .. :try_end_4d} :catchall_4e
+
+    :cond_4d
+    return v4
+
+    :catchall_4e
+    :cond_4e
+    :goto_4e
+    return v1
 .end method
 
 
@@ -1358,28 +1421,32 @@
 
     move-object/from16 v10, p0
 
+    move-object/from16 v0, p3
+
     const-string v12, "real-time path did not start: "
 
-    const-string v0, "save: offline render failed ("
+    const-string v1, "save: offline render failed ("
 
     const-string v13, "save: neural export failed ("
 
+    const-string v2, "save: cancelled ("
+
     iget-object v14, v10, Lcom/k4/media/K4SlowMoCapture;->mCapture:Ljava/lang/Object;
 
-    const/4 v1, 0x1
+    const/4 v3, 0x1
 
     const-string v15, "K4SlowMo"
 
-    if-eqz p2, :cond_20
+    if-eqz p2, :cond_24
 
-    :try_start_f
-    iput-boolean v1, v10, Lcom/k4/media/K4SlowMoCapture;->mFinished:Z
+    :try_start_13
+    iput-boolean v3, v10, Lcom/k4/media/K4SlowMoCapture;->mFinished:Z
 
     invoke-static {v14}, Lcom/k4/media/K4SlowMoCapture;->handler(Ljava/lang/Object;)Landroid/os/Handler;
 
     move-result-object v0
 
-    if-eqz v0, :cond_b1
+    if-eqz v0, :cond_c4
 
     const/4 v1, 0x7
 
@@ -1391,33 +1458,22 @@
 
     return-void
 
-    :cond_20
+    :cond_24
     invoke-direct {v10}, Lcom/k4/media/K4SlowMoCapture;->clearOutput()V
 
-    iget-boolean v2, v10, Lcom/k4/media/K4SlowMoCapture;->mCancelled:Z
+    iget-boolean v4, v10, Lcom/k4/media/K4SlowMoCapture;->mCancelled:Z
 
-    if-eqz v2, :cond_2a
+    if-eqz v4, :cond_42
 
-    iput-boolean v1, v10, Lcom/k4/media/K4SlowMoCapture;->mFinished:Z
-
-    return-void
-
-    :cond_2a
-    invoke-virtual/range {p1 .. p1}, Lcom/k4/media/K4SlowMoExport;->isOffline()Z
-
-    move-result v1
-
-    if-eqz v1, :cond_75
+    iput-boolean v3, v10, Lcom/k4/media/K4SlowMoCapture;->mFinished:Z
 
     new-instance v1, Ljava/lang/StringBuilder;
 
-    invoke-direct {v1, v0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
-    move-object/from16 v0, p3
+    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
     invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    const-string v0, "), recording the neural playback instead"
+    const-string v0, "), output cleared"
 
     invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -1426,10 +1482,35 @@
     move-result-object v0
 
     invoke-static {v15, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
-    :try_end_46
-    .catchall {:try_start_f .. :try_end_46} :catchall_9f
 
-    :try_start_46
+    return-void
+
+    :cond_42
+    invoke-virtual/range {p1 .. p1}, Lcom/k4/media/K4SlowMoExport;->isOffline()Z
+
+    move-result v2
+
+    if-eqz v2, :cond_8a
+
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-direct {v2, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v0, "), recording the neural playback instead"
+
+    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v15, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_5c
+    .catchall {:try_start_13 .. :try_end_5c} :catchall_b2
+
+    :try_start_5c
     new-instance v0, Lcom/k4/media/K4SlowMoExport;
 
     iget-object v1, v10, Lcom/k4/media/K4SlowMoCapture;->mIn:Ljava/io/FileDescriptor;
@@ -1456,18 +1537,18 @@
 
     iget-boolean v1, v10, Lcom/k4/media/K4SlowMoCapture;->mCancelled:Z
 
-    if-eqz v1, :cond_b1
+    if-eqz v1, :cond_c4
 
     invoke-virtual {v0}, Lcom/k4/media/K4SlowMoExport;->cancel()V
-    :try_end_66
-    .catchall {:try_start_46 .. :try_end_66} :catchall_67
+    :try_end_7c
+    .catchall {:try_start_5c .. :try_end_7c} :catchall_7d
 
     return-void
 
-    :catchall_67
+    :catchall_7d
     move-exception v0
 
-    :try_start_68
+    :try_start_7e
     new-instance v1, Ljava/lang/StringBuilder;
 
     invoke-direct {v1, v12}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
@@ -1478,12 +1559,7 @@
 
     move-result-object v0
 
-    goto :goto_77
-
-    :cond_75
-    move-object/from16 v0, p3
-
-    :goto_77
+    :cond_8a
     new-instance v1, Ljava/lang/StringBuilder;
 
     invoke-direct {v1, v13}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
@@ -1512,20 +1588,20 @@
 
     move-result-object v0
 
-    if-eqz v0, :cond_9b
+    if-eqz v0, :cond_ae
 
     invoke-virtual {v0, v10}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
 
-    goto :goto_b1
+    goto :goto_c4
 
-    :cond_9b
+    :cond_ae
     invoke-virtual {v10}, Lcom/k4/media/K4SlowMoCapture;->run()V
-    :try_end_9e
-    .catchall {:try_start_68 .. :try_end_9e} :catchall_9f
+    :try_end_b1
+    .catchall {:try_start_7e .. :try_end_b1} :catchall_b2
 
-    goto :goto_b1
+    goto :goto_c4
 
-    :catchall_9f
+    :catchall_b2
     move-exception v0
 
     new-instance v1, Ljava/lang/StringBuilder;
@@ -1542,8 +1618,8 @@
 
     invoke-static {v15, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    :cond_b1
-    :goto_b1
+    :cond_c4
+    :goto_c4
     return-void
 .end method
 

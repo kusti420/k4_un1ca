@@ -39,6 +39,13 @@ static struct {
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 static int g_state;            // 0 = not built, 1 = ready, -1 = failed (retried after K4N_RETRY_MS)
 static double g_failed_at;
+// Lock-free copies for callers that must never wait for g_lock (a build or a DSP call can hold it for seconds):
+// g_pub_ready = (g_state == 1); g_pub_result = outcome of the last build attempt or inference (1 ok, -1 failed, 0 none).
+static int g_pub_ready, g_pub_result;
+static void publish(int result) {      // caller holds g_lock; result 0 = keep the last outcome
+    __atomic_store_n(&g_pub_ready, g_state == 1, __ATOMIC_RELEASE);
+    if (result) __atomic_store_n(&g_pub_result, result, __ATOMIC_RELEASE);
+}
 #define K4N_RETRY_MS 30000.0
 static char g_err[256];
 
@@ -121,6 +128,7 @@ int k4n_engine_init(const K4nConfig* cfg, char* err, size_t errlen) {
         }
         if (S.lib) { if (snpe_build(cfg->datadir, cfg->runtime) == 0) g_state = 1; else snpe_drop(); }
         if (g_state != 1) g_failed_at = k4n_now_ms();
+        publish(g_state == 1 ? 1 : -1);
         K4N_LOG("engine init %s in %.0f ms (runtime %d)%s%s", g_state == 1 ? "ok" : "FAILED", k4n_now_ms() - t0, cfg->runtime,
                 g_state == 1 ? "" : ": ", g_state == 1 ? "" : g_err);
     }
@@ -129,11 +137,19 @@ int k4n_engine_init(const K4nConfig* cfg, char* err, size_t errlen) {
     pthread_mutex_unlock(&g_lock);
     return r;
 }
-int k4n_engine_ready(void) { pthread_mutex_lock(&g_lock); int r = g_state == 1; pthread_mutex_unlock(&g_lock); return r; }
+int k4n_engine_ready(void) { return __atomic_load_n(&g_pub_ready, __ATOMIC_ACQUIRE); }
+int k4n_engine_health(void) { return __atomic_load_n(&g_pub_ready, __ATOMIC_ACQUIRE) ? 1 : __atomic_load_n(&g_pub_result, __ATOMIC_ACQUIRE) < 0 ? -1 : 0; }
 void k4n_engine_release(void) {
     pthread_mutex_lock(&g_lock);
-    if (g_state == 1) { snpe_drop(); g_state = 0; K4N_LOG("engine released (idle)"); }
+    if (g_state == 1) { snpe_drop(); g_state = 0; publish(0); K4N_LOG("engine released (idle)"); }
     pthread_mutex_unlock(&g_lock);
+}
+int k4n_engine_release_if(int (*idle)(void)) {
+    if (pthread_mutex_trylock(&g_lock)) return 0;       // busy (a build, an inference): not idle anyway
+    int r = g_state == 1 && idle();
+    if (r) { snpe_drop(); g_state = 0; publish(0); K4N_LOG("engine released (idle)"); }
+    pthread_mutex_unlock(&g_lock);
+    return r;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -352,7 +368,7 @@ int k4n_infer(K4nSession* s, const float* netPrev, const float* netNext, double*
     H t = e ? NULL : S.TensorMap_GetTensor_Ref(om, "FM");
     if (e || !t || S.ITensor_GetSize(t) != (size_t) (NW / 2) * (NH / 2) * FMC) {
         K4N_LOG("inference failed (%d): %.160s", e, S.LastError());
-        S.TensorMap_Delete(om); snpe_drop(); g_state = -1; g_failed_at = k4n_now_ms(); snprintf(g_err, sizeof g_err, "inference failed");
+        S.TensorMap_Delete(om); snpe_drop(); g_state = -1; g_failed_at = k4n_now_ms(); publish(-1); snprintf(g_err, sizeof g_err, "inference failed");
         pthread_mutex_unlock(&g_lock); return -1;
     }
     const float* fm = (const float*) S.ITensor_GetData(t);

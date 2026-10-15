@@ -14,7 +14,8 @@
 #  - sourceOpened(): called from SemMediaPlayer.init(FileDescriptor, long, long), the funnel of every local source,
 #    before the native player gets the file. Inside Gallery only, it reads the video track's format once
 #    (MediaExtractor, about 10 ms) and remembers per player whether it is 8-bit SDR and whether the neural engine
-#    takes it (isNeuralEligible(): up to 1920x1088 at 30 fps for now, the one place to widen). For a video the
+#    takes it (isNeuralEligible(): the daemon pipe's own size checks - at least 320x240, even sizes, up to 1920x1088
+#    either way round - and a known frame rate up to 30 fps; the one place to widen). For a video the
 #    neural engine takes it also sends the k4front daemon a one-way "warm up" (transaction 0x4B3401), so the network
 #    is being built before the first hold; that call never waits and never throws into the player.
 #  - setVideoFrc(): replaces the body of SemMediaPlayer.setVideoFrc(). "Scale up N at rate R" (Gallery: 4 at 0.25x
@@ -22,8 +23,11 @@
 #    side), which itself refuses what the pipe cannot take by throwing before it changes anything:
 #      neural    - persist.sys.k4.slowmo_neural is not 0 (default 1), the MPP store instance "k4front" is registered
 #                  (the k4neuralmpp daemon of the gallery_slowmo_neural patch; looked up through the service manager,
-#                  a hit cached for 10 s, a miss for 3 s) and the source is eligible: the player is asked for x4 at
-#                  0.25x, three generated frames per real one.
+#                  a hit cached for 10 s, a miss for 3 s), the source is eligible and the daemon does not report its
+#                  network as unusable (transaction 0x4B3404, answered without waiting for the engine; -1 after a
+#                  failed build or inference, or while a build hangs): the player is asked for x4 at 0.25x, three
+#                  generated frames per real one. An unusable engine takes the classical path below instead of x4
+#                  into the classic pipe.
 #      classical - otherwise, for 8-bit SDR sources: the A52s frame rate conversion pipe, which doubles the frame
 #                  rate. persist.sys.k4.slowmo_frc=1 (default) plays 0.5x with every second frame interpolated,
 #                  =2 keeps Gallery's 0.25x, =0 switches it off.
@@ -43,6 +47,8 @@
 .field private static final blacklist NEURAL:I = 0x2
 
 .field private static final blacklist NEURAL_SERVICE:Ljava/lang/String; = "vendor.samsung.hardware.media.mpp.ISehMppStore/k4front"
+
+.field private static final blacklist NEURAL_STATUS:I = 0x4b3404
 
 .field private static final blacklist NEURAL_WARM_UP:I = 0x4b3401
 
@@ -405,9 +411,21 @@
 
     move-result v3
 
-    if-lez v2, :cond_40
+    const/16 v4, 0x140
 
-    if-lez v3, :cond_40
+    if-lt v2, v4, :cond_58
+
+    const/16 v4, 0xf0
+
+    if-lt v3, v4, :cond_58
+
+    and-int/lit8 v4, v2, 0x1
+
+    if-nez v4, :cond_58
+
+    and-int/lit8 v4, v3, 0x1
+
+    if-nez v4, :cond_58
 
     invoke-static {v2, v3}, Ljava/lang/Math;->max(II)I
 
@@ -415,7 +433,7 @@
 
     const/16 v5, 0x780
 
-    if-gt v4, v5, :cond_40
+    if-gt v4, v5, :cond_58
 
     invoke-static {v2, v3}, Ljava/lang/Math;->min(II)I
 
@@ -423,13 +441,22 @@
 
     const/16 v3, 0x440
 
-    if-le v2, v3, :cond_2e
+    if-le v2, v3, :cond_3a
 
-    goto :goto_40
+    goto :goto_58
 
-    :cond_2e
+    :cond_3a
     const-string v2, "frame-rate"
 
+    invoke-virtual {p0, v2}, Landroid/media/MediaFormat;->containsKey(Ljava/lang/String;)Z
+
+    move-result v3
+
+    if-nez v3, :cond_43
+
+    return v0
+
+    :cond_43
     invoke-virtual {p0, v2, v1}, Landroid/media/MediaFormat;->getNumber(Ljava/lang/String;Ljava/lang/Number;)Ljava/lang/Number;
 
     move-result-object p0
@@ -438,18 +465,24 @@
 
     move-result p0
 
+    const/4 v1, 0x0
+
+    cmpl-float v1, p0, v1
+
+    if-lez v1, :cond_58
+
     const/high16 v1, 0x41f40000    # 30.5f
 
     cmpg-float p0, p0, v1
 
-    if-gtz p0, :cond_40
+    if-gtz p0, :cond_58
 
     const/4 p0, 0x1
 
     return p0
 
-    :cond_40
-    :goto_40
+    :cond_58
+    :goto_58
     return v0
 .end method
 
@@ -480,6 +513,111 @@
     const/4 v0, 0x0
 
     return v0
+.end method
+
+.method public static blacklist neuralEngineState(Landroid/os/IBinder;)I
+    .registers 5
+
+    invoke-static {}, Landroid/os/Parcel;->obtain()Landroid/os/Parcel;
+
+    move-result-object v0
+
+    invoke-static {}, Landroid/os/Parcel;->obtain()Landroid/os/Parcel;
+
+    move-result-object v1
+
+    const/4 v2, 0x0
+
+    :try_start_9
+    const-string v3, "vendor.samsung.hardware.media.mpp.ISehMppStore"
+
+    invoke-virtual {v0, v3}, Landroid/os/Parcel;->writeInterfaceToken(Ljava/lang/String;)V
+
+    const v3, 0x4b3404
+
+    invoke-interface {p0, v3, v0, v1, v2}, Landroid/os/IBinder;->transact(ILandroid/os/Parcel;Landroid/os/Parcel;I)Z
+
+    move-result p0
+    :try_end_15
+    .catch Landroid/os/RemoteException; {:try_start_9 .. :try_end_15} :catch_2c
+    .catchall {:try_start_9 .. :try_end_15} :catchall_17
+
+    if-nez p0, :cond_1e
+
+    :catchall_17
+    invoke-virtual {v0}, Landroid/os/Parcel;->recycle()V
+
+    invoke-virtual {v1}, Landroid/os/Parcel;->recycle()V
+
+    return v2
+
+    :cond_1e
+    :try_start_1e
+    invoke-virtual {v1}, Landroid/os/Parcel;->readException()V
+
+    invoke-virtual {v1}, Landroid/os/Parcel;->readInt()I
+
+    move-result p0
+    :try_end_25
+    .catch Landroid/os/RemoteException; {:try_start_1e .. :try_end_25} :catch_2c
+    .catchall {:try_start_1e .. :try_end_25} :catchall_17
+
+    invoke-virtual {v0}, Landroid/os/Parcel;->recycle()V
+
+    invoke-virtual {v1}, Landroid/os/Parcel;->recycle()V
+
+    return p0
+
+    :catch_2c
+    :try_start_2c
+    sget-object p0, Lcom/k4/media/K4SlowMo;->sSources:Ljava/util/WeakHashMap;
+
+    monitor-enter p0
+    :try_end_2f
+    .catchall {:try_start_2c .. :try_end_2f} :catchall_42
+
+    const/4 v2, 0x0
+
+    :try_start_30
+    sput-object v2, Lcom/k4/media/K4SlowMo;->sNeural:Landroid/os/IBinder;
+
+    const-wide/16 v2, 0x0
+
+    sput-wide v2, Lcom/k4/media/K4SlowMo;->sNeuralLookup:J
+
+    monitor-exit p0
+    :try_end_37
+    .catchall {:try_start_30 .. :try_end_37} :catchall_3f
+
+    invoke-virtual {v0}, Landroid/os/Parcel;->recycle()V
+
+    invoke-virtual {v1}, Landroid/os/Parcel;->recycle()V
+
+    const/4 p0, -0x1
+
+    return p0
+
+    :catchall_3f
+    move-exception v2
+
+    :try_start_40
+    monitor-exit p0
+    :try_end_41
+    .catchall {:try_start_40 .. :try_end_41} :catchall_3f
+
+    :try_start_41
+    throw v2
+    :try_end_42
+    .catchall {:try_start_41 .. :try_end_42} :catchall_42
+
+    :catchall_42
+    move-exception p0
+
+    invoke-virtual {v0}, Landroid/os/Parcel;->recycle()V
+
+    invoke-virtual {v1}, Landroid/os/Parcel;->recycle()V
+
+    throw p0
 .end method
 
 .method private static blacklist neuralService()Landroid/os/IBinder;
@@ -643,7 +781,7 @@
 
     const/4 v2, 0x2
 
-    if-lt p1, v2, :cond_112
+    if-lt p1, v2, :cond_10e
 
     const/4 v3, 0x0
 
@@ -651,7 +789,7 @@
 
     if-gtz v3, :cond_d
 
-    goto/16 :goto_13e
+    goto/16 :goto_13a
 
     :cond_d
     sget-object v3, Lcom/k4/media/K4SlowMo;->sSources:Ljava/util/WeakHashMap;
@@ -667,7 +805,7 @@
 
     monitor-exit v3
     :try_end_17
-    .catchall {:try_start_10 .. :try_end_17} :catchall_10f
+    .catchall {:try_start_10 .. :try_end_17} :catchall_10b
 
     if-nez v4, :cond_1b
 
@@ -689,7 +827,7 @@
 
     const-string v1, "persist.sys.k4.slowmo_neural is off"
 
-    goto :goto_3c
+    goto :goto_45
 
     :cond_28
     invoke-static {}, Lcom/k4/media/K4SlowMo;->neuralService()Landroid/os/IBinder;
@@ -700,33 +838,44 @@
 
     const-string v1, "no k4front service"
 
-    goto :goto_3c
+    goto :goto_45
 
     :cond_31
     if-nez v4, :cond_36
 
     const-string v1, "source was not examined"
 
-    goto :goto_3c
+    goto :goto_45
 
     :cond_36
-    and-int/lit8 v5, v3, 0x2
+    and-int/lit8 v6, v3, 0x2
 
-    if-nez v5, :cond_3c
+    if-nez v6, :cond_3d
 
     const-string v1, "source not eligible"
 
-    :cond_3c
-    :goto_3c
+    goto :goto_45
+
+    :cond_3d
+    invoke-static {v5}, Lcom/k4/media/K4SlowMo;->neuralEngineState(Landroid/os/IBinder;)I
+
+    move-result v5
+
+    if-gez v5, :cond_45
+
+    const-string v1, "neural engine not usable (see the K4Neural log)"
+
+    :cond_45
+    :goto_45
     const/4 v5, 0x1
 
-    if-nez v1, :cond_66
+    if-nez v1, :cond_6e
 
     const/4 p1, 0x4
 
     const/high16 v0, 0x3e800000    # 0.25f
 
-    :try_start_42
+    :try_start_4b
     invoke-static {p0, p1, v0, p3}, Lcom/k4/media/K4SlowMo;->nativeFrc(Lcom/samsung/android/media/SemMediaPlayer;IFZ)V
 
     new-instance p1, Ljava/lang/ref/WeakReference;
@@ -742,13 +891,13 @@
     const-string p3, "hold: neural x4, playing at 0.25x"
 
     invoke-static {p1, p3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-    :try_end_55
-    .catch Ljava/lang/IllegalStateException; {:try_start_42 .. :try_end_55} :catch_64
-    .catch Ljava/lang/RuntimeException; {:try_start_42 .. :try_end_55} :catch_56
+    :try_end_5e
+    .catch Ljava/lang/IllegalStateException; {:try_start_4b .. :try_end_5e} :catch_6c
+    .catch Ljava/lang/RuntimeException; {:try_start_4b .. :try_end_5e} :catch_5f
 
     return-void
 
-    :catch_56
+    :catch_5f
     move-exception p1
 
     new-instance p3, Ljava/lang/StringBuilder;
@@ -759,64 +908,62 @@
 
     invoke-virtual {p3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
 
-    move-result-object p1
-
     goto/16 :goto_d8
 
-    :catch_64
+    :catch_6c
     move-exception p0
 
     throw p0
 
-    :cond_66
+    :cond_6e
     const-string v6, "persist.sys.k4.slowmo_frc"
 
     invoke-static {v6, v5}, Landroid/os/SystemProperties;->getInt(Ljava/lang/String;I)I
 
     move-result v6
 
-    if-gtz v6, :cond_71
+    if-gtz v6, :cond_79
 
     const-string p1, "persist.sys.k4.slowmo_frc is off"
 
-    goto :goto_c5
+    goto :goto_c8
 
-    :cond_71
-    if-nez v4, :cond_76
+    :cond_79
+    if-nez v4, :cond_7e
 
     const-string p1, "source was not examined"
 
-    goto :goto_c5
+    goto :goto_c8
 
-    :cond_76
+    :cond_7e
     and-int/2addr v3, v5
 
-    if-nez v3, :cond_7c
+    if-nez v3, :cond_84
 
     const-string p1, "not an 8-bit SDR video"
 
-    goto :goto_c5
+    goto :goto_c8
 
-    :cond_7c
-    if-ne v6, v2, :cond_7f
+    :cond_84
+    if-ne v6, v2, :cond_87
 
-    goto :goto_80
+    goto :goto_88
 
-    :cond_7f
+    :cond_87
     move p1, v2
 
-    :goto_80
-    if-ne v6, v2, :cond_84
+    :goto_88
+    if-ne v6, v2, :cond_8c
 
     move v3, p2
 
-    goto :goto_86
+    goto :goto_8e
 
-    :cond_84
+    :cond_8c
     const/high16 v3, 0x3f000000    # 0.5f
 
-    :goto_86
-    :try_start_86
+    :goto_8e
+    :try_start_8e
     invoke-static {p0, p1, v3, p3}, Lcom/k4/media/K4SlowMo;->nativeFrc(Lcom/samsung/android/media/SemMediaPlayer;IFZ)V
 
     new-instance p1, Ljava/lang/ref/WeakReference;
@@ -835,36 +982,28 @@
 
     invoke-virtual {p3, v3}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
 
-    move-result-object p3
-
     const-string v0, "x (no neural: "
 
     invoke-virtual {p3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object p3
-
     invoke-virtual {p3, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p3
 
     const-string v0, ")"
 
     invoke-virtual {p3, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p3
 
     invoke-virtual {p3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object p3
 
     invoke-static {p1, p3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-    :try_end_b4
-    .catch Ljava/lang/IllegalStateException; {:try_start_86 .. :try_end_b4} :catch_10d
-    .catch Ljava/lang/RuntimeException; {:try_start_86 .. :try_end_b4} :catch_b5
+    :try_end_b8
+    .catch Ljava/lang/IllegalStateException; {:try_start_8e .. :try_end_b8} :catch_109
+    .catch Ljava/lang/RuntimeException; {:try_start_8e .. :try_end_b8} :catch_b9
 
     return-void
 
-    :catch_b5
+    :catch_b9
     move-exception p1
 
     new-instance p3, Ljava/lang/StringBuilder;
@@ -875,33 +1014,25 @@
 
     invoke-virtual {p3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
 
-    move-result-object p1
-
-    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {p3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object p1
 
-    :goto_c5
+    :goto_c8
     new-instance p3, Ljava/lang/StringBuilder;
 
     invoke-direct {p3}, Ljava/lang/StringBuilder;-><init>()V
 
     invoke-virtual {p3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object p1
+    const-string p1, "; no neural: "
 
-    const-string p3, "; no neural: "
+    invoke-virtual {p3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p1
-
-    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p1
+    invoke-virtual {p3, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     :goto_d8
-    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {p3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object p1
 
@@ -925,25 +1056,17 @@
 
     invoke-virtual {p3, p2}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
 
-    move-result-object p2
+    const-string p2, "x ("
 
-    const-string p3, "x ("
+    invoke-virtual {p3, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    invoke-virtual {p2, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {p3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object p2
+    const-string p1, ")"
 
-    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {p3, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object p1
-
-    const-string p2, ")"
-
-    invoke-virtual {p1, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object p1
-
-    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {p3}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object p1
 
@@ -951,44 +1074,44 @@
 
     return-void
 
-    :catch_10d
+    :catch_109
     move-exception p0
 
     throw p0
 
-    :catchall_10f
+    :catchall_10b
     move-exception p0
 
-    :try_start_110
+    :try_start_10c
     monitor-exit v3
-    :try_end_111
-    .catchall {:try_start_110 .. :try_end_111} :catchall_10f
+    :try_end_10d
+    .catchall {:try_start_10c .. :try_end_10d} :catchall_10b
 
     throw p0
 
-    :cond_112
+    :cond_10e
     sget-object p2, Lcom/k4/media/K4SlowMo;->sSlowed:Ljava/lang/ref/WeakReference;
 
-    if-eqz p2, :cond_13e
+    if-eqz p2, :cond_13a
 
     invoke-virtual {p2}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
 
     move-result-object p2
 
-    if-eq p2, p0, :cond_11d
+    if-eq p2, p0, :cond_119
 
-    goto :goto_13e
+    goto :goto_13a
 
-    :cond_11d
+    :cond_119
     sput-object v1, Lcom/k4/media/K4SlowMo;->sSlowed:Ljava/lang/ref/WeakReference;
 
     sget p2, Lcom/k4/media/K4SlowMo;->sPath:I
 
     const/high16 v0, 0x3f800000    # 1.0f
 
-    if-ne p2, v2, :cond_13b
+    if-ne p2, v2, :cond_137
 
-    :try_start_125
+    :try_start_121
     invoke-static {p0, p1, v0, p3}, Lcom/k4/media/K4SlowMo;->nativeFrc(Lcom/samsung/android/media/SemMediaPlayer;IFZ)V
 
     const-string p1, "K4SlowMo"
@@ -996,13 +1119,13 @@
     const-string p2, "release: frame interpolation off"
 
     invoke-static {p1, p2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-    :try_end_12f
-    .catch Ljava/lang/IllegalStateException; {:try_start_125 .. :try_end_12f} :catch_139
-    .catch Ljava/lang/RuntimeException; {:try_start_125 .. :try_end_12f} :catch_130
+    :try_end_12b
+    .catch Ljava/lang/IllegalStateException; {:try_start_121 .. :try_end_12b} :catch_135
+    .catch Ljava/lang/RuntimeException; {:try_start_121 .. :try_end_12b} :catch_12c
 
     return-void
 
-    :catch_130
+    :catch_12c
     move-exception p1
 
     const-string p2, "K4SlowMo"
@@ -1011,19 +1134,19 @@
 
     invoke-static {p2, p3, p1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    goto :goto_13b
+    goto :goto_137
 
-    :catch_139
+    :catch_135
     move-exception p0
 
     throw p0
 
-    :cond_13b
-    :goto_13b
+    :cond_137
+    :goto_137
     invoke-static {p0, v0}, Lcom/k4/media/K4SlowMo;->setSpeed(Lcom/samsung/android/media/SemMediaPlayer;F)V
 
-    :cond_13e
-    :goto_13e
+    :cond_13a
+    :goto_13a
     return-void
 .end method
 

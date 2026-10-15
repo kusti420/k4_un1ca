@@ -24,9 +24,16 @@ typedef struct K4nSession K4nSession;
 double k4n_now_ms(void);
 // Loads SNPE (once) and builds the network. 0 = ready. After a failure the next attempt is made 30 s later at the earliest.
 int k4n_engine_init(const K4nConfig* cfg, char* err, size_t errlen);
+// Never waits for a build or a running inference.
 int k4n_engine_ready(void);
+// 1 = ready, -1 = the last build (or inference) failed and nothing has succeeded since, 0 = not built (never tried, or
+// released after idling). Never waits.
+int k4n_engine_health(void);
 // Frees the network (SNPE session, DSP process domain); k4n_engine_init() builds it again.
 void k4n_engine_release(void);
+// The same, only when the engine is idle right now (idle() is called with the engine lock held, so nothing can start
+// using the network in between) and the lock is free. 1 = released.
+int k4n_engine_release_if(int (*idle)(void));
 K4nSession* k4n_session_create(int w, int h);
 void k4n_session_destroy(K4nSession* s);
 // picture quality mode of this session: 0 = original behaviour (default), 1 = improved, live-safe, 2 = best quality (saving)

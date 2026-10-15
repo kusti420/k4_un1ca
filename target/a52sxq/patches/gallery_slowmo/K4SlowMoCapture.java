@@ -109,6 +109,7 @@ public final class K4SlowMoCapture implements K4SlowMoExport.Listener, Runnable 
         if (!(mDvRate == 0.25f || mDvRate == 0.5f)) return "rate " + mDvRate;
         Object b = Class.forName("android.os.ServiceManager").getMethod("checkService", String.class).invoke(null, SERVICE);
         if (b == null) return "no neural service";
+        if (K4SlowMo.neuralEngineState((android.os.IBinder) b) < 0) return "neural engine not usable (see the K4Neural log)";
         return null;
     }
 
@@ -137,7 +138,10 @@ public final class K4SlowMoCapture implements K4SlowMoExport.Listener, Runnable 
             K4SlowMoCapture s = of(capture, false);
             if (s == null || !s.mOurs) return false;
             K4SlowMoExport e = s.mExport;
-            if (!s.mFinished && e != null) { s.mCancelled = true; e.cancel(); }
+            if (!s.mFinished && e != null) {
+                s.mCancelled = true; e.cancel();
+                Log.w(TAG, "save: Gallery stopped the capture at " + (int) (e.getProgress() * 100) + " % (" + (e.isOffline() ? "offline render" : "real-time recording") + "); nothing is saved");
+            }
             return true;
         } catch (Throwable t) { return false; }
     }
@@ -155,7 +159,7 @@ public final class K4SlowMoCapture implements K4SlowMoExport.Listener, Runnable 
         try {
             if (ok) { mFinished = true; Handler h = handler(capture); if (h != null) h.sendMessage(h.obtainMessage(MSG_RECORDING_COMPLETED)); return; }
             clearOutput();
-            if (mCancelled) { mFinished = true; return; }
+            if (mCancelled) { mFinished = true; Log.w(TAG, "save: cancelled (" + detail + "), output cleared"); return; }
             if (e.isOffline()) {        // the offline render failed: the real-time recording instead (same output, emptied)
                 Log.w(TAG, "save: offline render failed (" + detail + "), recording the neural playback instead");
                 try { K4SlowMoExport r = new K4SlowMoExport(mIn, mInOffset, mInLength, mOut, mDvStart, mDvEnd, mDvRate, this, false); mExport = r; r.start(); if (mCancelled) r.cancel(); return; }

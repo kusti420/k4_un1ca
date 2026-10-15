@@ -170,6 +170,8 @@
 
 .field private blacklist mTrack:I
 
+.field private blacklist mWakeLock:Landroid/os/PowerManager$WakeLock;
+
 .field private blacklist mWidth:I
 
 .field private volatile blacklist mWork:F
@@ -401,6 +403,140 @@
 
     iput p7, p0, Lcom/k4/media/K4SlowMoExport;->mPositionMs:I
 
+    return-void
+.end method
+
+.method private blacklist acquireWakeLock()V
+    .registers 8
+
+    :try_start_0
+    const-string v0, "android.app.ActivityThread"
+
+    invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
+
+    move-result-object v0
+
+    const-string v1, "currentApplication"
+
+    const/4 v2, 0x0
+
+    invoke-virtual {v0, v1, v2}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v2, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/content/Context;
+
+    if-nez v0, :cond_16
+
+    goto :goto_72
+
+    :cond_16
+    const-class v1, Landroid/os/PowerManager;
+
+    invoke-virtual {v0, v1}, Landroid/content/Context;->getSystemService(Ljava/lang/Class;)Ljava/lang/Object;
+
+    move-result-object v0
+
+    check-cast v0, Landroid/os/PowerManager;
+
+    const-string v1, "K4SlowMo:save"
+
+    const/4 v2, 0x1
+
+    invoke-virtual {v0, v2, v1}, Landroid/os/PowerManager;->newWakeLock(ILjava/lang/String;)Landroid/os/PowerManager$WakeLock;
+
+    move-result-object v0
+
+    const/4 v1, 0x0
+
+    invoke-virtual {v0, v1}, Landroid/os/PowerManager$WakeLock;->setReferenceCounted(Z)V
+
+    iget v2, p0, Lcom/k4/media/K4SlowMoExport;->mEndMs:I
+
+    iget v3, p0, Lcom/k4/media/K4SlowMoExport;->mStartMs:I
+
+    sub-int/2addr v2, v3
+
+    invoke-static {v1, v2}, Ljava/lang/Math;->max(II)I
+
+    move-result v1
+
+    int-to-long v1, v1
+
+    const-wide/16 v3, 0x78
+
+    mul-long/2addr v3, v1
+
+    const-wide/16 v5, 0x7530
+
+    add-long/2addr v3, v5
+
+    long-to-float v1, v1
+
+    iget v2, p0, Lcom/k4/media/K4SlowMoExport;->mPlayRate:F
+
+    const v5, 0x3c23d70a    # 0.01f
+
+    invoke-static {v5, v2}, Ljava/lang/Math;->max(FF)F
+
+    move-result v2
+
+    div-float/2addr v1, v2
+
+    const/high16 v2, 0x40400000    # 3.0f
+
+    mul-float/2addr v1, v2
+
+    float-to-long v1, v1
+
+    const-wide/16 v5, 0x4e20
+
+    add-long/2addr v1, v5
+
+    invoke-static {v3, v4, v1, v2}, Ljava/lang/Math;->max(JJ)J
+
+    move-result-wide v1
+
+    const-wide/32 v3, 0xea60
+
+    add-long/2addr v1, v3
+
+    invoke-virtual {v0, v1, v2}, Landroid/os/PowerManager$WakeLock;->acquire(J)V
+
+    iput-object v0, p0, Lcom/k4/media/K4SlowMoExport;->mWakeLock:Landroid/os/PowerManager$WakeLock;
+    :try_end_58
+    .catchall {:try_start_0 .. :try_end_58} :catchall_59
+
+    return-void
+
+    :catchall_59
+    move-exception p0
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    const-string v1, "save: no wake lock ("
+
+    invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+
+    const-string p0, "), the export may stall while the screen is off"
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p0
+
+    const-string v0, "K4SlowMo"
+
+    invoke-static {v0, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+
+    :goto_72
     return-void
 .end method
 
@@ -2118,7 +2254,7 @@
 
     if-eqz v0, :cond_6
 
-    goto/16 :goto_190
+    goto/16 :goto_193
 
     :cond_6
     :try_start_6
@@ -2525,14 +2661,16 @@
 
     invoke-virtual {p1}, Landroid/os/HandlerThread;->quitSafely()Z
 
+    invoke-direct {p0}, Lcom/k4/media/K4SlowMoExport;->releaseWakeLock()V
+
     iget-object p1, p0, Lcom/k4/media/K4SlowMoExport;->mListener:Lcom/k4/media/K4SlowMoExport$Listener;
 
-    if-eqz p1, :cond_190
+    if-eqz p1, :cond_193
 
     invoke-interface {p1, p0, v0, p2}, Lcom/k4/media/K4SlowMoExport$Listener;->onFinished(Lcom/k4/media/K4SlowMoExport;ZLjava/lang/String;)V
 
-    :cond_190
-    :goto_190
+    :cond_193
+    :goto_193
     return-void
 .end method
 
@@ -4499,6 +4637,27 @@
     :catchall_431
     :cond_431
     throw v0
+.end method
+
+.method private blacklist releaseWakeLock()V
+    .registers 3
+
+    iget-object v0, p0, Lcom/k4/media/K4SlowMoExport;->mWakeLock:Landroid/os/PowerManager$WakeLock;
+
+    const/4 v1, 0x0
+
+    iput-object v1, p0, Lcom/k4/media/K4SlowMoExport;->mWakeLock:Landroid/os/PowerManager$WakeLock;
+
+    if-eqz v0, :cond_a
+
+    :try_start_7
+    invoke-virtual {v0}, Landroid/os/PowerManager$WakeLock;->release()V
+    :try_end_a
+    .catchall {:try_start_7 .. :try_end_a} :catchall_a
+
+    :catchall_a
+    :cond_a
+    return-void
 .end method
 
 .method private blacklist renderOffline()V
@@ -6577,63 +6736,61 @@
         }
     .end annotation
 
-    const-string v0, "frame-rate"
+    const-string v0, "rotation-degrees"
 
-    const-string v1, "rotation-degrees"
+    new-instance v1, Landroid/media/MediaExtractor;
 
-    new-instance v2, Landroid/media/MediaExtractor;
+    invoke-direct {v1}, Landroid/media/MediaExtractor;-><init>()V
 
-    invoke-direct {v2}, Landroid/media/MediaExtractor;-><init>()V
+    :try_start_7
+    iget-object v2, p0, Lcom/k4/media/K4SlowMoExport;->mIn:Ljava/io/FileDescriptor;
 
-    :try_start_9
-    iget-object v3, p0, Lcom/k4/media/K4SlowMoExport;->mIn:Ljava/io/FileDescriptor;
+    iget-wide v3, p0, Lcom/k4/media/K4SlowMoExport;->mInOffset:J
 
-    iget-wide v4, p0, Lcom/k4/media/K4SlowMoExport;->mInOffset:J
+    iget-wide v5, p0, Lcom/k4/media/K4SlowMoExport;->mInLength:J
 
-    iget-wide v6, p0, Lcom/k4/media/K4SlowMoExport;->mInLength:J
+    invoke-virtual/range {v1 .. v6}, Landroid/media/MediaExtractor;->setDataSource(Ljava/io/FileDescriptor;JJ)V
 
-    invoke-virtual/range {v2 .. v7}, Landroid/media/MediaExtractor;->setDataSource(Ljava/io/FileDescriptor;JJ)V
+    const/4 v2, 0x0
 
-    const/4 v3, 0x0
+    move v3, v2
 
-    move v4, v3
-
-    :goto_14
-    invoke-virtual {v2}, Landroid/media/MediaExtractor;->getTrackCount()I
-
-    move-result v5
-
-    if-ge v4, v5, :cond_40
-
-    invoke-virtual {v2, v4}, Landroid/media/MediaExtractor;->getTrackFormat(I)Landroid/media/MediaFormat;
-
-    move-result-object v5
-
-    const-string v6, "mime"
-
-    invoke-virtual {v5, v6}, Landroid/media/MediaFormat;->getString(Ljava/lang/String;)Ljava/lang/String;
-
-    move-result-object v6
-
-    if-eqz v6, :cond_3d
-
-    const-string v7, "video/"
-
-    invoke-virtual {v6, v7}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-
-    move-result v7
-
-    if-eqz v7, :cond_3d
-
-    invoke-static {v6, v5}, Lcom/k4/media/K4SlowMo;->isEightBitSdr(Ljava/lang/String;Landroid/media/MediaFormat;)Z
+    :goto_12
+    invoke-virtual {v1}, Landroid/media/MediaExtractor;->getTrackCount()I
 
     move-result v4
 
-    if-eqz v4, :cond_35
+    if-ge v3, v4, :cond_3e
 
-    goto :goto_41
+    invoke-virtual {v1, v3}, Landroid/media/MediaExtractor;->getTrackFormat(I)Landroid/media/MediaFormat;
 
-    :cond_35
+    move-result-object v4
+
+    const-string v5, "mime"
+
+    invoke-virtual {v4, v5}, Landroid/media/MediaFormat;->getString(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v5
+
+    if-eqz v5, :cond_3b
+
+    const-string v6, "video/"
+
+    invoke-virtual {v5, v6}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v6
+
+    if-eqz v6, :cond_3b
+
+    invoke-static {v5, v4}, Lcom/k4/media/K4SlowMo;->isEightBitSdr(Ljava/lang/String;Landroid/media/MediaFormat;)Z
+
+    move-result v3
+
+    if-eqz v3, :cond_33
+
+    goto :goto_3f
+
+    :cond_33
     new-instance p0, Ljava/lang/IllegalStateException;
 
     const-string v0, "not an 8-bit SDR video"
@@ -6642,60 +6799,150 @@
 
     throw p0
 
-    :cond_3d
-    add-int/lit8 v4, v4, 0x1
+    :cond_3b
+    add-int/lit8 v3, v3, 0x1
 
-    goto :goto_14
+    goto :goto_12
 
-    :cond_40
-    const/4 v5, 0x0
+    :cond_3e
+    const/4 v4, 0x0
 
-    :goto_41
-    if-eqz v5, :cond_13e
+    :goto_3f
+    if-eqz v4, :cond_19a
 
-    const-string v4, "width"
+    invoke-static {v4}, Lcom/k4/media/K4SlowMo;->isNeuralEligible(Landroid/media/MediaFormat;)Z
 
-    invoke-virtual {v5, v4}, Landroid/media/MediaFormat;->getInteger(Ljava/lang/String;)I
+    move-result v3
+    :try_end_45
+    .catchall {:try_start_7 .. :try_end_45} :catchall_1a2
 
-    move-result v4
+    const-string v5, "x"
 
-    iput v4, p0, Lcom/k4/media/K4SlowMoExport;->mWidth:I
+    const-string v6, "height"
 
-    const-string v4, "height"
+    const-string v7, "width"
 
-    invoke-virtual {v5, v4}, Landroid/media/MediaFormat;->getInteger(Ljava/lang/String;)I
+    const-string v8, "frame-rate"
 
-    move-result v4
+    if-nez v3, :cond_a2
 
-    iput v4, p0, Lcom/k4/media/K4SlowMoExport;->mHeight:I
+    :try_start_4f
+    new-instance p0, Ljava/lang/IllegalStateException;
 
-    invoke-virtual {v5, v1}, Landroid/media/MediaFormat;->containsKey(Ljava/lang/String;)Z
+    new-instance v0, Ljava/lang/StringBuilder;
 
-    move-result v4
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
 
-    if-eqz v4, :cond_5e
+    const-string v3, "the neural engine does not take this video: "
 
-    invoke-virtual {v5, v1}, Landroid/media/MediaFormat;->getInteger(Ljava/lang/String;)I
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result v1
+    invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 
-    goto :goto_5f
+    move-result-object v3
 
-    :cond_5e
-    move v1, v3
+    invoke-virtual {v4, v7, v3}, Landroid/media/MediaFormat;->getNumber(Ljava/lang/String;Ljava/lang/Number;)Ljava/lang/Number;
 
-    :goto_5f
-    iput v1, p0, Lcom/k4/media/K4SlowMoExport;->mRotation:I
+    move-result-object v3
 
-    invoke-virtual {v5, v0}, Landroid/media/MediaFormat;->containsKey(Ljava/lang/String;)Z
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
 
-    move-result v1
+    invoke-virtual {v0, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    const/4 v4, 0x1
+    invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 
-    if-eqz v1, :cond_7a
+    move-result-object v2
 
-    invoke-virtual {v5, v0}, Landroid/media/MediaFormat;->getNumber(Ljava/lang/String;)Ljava/lang/Number;
+    invoke-virtual {v4, v6, v2}, Landroid/media/MediaFormat;->getNumber(Ljava/lang/String;Ljava/lang/Number;)Ljava/lang/Number;
+
+    move-result-object v2
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+
+    const-string v2, " at "
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v4, v8}, Landroid/media/MediaFormat;->containsKey(Ljava/lang/String;)Z
+
+    move-result v2
+
+    if-eqz v2, :cond_95
+
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+
+    invoke-virtual {v4, v8}, Landroid/media/MediaFormat;->getNumber(Ljava/lang/String;)Ljava/lang/Number;
+
+    move-result-object v3
+
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
+
+    const-string v3, " fps"
+
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v2
+
+    goto :goto_97
+
+    :cond_95
+    const-string v2, "an unknown frame rate"
+
+    :goto_97
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-direct {p0, v0}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
+
+    throw p0
+
+    :cond_a2
+    invoke-virtual {v4, v7}, Landroid/media/MediaFormat;->getInteger(Ljava/lang/String;)I
+
+    move-result v3
+
+    iput v3, p0, Lcom/k4/media/K4SlowMoExport;->mWidth:I
+
+    invoke-virtual {v4, v6}, Landroid/media/MediaFormat;->getInteger(Ljava/lang/String;)I
+
+    move-result v3
+
+    iput v3, p0, Lcom/k4/media/K4SlowMoExport;->mHeight:I
+
+    invoke-virtual {v4, v0}, Landroid/media/MediaFormat;->containsKey(Ljava/lang/String;)Z
+
+    move-result v3
+
+    if-eqz v3, :cond_b9
+
+    invoke-virtual {v4, v0}, Landroid/media/MediaFormat;->getInteger(Ljava/lang/String;)I
+
+    move-result v0
+
+    goto :goto_ba
+
+    :cond_b9
+    move v0, v2
+
+    :goto_ba
+    iput v0, p0, Lcom/k4/media/K4SlowMoExport;->mRotation:I
+
+    invoke-virtual {v4, v8}, Landroid/media/MediaFormat;->containsKey(Ljava/lang/String;)Z
+
+    move-result v0
+
+    const/4 v3, 0x1
+
+    if-eqz v0, :cond_d5
+
+    invoke-virtual {v4, v8}, Landroid/media/MediaFormat;->getNumber(Ljava/lang/String;)Ljava/lang/Number;
 
     move-result-object v0
 
@@ -6707,62 +6954,62 @@
 
     move-result v0
 
-    invoke-static {v4, v0}, Ljava/lang/Math;->max(II)I
+    invoke-static {v3, v0}, Ljava/lang/Math;->max(II)I
 
     move-result v0
 
     iput v0, p0, Lcom/k4/media/K4SlowMoExport;->mFps:I
 
-    :cond_7a
+    :cond_d5
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mFps:I
 
-    const/16 v1, 0x1f
+    const/16 v4, 0x1f
 
-    if-gt v0, v1, :cond_111
-
-    iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mWidth:I
-
-    iget v1, p0, Lcom/k4/media/K4SlowMoExport;->mHeight:I
-
-    invoke-static {v0, v1}, Ljava/lang/Math;->max(II)I
-
-    move-result v0
-
-    const/16 v1, 0x780
-
-    if-gt v0, v1, :cond_111
+    if-gt v0, v4, :cond_16f
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mWidth:I
 
-    iget v1, p0, Lcom/k4/media/K4SlowMoExport;->mHeight:I
+    iget v4, p0, Lcom/k4/media/K4SlowMoExport;->mHeight:I
 
-    invoke-static {v0, v1}, Ljava/lang/Math;->min(II)I
+    invoke-static {v0, v4}, Ljava/lang/Math;->max(II)I
 
     move-result v0
 
-    const/16 v1, 0x440
+    const/16 v4, 0x780
 
-    if-gt v0, v1, :cond_111
+    if-gt v0, v4, :cond_16f
+
+    iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mWidth:I
+
+    iget v4, p0, Lcom/k4/media/K4SlowMoExport;->mHeight:I
+
+    invoke-static {v0, v4}, Ljava/lang/Math;->min(II)I
+
+    move-result v0
+
+    const/16 v4, 0x440
+
+    if-gt v0, v4, :cond_16f
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mEndMs:I
 
-    iget v1, p0, Lcom/k4/media/K4SlowMoExport;->mStartMs:I
+    iget v4, p0, Lcom/k4/media/K4SlowMoExport;->mStartMs:I
 
-    if-le v0, v1, :cond_111
+    if-le v0, v4, :cond_16f
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mFps:I
 
-    int-to-long v0, v0
+    int-to-long v4, v0
 
-    const-wide/32 v5, 0xf4240
+    const-wide/32 v6, 0xf4240
 
-    div-long/2addr v5, v0
+    div-long/2addr v6, v4
 
-    iput-wide v5, p0, Lcom/k4/media/K4SlowMoExport;->mFrameUs:J
-    :try_end_a7
-    .catchall {:try_start_9 .. :try_end_a7} :catchall_146
+    iput-wide v6, p0, Lcom/k4/media/K4SlowMoExport;->mFrameUs:J
+    :try_end_102
+    .catchall {:try_start_4f .. :try_end_102} :catchall_1a2
 
-    invoke-virtual {v2}, Landroid/media/MediaExtractor;->release()V
+    invoke-virtual {v1}, Landroid/media/MediaExtractor;->release()V
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mRate:F
 
@@ -6774,26 +7021,26 @@
 
     sget-boolean v0, Lcom/k4/media/K4SlowMoExport;->sAudio:Z
 
-    if-nez v0, :cond_be
+    if-nez v0, :cond_119
 
     invoke-static {}, Lcom/k4/media/K4SlowMoExport;->audioProperty()Z
 
     move-result v0
 
-    if-eqz v0, :cond_bc
+    if-eqz v0, :cond_117
 
-    goto :goto_be
+    goto :goto_119
 
-    :cond_bc
+    :cond_117
+    move v0, v2
+
+    goto :goto_11a
+
+    :cond_119
+    :goto_119
     move v0, v3
 
-    goto :goto_bf
-
-    :cond_be
-    :goto_be
-    move v0, v4
-
-    :goto_bf
+    :goto_11a
     iput-boolean v0, p0, Lcom/k4/media/K4SlowMoExport;->mAudio:Z
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mEndMs:I
@@ -6802,56 +7049,56 @@
 
     sub-int/2addr v0, v1
 
-    int-to-long v5, v0
+    int-to-long v4, v0
 
     iget v0, p0, Lcom/k4/media/K4SlowMoExport;->mFps:I
 
-    int-to-long v7, v0
+    int-to-long v6, v0
 
-    mul-long/2addr v5, v7
+    mul-long/2addr v4, v6
 
-    iget v2, p0, Lcom/k4/media/K4SlowMoExport;->mScale:I
+    iget v6, p0, Lcom/k4/media/K4SlowMoExport;->mScale:I
 
-    int-to-long v7, v2
+    int-to-long v7, v6
 
-    mul-long/2addr v5, v7
+    mul-long/2addr v4, v7
 
     const-wide/16 v7, 0x3e8
 
-    div-long/2addr v5, v7
+    div-long/2addr v4, v7
 
-    long-to-int v5, v5
+    long-to-int v4, v4
 
-    add-int/2addr v5, v4
+    add-int/2addr v4, v3
 
-    iput v5, p0, Lcom/k4/media/K4SlowMoExport;->mExpected:I
+    iput v4, p0, Lcom/k4/media/K4SlowMoExport;->mExpected:I
 
-    const/16 v4, 0x1f4
+    const/16 v3, 0x1f4
 
-    if-lt v1, v4, :cond_df
+    if-lt v1, v3, :cond_13a
 
     iget-boolean v1, p0, Lcom/k4/media/K4SlowMoExport;->mOffline:Z
 
-    if-nez v1, :cond_df
+    if-nez v1, :cond_13a
 
-    move v3, v4
+    move v2, v3
 
-    :cond_df
-    iput v3, p0, Lcom/k4/media/K4SlowMoExport;->mPreRollMs:I
-
-    int-to-long v3, v3
-
-    int-to-long v5, v0
-
-    mul-long/2addr v3, v5
+    :cond_13a
+    iput v2, p0, Lcom/k4/media/K4SlowMoExport;->mPreRollMs:I
 
     int-to-long v1, v2
 
-    mul-long/2addr v3, v1
+    int-to-long v3, v0
 
-    div-long/2addr v3, v7
+    mul-long/2addr v1, v3
 
-    long-to-int v1, v3
+    int-to-long v3, v6
+
+    mul-long/2addr v1, v3
+
+    div-long/2addr v1, v7
+
+    long-to-int v1, v1
 
     div-int/2addr v1, v0
 
@@ -6887,45 +7134,45 @@
 
     iput-wide v0, p0, Lcom/k4/media/K4SlowMoExport;->mT0:J
 
+    invoke-direct {p0}, Lcom/k4/media/K4SlowMoExport;->acquireWakeLock()V
+
     iget-object v0, p0, Lcom/k4/media/K4SlowMoExport;->mHandler:Landroid/os/Handler;
 
     invoke-virtual {v0, p0}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
 
     return-void
 
-    :cond_111
-    :try_start_111
+    :cond_16f
+    :try_start_16f
     new-instance v0, Ljava/lang/IllegalStateException;
 
-    new-instance v1, Ljava/lang/StringBuilder;
+    new-instance v2, Ljava/lang/StringBuilder;
 
-    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
 
     const-string v3, "unsupported source "
 
-    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     iget v3, p0, Lcom/k4/media/K4SlowMoExport;->mWidth:I
 
-    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    const-string v3, "x"
-
-    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     iget v3, p0, Lcom/k4/media/K4SlowMoExport;->mHeight:I
 
-    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     const-string v3, "@"
 
-    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     iget p0, p0, Lcom/k4/media/K4SlowMoExport;->mFps:I
 
-    invoke-virtual {v1, p0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object p0
 
@@ -6933,7 +7180,7 @@
 
     throw v0
 
-    :cond_13e
+    :cond_19a
     new-instance p0, Ljava/lang/IllegalStateException;
 
     const-string v0, "no video track"
@@ -6941,15 +7188,15 @@
     invoke-direct {p0, v0}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
 
     throw p0
-    :try_end_146
-    .catchall {:try_start_111 .. :try_end_146} :catchall_146
+    :try_end_1a2
+    .catchall {:try_start_16f .. :try_end_1a2} :catchall_1a2
 
-    :catchall_146
+    :catchall_1a2
     move-exception v0
 
     move-object p0, v0
 
-    invoke-virtual {v2}, Landroid/media/MediaExtractor;->release()V
+    invoke-virtual {v1}, Landroid/media/MediaExtractor;->release()V
 
     throw p0
 .end method

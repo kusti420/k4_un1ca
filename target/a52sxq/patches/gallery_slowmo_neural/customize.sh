@@ -1,5 +1,7 @@
 # See module.prop. Installs the neural frame rate conversion front (k4neuralmpp) next to the stock MPP store and
-# points the system MPP client at it. Ships disabled (`disable` marker); enable it for test builds only.
+# points the system MPP client at it. Part of every release build (there is no `disable` marker): from then on ALL
+# system MPP traffic goes through k4neuralmpp, which serves the FRC pipe itself and forwards everything else to the
+# stock store, so the daemon must stay up and responsive for any video playback that uses MPP.
 #
 # Third-party files are NOT in git: the Qualcomm AI Runtime (QAIRT) SDK runtime libraries are taken from
 # prebuilts/qairt/2.46.0/ and the model from prebuilts/k4neural/ (both in .git/info/exclude). The SDK's NOTICE.txt

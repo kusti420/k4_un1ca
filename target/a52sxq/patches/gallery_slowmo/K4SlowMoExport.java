@@ -75,6 +75,9 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
     private int mPreRollMs, mSkip; private long mPhaseAt; private volatile long mLastFrameAt; private volatile boolean mPlaying;
     private volatile boolean mCancelled, mDone, mStopping, mStarted;
     private volatile String mError;
+    // Gallery's process may hold the CPU awake (it has WAKE_LOCK): the offline render takes ~20 s per source second and
+    // must not stall when the screen goes off. Held from start() to finish(), with a time limit as a safety net.
+    private android.os.PowerManager.WakeLock mWakeLock;
 
     public K4SlowMoExport(FileDescriptor in, long inOffset, long inLength, FileDescriptor out, int startMs, int endMs, float rate, Listener l) {
         this(in, inOffset, inLength, out, startMs, endMs, rate, l, false);
@@ -106,6 +109,8 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
                 if (mime != null && mime.startsWith("video/")) { if (!K4SlowMo.isEightBitSdr(mime, f)) throw new IllegalStateException("not an 8-bit SDR video"); vf = f; break; }
             }
             if (vf == null) throw new IllegalStateException("no video track");
+            if (!K4SlowMo.isNeuralEligible(vf)) throw new IllegalStateException("the neural engine does not take this video: " + vf.getNumber(MediaFormat.KEY_WIDTH, Integer.valueOf(0))
+                    + "x" + vf.getNumber(MediaFormat.KEY_HEIGHT, Integer.valueOf(0)) + " at " + (vf.containsKey(MediaFormat.KEY_FRAME_RATE) ? vf.getNumber(MediaFormat.KEY_FRAME_RATE) + " fps" : "an unknown frame rate"));
             mWidth = vf.getInteger(MediaFormat.KEY_WIDTH); mHeight = vf.getInteger(MediaFormat.KEY_HEIGHT);
             mRotation = vf.containsKey(MediaFormat.KEY_ROTATION) ? vf.getInteger(MediaFormat.KEY_ROTATION) : 0;
             if (vf.containsKey(MediaFormat.KEY_FRAME_RATE)) mFps = Math.max(1, Math.round(vf.getNumber(MediaFormat.KEY_FRAME_RATE).floatValue()));
@@ -120,7 +125,29 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
         mThread = new HandlerThread("K4SlowMoExport"); mThread.start();
         mHandler = new Handler(mThread.getLooper());
         mT0 = SystemClock.elapsedRealtime();
+        acquireWakeLock();
         mHandler.post(this);
+    }
+
+    private void acquireWakeLock() {
+        try {
+            android.content.Context c = (android.content.Context) Class.forName("android.app.ActivityThread").getMethod("currentApplication").invoke(null);
+            if (c == null) return;          // app_process tests
+            android.os.PowerManager pm = c.getSystemService(android.os.PowerManager.class);
+            android.os.PowerManager.WakeLock wl = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "K4SlowMo:save");
+            wl.setReferenceCounted(false);
+            // the longer of the two paths' own limits (run()), plus a minute
+            long section = Math.max(0, mEndMs - mStartMs);
+            wl.acquire(60000L + Math.max(30000L + section * 120, 20000L + (long) (section / Math.max(0.01f, mPlayRate) * 3)));
+            mWakeLock = wl;
+        } catch (Throwable t) {
+            Log.w(TAG, "save: no wake lock (" + t + "), the export may stall while the screen is off");
+        }
+    }
+
+    private void releaseWakeLock() {
+        android.os.PowerManager.WakeLock wl = mWakeLock; mWakeLock = null;
+        if (wl != null) try { wl.release(); } catch (Throwable t) { }
     }
 
     // everything below runs on mThread (player callbacks arrive there too)
@@ -620,6 +647,7 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
         Log.i(TAG, "save: neural x" + mScale + " " + mWidth + "x" + mHeight + " " + mStartMs + ".." + mEndMs + " ms -> " + mWritten + " frames (expected " + expected + ", "
                 + mDropped + " before the section (" + mSkip + " pre-roll), " + mGaps + " gaps, " + (mOffline ? "offline: " + mOfflineNote : "played at " + mPlayRate + "x") + "; " + mAudioNote + ") in " + (SystemClock.elapsedRealtime() - mT0) + " ms: " + (stopOk ? "ok" : "FAILED " + detail));
         mThread.quitSafely();
+        releaseWakeLock();
         if (mListener != null) mListener.onFinished(this, stopOk, detail);
     }
 
