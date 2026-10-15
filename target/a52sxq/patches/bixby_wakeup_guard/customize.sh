@@ -2,7 +2,7 @@
 SERVICES="system/framework/services.jar"
 DECODE_APK "system" "$SERVICES" || ABORT "Failed to decode $SERVICES"
 LOG "- Samsung voice wake-up: A52s keyword models only (the S26 Ultra ones crash the A52s ADSP)"
-# /system/etc/k4wakeup/<mode>/<locale>/<file>.bin = the A52s stock app's keyword models (extracted from the target
+# /system/etc/k4wakeup/<mode>/<locale>/<file>.bin = the A52s stock app's DSP network + grammar files (extracted from the target
 # firmware at build time; Samsung's models are not kept in git). K4WakeupGuard finds which asset of the installed app
 # is being loaded and swaps in the A52s model of the same name.
 A52S_APP="$FW_DIR/$TARGET_FIRMWARE_PATH/system/system/app/BixbyWakeup/BixbyWakeup.apk"
@@ -11,7 +11,7 @@ EVAL "rm -rf \"$WORK_DIR/system/system/etc/k4wakeup\" && mkdir -p \"$WORK_DIR/sy
 K4W_FILES="$(python3 - "$A52S_APP" "$WORK_DIR/system/system/etc/k4wakeup" << 'PYEOF'
 import os, sys, zipfile
 apk, out = sys.argv[1:]
-P = "assets/kwdModel/"
+P = "assets/wakeupmodel/"
 n = 0
 with zipfile.ZipFile(apk) as z:
     for e in z.namelist():
@@ -20,7 +20,7 @@ with zipfile.ZipFile(apk) as z:
             os.makedirs(os.path.join(out, os.path.dirname(rel)), exist_ok=True)
             open(os.path.join(out, rel), "wb").write(z.read(e))
             print(rel); n += 1
-assert n, "no keyword models in the A52s app"
+assert n, "no DSP models (wakeupmodel/) in the A52s app"
 PYEOF
 )" || ABORT "bixby_wakeup_guard: failed to extract the A52s keyword models"
 for d in $(cd "$WORK_DIR/system/system/etc" && find k4wakeup -type d); do

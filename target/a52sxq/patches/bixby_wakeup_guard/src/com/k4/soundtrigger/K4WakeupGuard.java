@@ -22,7 +22,7 @@ import java.security.MessageDigest;
  * revision: the A52s ADSP firmware faults in its LPI voice module on them (err_qdi.c audio_process LPro00dyn) and the
  * SoC resets; the app reloads the model about a minute after every boot, so one enrolment used to end in a boot loop.
  *
- * /system/etc/k4wakeup/<mode>/<locale>/<file>.bin holds the A52s stock app's models. The model being loaded is
+ * /system/etc/k4wakeup/<bitrate>/<ll_cc>/ holds the A52s stock app's DSP network + grammar files (see a52sModel). The model being loaded is
  * identified by finding the asset with the same bytes in the installed Bixby Wakeup app (the Galaxy Store update or
  * the system copy) and swapped for the A52s model of the same name; anything without an A52s counterpart is refused,
  * so the ADSP only ever sees models its firmware shipped with.
@@ -60,8 +60,7 @@ public final class K4WakeupGuard {
             byte[] data = ConversionUtil.sharedMemoryToByteArray(common.data.dup(), common.dataSize);
             hash = sha256(data);
             name = modelName(hash, data.length);
-            File f = name == null ? null : new File(MODEL_DIR + name);
-            if (f != null && f.isFile()) replacement = readFile(f);
+            if (name != null) replacement = a52sModel(name);
         } catch (Throwable t) {
             Slog.e(TAG, "cannot read the Samsung voice wake-up model", t);
         }
@@ -79,6 +78,27 @@ public final class K4WakeupGuard {
         } catch (Throwable ignored) {
         }
         Slog.i(TAG, "Samsung voice wake-up model " + name + " -> A52s model (" + replacement.length + " bytes)");
+    }
+
+    /**
+     * The A52s stock app's DSP model for the same keyword and language: on firmware type 1 (A52s) it sends
+     * [int netSize][wakeupmodel/<bitrate>/<ll_cc>/hibixby_dsp_net_<ll_cc>.bin][int gramSize][..._grammar_...bin]
+     * (native byte order, DspEnrollmentUtil); the S26 Ultra app sends a single kwdModel/<mode>/<llCC>/<kw>_<mode>_<llCC>.bin.
+     * Only "Hi Bixby" exists for the A52s DSP.
+     */
+    private static byte[] a52sModel(String name) throws Exception {
+        String[] parts = name.split("/");
+        if (parts.length != 3 || !parts[2].startsWith("hibixby_") || parts[1].length() != 4) return null;
+        String loc = parts[1].substring(0, 2).toLowerCase(java.util.Locale.US) + "_"
+                + parts[1].substring(2).toLowerCase(java.util.Locale.US);
+        String bits = SystemProperties.get("persist.sys.k4.wakeup_dsp_bits", "32bit");
+        File net = new File(MODEL_DIR + bits + "/" + loc + "/hibixby_dsp_net_" + loc + ".bin");
+        File gram = new File(MODEL_DIR + bits + "/" + loc + "/hibixby_dsp_grammar_" + loc + ".bin");
+        if (!net.isFile() || !gram.isFile()) return null;
+        byte[] n = readFile(net), g = readFile(gram);
+        java.nio.ByteBuffer b = java.nio.ByteBuffer.allocate(8 + n.length + g.length).order(java.nio.ByteOrder.nativeOrder());
+        b.putInt(n.length).put(n).putInt(g.length).put(g);
+        return b.array();
     }
 
     /** Path under kwdModel/ of the installed app's asset with these bytes, or null. */
