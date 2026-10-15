@@ -5,7 +5,12 @@ Our own binary (plain C, NDK binder; no third-party code): the neural MPP front 
 - Source: `../src/{k4neuralmpp.c,k4n_engine.c,k4n.h}`; rebuild with `../src/build.sh` (AOSP prebuilt clang r596125,
   NDK sysroot API 30 and bionic crt objects of an AOSP tree; C only, no libc++). Working copy and test tools:
   `/mnt/B1/OneUi9/scratch/htpre/neural` on the build PC (NOTES.md one level up).
-- This copy: sha256 `e9a97d837fb61869c60e6c9b2d6cfd79b9514ecb92b16e0620fcf412ad054249`, 104536 bytes, built 2026-10-15 with
+- This copy: sha256 `84d04202c5d73c2e2e05698933e02a536cd06603c61dd6791c576fc356fe22ff`, 106832 bytes, built 2026-10-15 with
+  `build.sh`: better hands in saved clips (render session): a second FILM crop when a second region moves at least half
+  as much as the first, FILM also at the quarter positions for the fastest 25% of pairs (x4 saves), the strongest
+  motion kept >= 48 px inside the crop; persist.sys.k4.slowmo_save_hands (default 1) switches it off. About 1.27x the
+  config-A save time on the reference clip (/mnt/B1/OneUi9/scratch/htpre/hands_patch/NOTES.md). NOT yet run on a phone.
+  Previous copy: sha256 `e9a97d837fb61869c60e6c9b2d6cfd79b9514ecb92b16e0620fcf412ad054249`, 104536 bytes, built 2026-10-15 with
   `build.sh` (the same toolchain rebuilds the previous copy, b7e16c4f..., byte for byte from its sources). Robustness
   on top of the FILM save (b7e16c4f..., 9.3.32-9.3.36): the network is built on a build thread only (binder calls wait
   at most 8 s, then take the classic pipe; the engine state is read without the engine lock); transaction 0x4B3404

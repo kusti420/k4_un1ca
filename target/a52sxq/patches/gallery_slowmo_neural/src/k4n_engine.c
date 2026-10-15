@@ -937,13 +937,13 @@ void k4n_paste_crop(uint8_t* nv12, int w, int h, const float* rgb, int x0, int y
     }
 }
 
-struct K4nRender { K4nSession *s, *s2; int w, h; float *np, *nn, *nm; uint8_t* mid; float *x0, *x1, *fo, *score; double* ii; uint8_t *ha, *hb; };
+struct K4nRender { K4nSession *s, *s2; int w, h; float *np, *nn, *nm; uint8_t* mid; float *x0, *x1, *fo, *fm1, *fm2, *score; double* ii; uint8_t *ha, *hb; int want2; float s2v, cx2, cy2; };
 K4nRender* k4n_render_create(int w, int h) {
     K4nRender* r = calloc(1, sizeof *r); size_t nsz = sizeof(float) * NW * NH, cs3 = sizeof(float) * K4N_FILM_CS * K4N_FILM_CS * 3;
     r->w = w; r->h = h; r->s = k4n_session_create(w, h); r->s2 = k4n_session_create(w, h);
     k4n_session_set_quality(r->s, 1); k4n_session_set_quality(r->s2, 1);       // the save picture mode (k4neuralmpp.c)
     r->np = malloc(nsz); r->nn = malloc(nsz); r->nm = malloc(nsz); r->mid = malloc((size_t) w * h * 3 / 2);
-    r->x0 = malloc(cs3); r->x1 = malloc(cs3); r->fo = malloc(cs3);
+    r->x0 = malloc(cs3); r->x1 = malloc(cs3); r->fo = malloc(cs3); r->fm1 = malloc(cs3); r->fm2 = malloc(cs3);
     r->score = malloc(sizeof(float) * (w / 2) * (h / 2)); r->ii = malloc(sizeof(double) * (w / 2 + 1) * (h / 2 + 1));
     r->ha = malloc((size_t) (w / 2) * (h / 2)); r->hb = malloc((size_t) (w / 2) * (h / 2));
     return r;
@@ -951,7 +951,7 @@ K4nRender* k4n_render_create(int w, int h) {
 void k4n_render_destroy(K4nRender* r) {
     if (!r) return;
     k4n_session_destroy(r->s); k4n_session_destroy(r->s2);
-    free(r->np); free(r->nn); free(r->nm); free(r->mid); free(r->x0); free(r->x1); free(r->fo); free(r->score); free(r->ii); free(r->ha); free(r->hb); free(r);
+    free(r->np); free(r->nn); free(r->nm); free(r->mid); free(r->x0); free(r->x1); free(r->fo); free(r->fm1); free(r->fm2); free(r->score); free(r->ii); free(r->ha); free(r->hb); free(r);
 }
 // hybrid.score_map (SEL=warp) on v3's mid flows, at half resolution: motion |F0| + |F1| where > 6 px, weighted by the
 // warp disagreement (1 + min(d, 60) / 10), plus 3 x |F0 + F1|; d = |prev warped - next warped| in luma levels x 1.164
@@ -978,6 +978,23 @@ static float crop_score(K4nRender* r, const uint8_t* prev, const uint8_t* next, 
     for (int y = 0; y + k <= hh; y++) for (int x = 0; x + k <= hw; x++) {
         double sm = ii[(size_t) (y + k) * iw + x + k] - ii[(size_t) y * iw + x + k] - ii[(size_t) (y + k) * iw + x] + ii[(size_t) y * iw + x];
         if (sm > best) { best = sm; bx = x; by = y; } }
+    if (r->want2) {     // hands: keep the strongest 16x16 block >= K4N_FILM_EDGE px inside, then the best window outside this one
+        double bb = -1; int qx = bx, qy = by; const int e = K4N_FILM_EDGE / 2;
+        for (int y = by; y + 8 <= by + k; y += 8) for (int x = bx; x + 8 <= bx + k; x += 8) {
+            double sm = ii[(size_t) (y + 8) * iw + x + 8] - ii[(size_t) y * iw + x + 8] - ii[(size_t) (y + 8) * iw + x] + ii[(size_t) y * iw + x];
+            if (sm > bb) { bb = sm; qx = x; qy = y; } }
+        if (qx < bx + e) bx = qx - e; if (qx + 8 > bx + k - e) bx = qx + 8 + e - k;
+        if (qy < by + e) by = qy - e; if (qy + 8 > by + k - e) by = qy + 8 + e - k;
+        if (bx < 0) bx = 0; if (by < 0) by = 0; if (bx > hw - k) bx = hw - k; if (by > hh - k) by = hh - k;
+        for (int v = by; v < by + k; v++) for (int u = bx; u < bx + k; u++) r->score[(size_t) v * hw + u] = 0;
+        for (int v = 0; v < hh; v++) { double row = 0; ii[(size_t) (v + 1) * iw] = 0;
+            for (int u = 0; u < hw; u++) { row += r->score[(size_t) v * hw + u]; ii[(size_t) (v + 1) * iw + u + 1] = ii[(size_t) v * iw + u + 1] + row; } }
+        double b2 = -1; int x2 = 0, y2 = 0;
+        for (int y = 0; y + k <= hh; y++) for (int x = 0; x + k <= hw; x++) {
+            double sm = ii[(size_t) (y + k) * iw + x + k] - ii[(size_t) y * iw + x + k] - ii[(size_t) (y + k) * iw + x] + ii[(size_t) y * iw + x];
+            if (sm > b2) { b2 = sm; x2 = x; y2 = y; } }
+        r->s2v = (float) b2; r->cx2 = (x2 + k / 2.0f) * 2; r->cy2 = (y2 + k / 2.0f) * 2;
+    }
     *cx = (bx + k / 2.0f) * 2; *cy = (by + k / 2.0f) * 2;
     return (float) best;
 }
@@ -989,18 +1006,31 @@ int k4n_render_score(K4nRender* r, const uint8_t* prev, const uint8_t* next, flo
     *score = crop_score(r, prev, next, cx, cy);
     return 0;
 }
-int k4n_render_pair(K4nRender* r, const uint8_t* prev, const uint8_t* next, const float* ts, int n, int x0, int y0, int film, uint8_t** out, double* ms) {
+int k4n_render_score2(K4nRender* r, const uint8_t* prev, const uint8_t* next, float* score, float* cx, float* cy, float* diff,
+                      float* score2, float* cx2, float* cy2) {
+    r->want2 = 1; r->s2v = 0; r->cx2 = r->w / 2.0f; r->cy2 = r->h / 2.0f;
+    int rc = k4n_render_score(r, prev, next, score, cx, cy, diff);
+    r->want2 = 0; *score2 = r->s2v; *cx2 = r->cx2; *cy2 = r->cy2;
+    return rc;
+}
+static void film_box(int w, int h, int* x, int* y) { *x &= ~1; *y &= ~1; if (*x < 0) *x = 0; if (*y < 0) *y = 0; if (*x > w - K4N_FILM_CS) *x = (w - K4N_FILM_CS) & ~1; if (*y > h - K4N_FILM_CS) *y = (h - K4N_FILM_CS) & ~1; }
+int k4n_render_pair2(K4nRender* r, const uint8_t* prev, const uint8_t* next, const float* ts, int n, int x0, int y0, int film,
+                     int x1, int y1, int film2, int quarters, uint8_t** out, double* ms) {
     const size_t fsz = (size_t) r->w * r->h * 3 / 2; double t0 = k4n_now_ms(), tinf = 0, tfilm = 0; int rc = 0;
     k4n_prep(r->s, prev, r->w, r->np); k4n_prep(r->s, next, r->w, r->nn);
     if (k4n_infer(r->s, r->np, r->nn, NULL)) return -1;
     tinf += k4n_now_ms() - t0;
     k4n_warp(r->s, prev, next, r->mid, 0.5f);
     if (film && r->w >= K4N_FILM_CS && r->h >= K4N_FILM_CS) {
-        x0 &= ~1; y0 &= ~1; if (x0 < 0) x0 = 0; if (y0 < 0) y0 = 0;
-        if (x0 > r->w - K4N_FILM_CS) x0 = (r->w - K4N_FILM_CS) & ~1; if (y0 > r->h - K4N_FILM_CS) y0 = (r->h - K4N_FILM_CS) & ~1;
+        const size_t cs3 = sizeof(float) * K4N_FILM_CS * K4N_FILM_CS * 3;
+        film_box(r->w, r->h, &x0, &y0); film_box(r->w, r->h, &x1, &y1);
         double t1 = k4n_now_ms();
         k4n_rgb_crop(prev, r->w, r->h, x0, y0, r->x0); k4n_rgb_crop(next, r->w, r->h, x0, y0, r->x1);
-        if (film_run(r->x0, r->x1, r->fo) == 0) k4n_paste_crop(r->mid, r->w, r->h, r->fo, x0, y0); else rc = -2;
+        if (film_run(r->x0, r->x1, r->fo) == 0) { k4n_paste_crop(r->mid, r->w, r->h, r->fo, x0, y0); memcpy(r->fm1, r->fo, cs3); } else rc = -2;
+        if (rc == 0 && film2) {
+            k4n_rgb_crop(prev, r->w, r->h, x1, y1, r->x0); k4n_rgb_crop(next, r->w, r->h, x1, y1, r->x1);
+            if (film_run(r->x0, r->x1, r->fo) == 0) { k4n_paste_crop(r->mid, r->w, r->h, r->fo, x1, y1); memcpy(r->fm2, r->fo, cs3); } else rc = -2;
+        }
         tfilm = k4n_now_ms() - t1;
     }
     int lo = 0, hi = 0; for (int i = 0; i < n; i++) { if (ts[i] < 0.5f) lo = 1; if (ts[i] > 0.5f) hi = 1; }
@@ -1014,6 +1044,23 @@ int k4n_render_pair(K4nRender* r, const uint8_t* prev, const uint8_t* next, cons
         for (int i = 0; i < n; i++) if (half ? ts[i] > 0.5f : ts[i] < 0.5f) k4n_warp(r->s2, a, b, out[i], half ? 2 * ts[i] - 1 : 2 * ts[i]);
     }
     for (int i = 0; i < n; i++) if (ts[i] == 0.5f) memcpy(out[i], r->mid, fsz);
+    if (film && quarters && rc == 0 && r->w >= K4N_FILM_CS && r->h >= K4N_FILM_CS) {     // FILM at .25 / .75 inside the crop(s)
+        double t1 = k4n_now_ms();
+        for (int c = 0; c < (film2 ? 2 : 1) && rc == 0; c++) {
+            const int cx0 = c ? x1 : x0, cy0 = c ? y1 : y0; const float* fm = c ? r->fm2 : r->fm1;
+            k4n_rgb_crop(prev, r->w, r->h, cx0, cy0, r->x0); k4n_rgb_crop(next, r->w, r->h, cx0, cy0, r->x1);
+            for (int i = 0; i < n && rc == 0; i++) {
+                if (ts[i] != 0.25f && ts[i] != 0.75f) continue;
+                if (film_run(ts[i] < 0.5f ? r->x0 : fm, ts[i] < 0.5f ? fm : r->x1, r->fo)) { rc = -2; break; }
+                k4n_paste_crop(out[i], r->w, r->h, r->fo, cx0, cy0);
+            }
+        }
+        tfilm += k4n_now_ms() - t1;
+    }
     if (ms) { ms[0] += tinf; ms[1] += tfilm; ms[2] += k4n_now_ms() - t0 - tinf - tfilm; }
     return rc;
+}
+
+int k4n_render_pair(K4nRender* r, const uint8_t* prev, const uint8_t* next, const float* ts, int n, int x0, int y0, int film, uint8_t** out, double* ms) {
+    return k4n_render_pair2(r, prev, next, ts, n, x0, y0, film, x0, y0, 0, 0, out, ms);
 }

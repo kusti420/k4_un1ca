@@ -475,6 +475,21 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
             cx = mean3(median5(cx)); cy = mean3(median5(cy));
             final int[] x0 = new int[m], y0 = new int[m];
             for (int k = 0; k < m; k++) { x0[k] = (int) Math.min(Math.max(cx[k] - CROP / 2f, 0), mWidth - CROP) & ~1; y0[k] = (int) Math.min(Math.max(cy[k] - CROP / 2f, 0), mHeight - CROP) & ~1; }
+            // hands (persist.sys.k4.slowmo_save_hands, default on; quality/hands3.py + hands4_*.py): a second FILM crop where a second
+            // region moves at least half as much as the first (busier half of the section), and FILM also at t = .25 / .75 inside the
+            // crop(s) for the fastest quarter of the pairs at x4. ~+6 % and ~+20 % save time on the reference section.
+            final boolean hands = intProperty("persist.sys.k4.slowmo_save_hands", 1) != 0;
+            final boolean[] two = new boolean[m], quart = new boolean[m]; final int[] x1 = new int[m], y1 = new int[m];
+            if (hands && m > 0) {
+                float[] s1 = new float[m]; for (int k = 0; k < m; k++) s1[k] = score.get(key(jobs.get(k)[0], jobs.get(k)[1]))[0];
+                float[] srt = s1.clone(); java.util.Arrays.sort(srt); float med = srt[m / 2], p75 = srt[Math.min(m - 1, (3 * m) / 4)];
+                for (int k = 0; k < m; k++) {
+                    float[] r = score.get(key(jobs.get(k)[0], jobs.get(k)[1]));
+                    two[k] = r.length > 6 && r[4] >= 0.5f * r[0] && r[0] >= med && r[0] > 0;
+                    quart[k] = mScale == 4 && jobs.get(k)[2] == 0 && s1[k] >= p75 && s1[k] > 0;
+                    if (two[k]) { x1[k] = (int) Math.min(Math.max(r[5] - CROP / 2f, 0), mWidth - CROP) & ~1; y1[k] = (int) Math.min(Math.max(r[6] - CROP / 2f, 0), mHeight - CROP) & ~1; }
+                }
+            }
             mExpected = expected;
             // audio stretched to the real frame count (the muxer takes its format at the encoder's first output, after this)
             if (mAudio) try { prepareAudio(); } catch (Throwable t) { mAudioFormat = null; mAudioData.clear(); mAudioInfo.clear(); mAudioNote = "audio left out: " + t; }
@@ -485,7 +500,7 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
                     int k = next[0]++; int[] jb = jobs.get(k); int steps = jb[2] != 0 ? 2 * mScale : mScale;
                     float[] ts = new float[steps - 1]; for (int q = 1; q < steps; q++) ts[q - 1] = (float) q / steps;
                     encodeFrame(mem, (jb[0] % 4) * fsz);
-                    int rc = renderPair(fs, jb[0] % 4, jb[1] % 4, x0[k], y0[k], ts, ms);
+                    int rc = renderPair(fs, jb[0] % 4, jb[1] % 4, x0[k], y0[k], x1[k], y1[k], two[k], quart[k], ts, ms);
                     if (rc == -2) throw new IllegalStateException("FILM failed at frames " + jb[0] + "-" + jb[1]);
                     films[0]++;
                     for (int q = 0; q < ts.length; q++) encodeFrame(mem, (OUT0 + q) * fsz);
@@ -550,13 +565,14 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
     private static float[] scorePair(android.os.IBinder s, int a, int b) throws Exception {
         android.os.Parcel d = req(); d.writeInt(a % 4); d.writeInt(b % 4);
         android.os.Parcel r = call(s, 1, d);
-        try { if (r.readInt() != 0) throw new IllegalStateException("v3 failed"); return new float[] { r.readFloat(), r.readFloat(), r.readFloat(), r.readFloat() }; }
+        try { if (r.readInt() != 0) throw new IllegalStateException("v3 failed"); return new float[] { r.readFloat(), r.readFloat(), r.readFloat(), r.readFloat(), r.readFloat(), r.readFloat(), r.readFloat() }; }
         finally { r.recycle(); }
     }
-    private static int renderPair(android.os.IBinder s, int a, int b, int x0, int y0, float[] ts, double[] ms) throws Exception {
+    private static int renderPair(android.os.IBinder s, int a, int b, int x0, int y0, int x1, int y1, boolean film2, boolean quarters, float[] ts, double[] ms) throws Exception {
         android.os.Parcel d = req(); d.writeInt(a); d.writeInt(b); d.writeInt(1); d.writeInt(x0); d.writeInt(y0); d.writeInt(ts.length);
         for (float t : ts) d.writeFloat(t);
         d.writeInt(OUT0);
+        d.writeInt(film2 ? 1 : 0); d.writeInt(x1); d.writeInt(y1); d.writeInt(quarters ? 1 : 0);     // hands save (k4neuralmpp RENDER optional tail)
         android.os.Parcel r = call(s, 2, d);
         try { int rc = r.readInt(); for (int i = 0; i < 3; i++) ms[i] += r.readDouble(); if (rc == -1) throw new IllegalStateException("v3 failed"); return rc; }
         finally { r.recycle(); }

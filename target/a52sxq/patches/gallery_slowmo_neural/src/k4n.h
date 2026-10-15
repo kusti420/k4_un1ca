@@ -109,10 +109,19 @@ void k4n_render_destroy(K4nRender* r);
 // pass 1: v3 on (prev, next) -> best crop score, its centre (image pixels) and the mean |prev - next| of the network
 // inputs in 8-bit levels (the repeated-frame test, K4N_REPEAT_MAD). 0 = ok, -1 = engine failure.
 int k4n_render_score(K4nRender* r, const uint8_t* prev, const uint8_t* next, float* score, float* cx, float* cy, float* diff);
+// + the best second window outside the first (score2 0 when there is none) - "hands" save: a second moving hand gets its own
+// FILM crop. The first window is also shifted so its strongest 16x16 motion block stays >= K4N_FILM_EDGE px inside it.
+#define K4N_FILM_EDGE 48
+int k4n_render_score2(K4nRender* r, const uint8_t* prev, const uint8_t* next, float* score, float* cx, float* cy, float* diff,
+                      float* score2, float* cx2, float* cy2);
 // pass 2: the frames at ts[0..n-1] (0 < t < 1) as packed NV12 into out[i]; film: FILM on the crop at (x0, y0) (even,
 // inside the frame), else plain v3. ms (optional): v3 inference, FILM, warps (all summed). 0 = ok, -1 = v3 failed,
 // -2 = FILM failed (the frames are then plain v3; the caller decides).
 int k4n_render_pair(K4nRender* r, const uint8_t* prev, const uint8_t* next, const float* ts, int n, int x0, int y0, int film, uint8_t** out, double* ms);
+// + film2: a second FILM crop at (x1, y1); quarters: FILM also makes t = .25 / .75 inside the crop(s) as FILM(prev, FILM mid) and
+// FILM(FILM mid, next) (pasted over the v3 frames; 2 more FILM calls per crop). Reference: quality/hands3.py, hands4_quarters.py.
+int k4n_render_pair2(K4nRender* r, const uint8_t* prev, const uint8_t* next, const float* ts, int n, int x0, int y0, int film,
+                     int x1, int y1, int film2, int quarters, uint8_t** out, double* ms);
 // crop helpers (exposed for the host tests): NV12 (tight) <-> RGB float 0..1 NHWC, BT.601 limited range as the reference
 void k4n_rgb_crop(const uint8_t* nv12, int w, int h, int x0, int y0, float* rgb);
 void k4n_paste_crop(uint8_t* nv12, int w, int h, const float* rgb, int x0, int y0);

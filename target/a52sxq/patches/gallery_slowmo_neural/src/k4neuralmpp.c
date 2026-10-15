@@ -807,8 +807,8 @@ static void* idle_main(void* a) {
 // in one ashmem region of `slots` tightly packed NV12 frames; the session runs v3 + FILM on the DSP and writes the
 // generated frames back into the region. Store TX_K4_RENDER opens it (FILM is loaded then and freed when the last
 // session goes: CLOSE, or the client's reference dies). Calls on the session binder (interface RENDER):
-//   1 SCORE  (a, b)                              -> rc, score, cx, cy, diff      (k4n_render_score)
-//   2 RENDER (a, b, film, x0, y0, n, t[n], out0) -> rc, ms v3, ms FILM, ms warp  (k4n_render_pair; frames to out0..)
+//   1 SCORE  (a, b)                              -> rc, score, cx, cy, diff, score2, cx2, cy2   (k4n_render_score2)
+//   2 RENDER (a, b, film, x0, y0, n, t[n], out0[, film2, x1, y1, quarters]) -> rc, ms v3, ms FILM, ms warp  (k4n_render_pair2)
 //   3 CLOSE
 typedef struct { pthread_mutex_t mu; K4nRender* r; uint8_t* mem; size_t size, fsz; int w, h, slots, open; } Ren;
 static int g_renders;       // open sessions (g_use_mu)
@@ -828,19 +828,22 @@ static binder_status_t ren_tx(AIBinder* b, transaction_code_t code, const AParce
     engine_touch(0);
     if (code == 1) {
         AParcel_readInt32(in, &a); AParcel_readInt32(in, &c);
-        float sc = 0, cx = 0, cy = 0, d = 0;
+        float sc = 0, cx = 0, cy = 0, d = 0, s2 = 0, cx2 = 0, cy2 = 0;
         if (!ren_slot(s, a) || !ren_slot(s, c)) { pthread_mutex_unlock(&s->mu); return write_err(out, -22); }
-        rc = k4n_render_score(s->r, s->mem + s->fsz * a, s->mem + s->fsz * c, &sc, &cx, &cy, &d);
+        rc = k4n_render_score2(s->r, s->mem + s->fsz * a, s->mem + s->fsz * c, &sc, &cx, &cy, &d, &s2, &cx2, &cy2);
         write_ok(out); AParcel_writeInt32(out, rc); AParcel_writeFloat(out, sc); AParcel_writeFloat(out, cx); AParcel_writeFloat(out, cy); AParcel_writeFloat(out, d);
+        AParcel_writeFloat(out, s2); AParcel_writeFloat(out, cx2); AParcel_writeFloat(out, cy2);
     } else if (code == 2) {
         int32_t film = 0, x0 = 0, y0 = 0, n = 0, o0 = -1; float ts[8]; uint8_t* outs[8]; double ms[3] = { 0, 0, 0 };
         AParcel_readInt32(in, &a); AParcel_readInt32(in, &c); AParcel_readInt32(in, &film); AParcel_readInt32(in, &x0); AParcel_readInt32(in, &y0); AParcel_readInt32(in, &n);
         for (int i = 0; i < n && i < 8; i++) AParcel_readFloat(in, &ts[i]);
         AParcel_readInt32(in, &o0);
+        int32_t film2 = 0, x1 = 0, y1 = 0, quarters = 0;      // optional (hands save); older clients stop after out0
+        if (AParcel_readInt32(in, &film2) == STATUS_OK) { AParcel_readInt32(in, &x1); AParcel_readInt32(in, &y1); AParcel_readInt32(in, &quarters); } else film2 = 0;
         int bad = !ren_slot(s, a) || !ren_slot(s, c) || n < 1 || n > 8 || !ren_slot(s, o0) || !ren_slot(s, o0 + n - 1) || (a >= o0 && a < o0 + n) || (c >= o0 && c < o0 + n);
         for (int i = 0; i < n && !bad; i++) { bad = !(ts[i] > 0 && ts[i] < 1); outs[i] = s->mem + s->fsz * (o0 + i); }
         if (bad) { pthread_mutex_unlock(&s->mu); return write_err(out, -22); }
-        rc = k4n_render_pair(s->r, s->mem + s->fsz * a, s->mem + s->fsz * c, ts, n, x0, y0, film, outs, ms);
+        rc = k4n_render_pair2(s->r, s->mem + s->fsz * a, s->mem + s->fsz * c, ts, n, x0, y0, film, x1, y1, film2, quarters, outs, ms);
         if (k4n_verbose > 1) K4N_LOG("render pair slots %d,%d film %d at %d,%d: rc %d, v3 %.0f FILM %.0f warp %.0f ms", a, c, film, x0, y0, rc, ms[0], ms[1], ms[2]);
         write_ok(out); AParcel_writeInt32(out, rc); for (int i = 0; i < 3; i++) AParcel_writeDouble(out, ms[i]);
     } else if (code == 3) { ren_close(s); write_ok(out); }

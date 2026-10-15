@@ -35,14 +35,22 @@
 
 .field final synthetic blacklist val$next:[I
 
+.field final synthetic blacklist val$quart:[Z
+
+.field final synthetic blacklist val$two:[Z
+
 .field final synthetic blacklist val$x0:[I
+
+.field final synthetic blacklist val$x1:[I
 
 .field final synthetic blacklist val$y0:[I
 
+.field final synthetic blacklist val$y1:[I
+
 
 # direct methods
-.method constructor blacklist <init>(Lcom/k4/media/K4SlowMoExport;[ILjava/util/ArrayList;Ljava/nio/ByteBuffer;ILandroid/os/IBinder;[I[I[D[II)V
-    .registers 12
+.method constructor blacklist <init>(Lcom/k4/media/K4SlowMoExport;[ILjava/util/ArrayList;Ljava/nio/ByteBuffer;ILandroid/os/IBinder;[I[I[I[I[Z[Z[D[II)V
+    .registers 16
     .annotation system Ldalvik/annotation/MethodParameters;
         accessFlags = {
             0x8010,
@@ -55,9 +63,17 @@
             0x1010,
             0x1010,
             0x1010,
+            0x1010,
+            0x1010,
+            0x1010,
+            0x1010,
             0x1010
         }
         names = {
+            null,
+            null,
+            null,
+            null,
             null,
             null,
             null,
@@ -92,11 +108,19 @@
 
     iput-object p8, p0, Lcom/k4/media/K4SlowMoExport$7;->val$y0:[I
 
-    iput-object p9, p0, Lcom/k4/media/K4SlowMoExport$7;->val$ms:[D
+    iput-object p9, p0, Lcom/k4/media/K4SlowMoExport$7;->val$x1:[I
 
-    iput-object p10, p0, Lcom/k4/media/K4SlowMoExport$7;->val$films:[I
+    iput-object p10, p0, Lcom/k4/media/K4SlowMoExport$7;->val$y1:[I
 
-    iput p11, p0, Lcom/k4/media/K4SlowMoExport$7;->val$n:I
+    iput-object p11, p0, Lcom/k4/media/K4SlowMoExport$7;->val$two:[Z
+
+    iput-object p12, p0, Lcom/k4/media/K4SlowMoExport$7;->val$quart:[Z
+
+    iput-object p13, p0, Lcom/k4/media/K4SlowMoExport$7;->val$ms:[D
+
+    iput-object p14, p0, Lcom/k4/media/K4SlowMoExport$7;->val$films:[I
+
+    iput p15, p0, Lcom/k4/media/K4SlowMoExport$7;->val$n:I
 
     iput-object p1, p0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
 
@@ -108,260 +132,284 @@
 
 # virtual methods
 .method public blacklist frame(I)V
-    .registers 15
+    .registers 21
     .annotation system Ldalvik/annotation/Throws;
         value = {
             Ljava/lang/Exception;
         }
     .end annotation
 
-    :goto_0
-    iget-object v0, p0, Lcom/k4/media/K4SlowMoExport$7;->val$next:[I
+    move-object/from16 v0, p0
 
-    const/4 v1, 0x0
+    move/from16 v1, p1
 
-    aget v0, v0, v1
+    :goto_4
+    iget-object v2, v0, Lcom/k4/media/K4SlowMoExport$7;->val$next:[I
 
-    iget-object v2, p0, Lcom/k4/media/K4SlowMoExport$7;->val$jobs:Ljava/util/ArrayList;
+    const/4 v3, 0x0
 
-    invoke-virtual {v2}, Ljava/util/ArrayList;->size()I
+    aget v2, v2, v3
 
-    move-result v2
+    iget-object v4, v0, Lcom/k4/media/K4SlowMoExport$7;->val$jobs:Ljava/util/ArrayList;
 
-    const/4 v3, 0x1
+    invoke-virtual {v4}, Ljava/util/ArrayList;->size()I
 
-    if-ge v0, v2, :cond_d0
+    move-result v4
 
-    iget-object v0, p0, Lcom/k4/media/K4SlowMoExport$7;->val$jobs:Ljava/util/ArrayList;
+    const/4 v5, 0x1
 
-    iget-object v2, p0, Lcom/k4/media/K4SlowMoExport$7;->val$next:[I
+    if-ge v2, v4, :cond_e8
 
-    aget v2, v2, v1
+    iget-object v2, v0, Lcom/k4/media/K4SlowMoExport$7;->val$jobs:Ljava/util/ArrayList;
 
-    invoke-virtual {v0, v2}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+    iget-object v4, v0, Lcom/k4/media/K4SlowMoExport$7;->val$next:[I
 
-    move-result-object v0
+    aget v4, v4, v3
 
-    check-cast v0, [I
+    invoke-virtual {v2, v4}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
-    aget v0, v0, v3
+    move-result-object v2
 
-    if-ne v0, p1, :cond_d0
+    check-cast v2, [I
 
-    iget-object v0, p0, Lcom/k4/media/K4SlowMoExport$7;->val$next:[I
+    aget v2, v2, v5
 
-    aget v2, v0, v1
+    if-ne v2, v1, :cond_e8
 
-    add-int/lit8 v4, v2, 0x1
+    iget-object v2, v0, Lcom/k4/media/K4SlowMoExport$7;->val$next:[I
 
-    aput v4, v0, v1
+    aget v4, v2, v3
 
-    iget-object v0, p0, Lcom/k4/media/K4SlowMoExport$7;->val$jobs:Ljava/util/ArrayList;
+    add-int/lit8 v6, v4, 0x1
 
-    invoke-virtual {v0, v2}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+    aput v6, v2, v3
 
-    move-result-object v0
+    iget-object v2, v0, Lcom/k4/media/K4SlowMoExport$7;->val$jobs:Ljava/util/ArrayList;
 
-    check-cast v0, [I
+    invoke-virtual {v2, v4}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
-    const/4 v4, 0x2
+    move-result-object v2
 
-    aget v5, v0, v4
+    check-cast v2, [I
 
-    if-eqz v5, :cond_3b
+    const/4 v6, 0x2
 
-    iget-object v5, p0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
+    aget v7, v2, v6
 
-    invoke-static {v5}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$fgetmScale(Lcom/k4/media/K4SlowMoExport;)I
+    if-eqz v7, :cond_3f
 
-    move-result v5
+    iget-object v7, v0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
 
-    mul-int/2addr v5, v4
+    invoke-static {v7}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$fgetmScale(Lcom/k4/media/K4SlowMoExport;)I
 
-    goto :goto_41
+    move-result v7
 
-    :cond_3b
-    iget-object v4, p0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
+    mul-int/2addr v7, v6
 
-    invoke-static {v4}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$fgetmScale(Lcom/k4/media/K4SlowMoExport;)I
+    goto :goto_45
 
-    move-result v5
+    :cond_3f
+    iget-object v6, v0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
 
-    :goto_41
-    add-int/lit8 v4, v5, -0x1
+    invoke-static {v6}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$fgetmScale(Lcom/k4/media/K4SlowMoExport;)I
 
-    new-array v11, v4, [F
+    move-result v7
 
-    move v6, v3
+    :goto_45
+    add-int/lit8 v6, v7, -0x1
 
-    :goto_46
-    if-ge v6, v5, :cond_52
+    new-array v8, v6, [F
 
-    add-int/lit8 v7, v6, -0x1
+    move v9, v5
 
-    int-to-float v8, v6
+    :goto_4a
+    if-ge v9, v7, :cond_56
 
-    int-to-float v9, v5
+    add-int/lit8 v10, v9, -0x1
 
-    div-float/2addr v8, v9
+    int-to-float v11, v9
 
-    aput v8, v11, v7
+    int-to-float v12, v7
 
-    add-int/lit8 v6, v6, 0x1
+    div-float/2addr v11, v12
 
-    goto :goto_46
+    aput v11, v8, v10
 
-    :cond_52
-    iget-object v5, p0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
+    add-int/lit8 v9, v9, 0x1
 
-    iget-object v6, p0, Lcom/k4/media/K4SlowMoExport$7;->val$mem:Ljava/nio/ByteBuffer;
+    goto :goto_4a
 
-    aget v7, v0, v1
+    :cond_56
+    iget-object v7, v0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
 
-    rem-int/lit8 v7, v7, 0x4
+    iget-object v9, v0, Lcom/k4/media/K4SlowMoExport$7;->val$mem:Ljava/nio/ByteBuffer;
 
-    iget v8, p0, Lcom/k4/media/K4SlowMoExport$7;->val$fsz:I
+    aget v10, v2, v3
+
+    rem-int/lit8 v10, v10, 0x4
+
+    iget v11, v0, Lcom/k4/media/K4SlowMoExport$7;->val$fsz:I
+
+    mul-int/2addr v10, v11
+
+    invoke-static {v7, v9, v10}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$mencodeFrame(Lcom/k4/media/K4SlowMoExport;Ljava/nio/ByteBuffer;I)V
+
+    move-object/from16 v17, v8
+
+    iget-object v8, v0, Lcom/k4/media/K4SlowMoExport$7;->val$fs:Landroid/os/IBinder;
+
+    aget v7, v2, v3
+
+    rem-int/lit8 v9, v7, 0x4
+
+    aget v7, v2, v5
+
+    rem-int/lit8 v10, v7, 0x4
+
+    iget-object v7, v0, Lcom/k4/media/K4SlowMoExport$7;->val$x0:[I
+
+    aget v11, v7, v4
+
+    iget-object v7, v0, Lcom/k4/media/K4SlowMoExport$7;->val$y0:[I
+
+    aget v12, v7, v4
+
+    iget-object v7, v0, Lcom/k4/media/K4SlowMoExport$7;->val$x1:[I
+
+    aget v13, v7, v4
+
+    iget-object v7, v0, Lcom/k4/media/K4SlowMoExport$7;->val$y1:[I
+
+    aget v14, v7, v4
+
+    iget-object v7, v0, Lcom/k4/media/K4SlowMoExport$7;->val$two:[Z
+
+    aget-boolean v15, v7, v4
+
+    iget-object v7, v0, Lcom/k4/media/K4SlowMoExport$7;->val$quart:[Z
+
+    aget-boolean v16, v7, v4
+
+    iget-object v4, v0, Lcom/k4/media/K4SlowMoExport$7;->val$ms:[D
+
+    move-object/from16 v18, v4
+
+    invoke-static/range {v8 .. v18}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$smrenderPair(Landroid/os/IBinder;IIIIIIZZ[F[D)I
+
+    move-result v4
+
+    const/4 v7, -0x2
+
+    if-eq v4, v7, :cond_c8
+
+    iget-object v2, v0, Lcom/k4/media/K4SlowMoExport$7;->val$films:[I
+
+    aget v4, v2, v3
+
+    add-int/2addr v4, v5
+
+    aput v4, v2, v3
+
+    move v2, v3
+
+    :goto_9b
+    if-ge v2, v6, :cond_ac
+
+    iget-object v4, v0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
+
+    iget-object v5, v0, Lcom/k4/media/K4SlowMoExport$7;->val$mem:Ljava/nio/ByteBuffer;
+
+    add-int/lit8 v7, v2, 0x4
+
+    iget v8, v0, Lcom/k4/media/K4SlowMoExport$7;->val$fsz:I
 
     mul-int/2addr v7, v8
 
-    invoke-static {v5, v6, v7}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$mencodeFrame(Lcom/k4/media/K4SlowMoExport;Ljava/nio/ByteBuffer;I)V
+    invoke-static {v4, v5, v7}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$mencodeFrame(Lcom/k4/media/K4SlowMoExport;Ljava/nio/ByteBuffer;I)V
 
-    iget-object v6, p0, Lcom/k4/media/K4SlowMoExport$7;->val$fs:Landroid/os/IBinder;
+    add-int/lit8 v2, v2, 0x1
 
-    aget v5, v0, v1
+    goto :goto_9b
 
-    rem-int/lit8 v7, v5, 0x4
+    :cond_ac
+    iget-object v2, v0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
 
-    aget v5, v0, v3
+    iget-object v4, v0, Lcom/k4/media/K4SlowMoExport$7;->val$next:[I
 
-    rem-int/lit8 v8, v5, 0x4
+    aget v3, v4, v3
 
-    iget-object v5, p0, Lcom/k4/media/K4SlowMoExport$7;->val$x0:[I
+    int-to-float v3, v3
 
-    aget v9, v5, v2
+    const v4, 0x3f666666    # 0.9f
 
-    iget-object v5, p0, Lcom/k4/media/K4SlowMoExport$7;->val$y0:[I
+    mul-float/2addr v3, v4
 
-    aget v10, v5, v2
+    iget-object v4, v0, Lcom/k4/media/K4SlowMoExport$7;->val$jobs:Ljava/util/ArrayList;
 
-    iget-object v12, p0, Lcom/k4/media/K4SlowMoExport$7;->val$ms:[D
+    invoke-virtual {v4}, Ljava/util/ArrayList;->size()I
 
-    invoke-static/range {v6 .. v12}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$smrenderPair(Landroid/os/IBinder;IIII[F[D)I
+    move-result v4
 
-    move-result v2
+    int-to-float v4, v4
 
-    const/4 v5, -0x2
+    div-float/2addr v3, v4
 
-    if-eq v2, v5, :cond_b0
+    const v4, 0x3dcccccd    # 0.1f
 
-    iget-object v0, p0, Lcom/k4/media/K4SlowMoExport$7;->val$films:[I
+    add-float/2addr v3, v4
 
-    aget v2, v0, v1
+    invoke-static {v2, v3}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$fputmWork(Lcom/k4/media/K4SlowMoExport;F)V
 
-    add-int/2addr v2, v3
+    goto/16 :goto_4
 
-    aput v2, v0, v1
+    :cond_c8
+    new-instance v0, Ljava/lang/IllegalStateException;
 
-    move v0, v1
+    new-instance v1, Ljava/lang/StringBuilder;
 
-    :goto_83
-    if-ge v0, v4, :cond_94
+    const-string v4, "FILM failed at frames "
 
-    iget-object v2, p0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
+    invoke-direct {v1, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
 
-    iget-object v3, p0, Lcom/k4/media/K4SlowMoExport$7;->val$mem:Ljava/nio/ByteBuffer;
+    aget v3, v2, v3
 
-    add-int/lit8 v5, v0, 0x4
+    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    iget v6, p0, Lcom/k4/media/K4SlowMoExport$7;->val$fsz:I
+    const-string v3, "-"
 
-    mul-int/2addr v5, v6
+    invoke-virtual {v1, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    invoke-static {v2, v3, v5}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$mencodeFrame(Lcom/k4/media/K4SlowMoExport;Ljava/nio/ByteBuffer;I)V
+    aget v2, v2, v5
 
-    add-int/lit8 v0, v0, 0x1
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    goto :goto_83
+    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
-    :cond_94
-    iget-object v0, p0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
+    move-result-object v1
 
-    iget-object v2, p0, Lcom/k4/media/K4SlowMoExport$7;->val$next:[I
+    invoke-direct {v0, v1}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
 
-    aget v1, v2, v1
+    throw v0
 
-    int-to-float v1, v1
+    :cond_e8
+    iget v2, v0, Lcom/k4/media/K4SlowMoExport$7;->val$n:I
 
-    const v2, 0x3f666666    # 0.9f
+    sub-int/2addr v2, v5
 
-    mul-float/2addr v1, v2
+    if-ne v1, v2, :cond_f9
 
-    iget-object v2, p0, Lcom/k4/media/K4SlowMoExport$7;->val$jobs:Ljava/util/ArrayList;
+    iget-object v2, v0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
 
-    invoke-virtual {v2}, Ljava/util/ArrayList;->size()I
+    iget-object v3, v0, Lcom/k4/media/K4SlowMoExport$7;->val$mem:Ljava/nio/ByteBuffer;
 
-    move-result v2
+    rem-int/lit8 v1, v1, 0x4
 
-    int-to-float v2, v2
+    iget v0, v0, Lcom/k4/media/K4SlowMoExport$7;->val$fsz:I
 
-    div-float/2addr v1, v2
+    mul-int/2addr v1, v0
 
-    const v2, 0x3dcccccd    # 0.1f
+    invoke-static {v2, v3, v1}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$mencodeFrame(Lcom/k4/media/K4SlowMoExport;Ljava/nio/ByteBuffer;I)V
 
-    add-float/2addr v1, v2
-
-    invoke-static {v0, v1}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$fputmWork(Lcom/k4/media/K4SlowMoExport;F)V
-
-    goto/16 :goto_0
-
-    :cond_b0
-    new-instance p0, Ljava/lang/IllegalStateException;
-
-    new-instance p1, Ljava/lang/StringBuilder;
-
-    const-string v2, "FILM failed at frames "
-
-    invoke-direct {p1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
-
-    aget v1, v0, v1
-
-    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    const-string v1, "-"
-
-    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    aget v0, v0, v3
-
-    invoke-virtual {p1, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
-
-    move-result-object p1
-
-    invoke-direct {p0, p1}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
-
-    throw p0
-
-    :cond_d0
-    iget v0, p0, Lcom/k4/media/K4SlowMoExport$7;->val$n:I
-
-    sub-int/2addr v0, v3
-
-    if-ne p1, v0, :cond_e1
-
-    iget-object v0, p0, Lcom/k4/media/K4SlowMoExport$7;->this$0:Lcom/k4/media/K4SlowMoExport;
-
-    iget-object v1, p0, Lcom/k4/media/K4SlowMoExport$7;->val$mem:Ljava/nio/ByteBuffer;
-
-    rem-int/lit8 p1, p1, 0x4
-
-    iget p0, p0, Lcom/k4/media/K4SlowMoExport$7;->val$fsz:I
-
-    mul-int/2addr p1, p0
-
-    invoke-static {v0, v1, p1}, Lcom/k4/media/K4SlowMoExport;->-$$Nest$mencodeFrame(Lcom/k4/media/K4SlowMoExport;Ljava/nio/ByteBuffer;I)V
-
-    :cond_e1
+    :cond_f9
     return-void
 .end method
