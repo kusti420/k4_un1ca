@@ -26,8 +26,8 @@ import java.security.MessageDigest;
  * identified by finding the asset with the same bytes in the installed Bixby Wakeup app (the Galaxy Store update or
  * the system copy) and swapped for the A52s model of the same name; anything without an A52s counterpart is refused,
  * so the ADSP only ever sees models its firmware shipped with.
- * persist.sys.k4.samsung_wakeup: unset/0/2 refuses every Samsung model (default, the 9.3.30 behaviour), 3 swaps in the
- * A52s model (EXPERIMENTAL: still resets the SoC on 9.3.34), 1 passes models through unchanged (debugging only).
+ * persist.sys.k4.samsung_wakeup: unset/0/3 = A52s model swap (default; 9.3.36 test: loads, recognition starts, no
+ * ADSP fault), 2 = refuse every Samsung model (kill switch), 1 = pass models through unchanged (debugging only: resets the SoC).
  */
 public final class K4WakeupGuard {
     private static final String TAG = "K4WakeupGuard";
@@ -48,11 +48,9 @@ public final class K4WakeupGuard {
             Slog.w(TAG, "passing a Samsung voice wake-up model through unchanged (persist.sys.k4.samsung_wakeup=1)");
             return;
         }
-        if (mode != 3) {
-            // 9.3.34 test: the A52s model crashed the ADSP in the same place (LPro00dyn) under the S26 Ultra app, so
-            // the swap is opt-in (persist.sys.k4.samsung_wakeup=3) until the rest of the app's setup is understood.
-            Slog.w(TAG, "refusing a Samsung voice wake-up model: the A52s ADSP firmware crashes on it (SoC reset)");
-            throw new RecoverableException(2 /* Status.UNSUPPORTED */, "Samsung voice wake-up is not supported on this device");
+        if (mode == 2) {
+            Slog.w(TAG, "refusing every Samsung voice wake-up model (persist.sys.k4.samsung_wakeup=2)");
+            throw new RecoverableException(2 /* Status.UNSUPPORTED */, "Samsung voice wake-up is turned off");
         }
         String hash = null, name = null;
         byte[] replacement = null;

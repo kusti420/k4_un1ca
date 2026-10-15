@@ -57,14 +57,14 @@
         }
     .end annotation
 
-    .line 90
+    .line 88
     const-string v0, "/"
 
     invoke-virtual {p0, v0}, Ljava/lang/String;->split(Ljava/lang/String;)[Ljava/lang/String;
 
     move-result-object p0
 
-    .line 91
+    .line 89
     array-length v1, p0
 
     const/4 v2, 0x3
@@ -99,7 +99,7 @@
 
     goto/16 :goto_f3
 
-    .line 92
+    .line 90
     :cond_22
     aget-object v4, p0, v2
 
@@ -117,7 +117,7 @@
 
     aget-object p0, p0, v2
 
-    .line 93
+    .line 91
     invoke-virtual {p0, v1}, Ljava/lang/String;->substring(I)Ljava/lang/String;
 
     move-result-object p0
@@ -150,7 +150,7 @@
 
     move-result-object p0
 
-    .line 94
+    .line 92
     const-string v1, "persist.sys.k4.wakeup_dsp_bits"
 
     const-string v2, "32bit"
@@ -159,7 +159,7 @@
 
     move-result-object v1
 
-    .line 95
+    .line 93
     new-instance v2, Ljava/io/File;
 
     new-instance v4, Ljava/lang/StringBuilder;
@@ -206,7 +206,7 @@
 
     invoke-direct {v2, v4}, Ljava/io/File;-><init>(Ljava/lang/String;)V
 
-    .line 96
+    .line 94
     new-instance v4, Ljava/io/File;
 
     new-instance v7, Ljava/lang/StringBuilder;
@@ -249,7 +249,7 @@
 
     invoke-direct {v4, p0}, Ljava/io/File;-><init>(Ljava/lang/String;)V
 
-    .line 97
+    .line 95
     invoke-virtual {v2}, Ljava/io/File;->isFile()Z
 
     move-result p0
@@ -264,7 +264,7 @@
 
     goto :goto_f2
 
-    .line 98
+    .line 96
     :cond_c3
     invoke-static {v2}, Lcom/k4/soundtrigger/K4WakeupGuard;->readFile(Ljava/io/File;)[B
 
@@ -274,7 +274,7 @@
 
     move-result-object v0
 
-    .line 99
+    .line 97
     array-length v1, p0
 
     add-int/lit8 v1, v1, 0x8
@@ -295,7 +295,7 @@
 
     move-result-object v1
 
-    .line 100
+    .line 98
     array-length v2, p0
 
     invoke-virtual {v1, v2}, Ljava/nio/ByteBuffer;->putInt(I)Ljava/nio/ByteBuffer;
@@ -314,19 +314,19 @@
 
     invoke-virtual {p0, v0}, Ljava/nio/ByteBuffer;->put([B)Ljava/nio/ByteBuffer;
 
-    .line 101
+    .line 99
     invoke-virtual {v1}, Ljava/nio/ByteBuffer;->array()[B
 
     move-result-object p0
 
     return-object p0
 
-    .line 97
+    .line 95
     :cond_f2
     :goto_f2
     return-object v3
 
-    .line 91
+    .line 89
     :cond_f3
     :goto_f3
     return-object v3
@@ -343,12 +343,12 @@
         }
     .end annotation
 
-    .line 130
+    .line 128
     new-instance v0, Ljava/util/ArrayList;
 
     invoke-direct {v0}, Ljava/util/ArrayList;-><init>()V
 
-    .line 131
+    .line 129
     new-instance v1, Ljava/io/File;
 
     const-string v2, "/data/app"
@@ -359,10 +359,10 @@
 
     move-result-object v1
 
-    .line 132
+    .line 130
     if-eqz v1, :cond_42
 
-    .line 133
+    .line 131
     array-length v2, v1
 
     const/4 v3, 0x0
@@ -374,17 +374,17 @@
 
     aget-object v5, v1, v4
 
-    .line 134
+    .line 132
     invoke-virtual {v5}, Ljava/io/File;->listFiles()[Ljava/io/File;
 
     move-result-object v5
 
-    .line 135
+    .line 133
     if-nez v5, :cond_20
 
     goto :goto_3f
 
-    .line 136
+    .line 134
     :cond_20
     array-length v6, v5
 
@@ -395,7 +395,7 @@
 
     aget-object v8, v5, v7
 
-    .line 137
+    .line 135
     invoke-virtual {v8}, Ljava/io/File;->getName()Ljava/lang/String;
 
     move-result-object v9
@@ -416,20 +416,20 @@
 
     invoke-virtual {v0, v9}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 136
+    .line 134
     :cond_3c
     add-int/lit8 v7, v7, 0x1
 
     goto :goto_22
 
-    .line 133
+    .line 131
     :cond_3f
     :goto_3f
     add-int/lit8 v4, v4, 0x1
 
     goto :goto_15
 
-    .line 141
+    .line 139
     :cond_42
     new-instance v1, Ljava/io/File;
 
@@ -439,7 +439,7 @@
 
     invoke-virtual {v0, v1}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 142
+    .line 140
     return-object v0
 .end method
 
@@ -447,13 +447,13 @@
     .registers 8
 
     .line 43
-    if-eqz p0, :cond_d9
+    if-eqz p0, :cond_d8
 
     iget-object v0, p0, Landroid/media/soundtrigger/PhraseSoundModel;->common:Landroid/media/soundtrigger/SoundModel;
 
     if-nez v0, :cond_8
 
-    goto/16 :goto_d9
+    goto/16 :goto_d8
 
     .line 44
     :cond_8
@@ -499,108 +499,106 @@
 
     .line 51
     :cond_27
-    const/4 v1, 0x3
+    const/4 v1, 0x2
 
-    const/4 v3, 0x2
+    if-eq v0, v1, :cond_cb
 
-    if-ne v0, v1, :cond_cc
+    .line 55
+    nop
 
-    .line 57
+    .line 56
     nop
 
     .line 58
-    nop
-
-    .line 60
     const/4 v0, 0x0
 
-    :try_start_2e
-    iget-object v1, p0, Landroid/media/soundtrigger/SoundModel;->data:Landroid/os/ParcelFileDescriptor;
+    :try_start_2d
+    iget-object v3, p0, Landroid/media/soundtrigger/SoundModel;->data:Landroid/os/ParcelFileDescriptor;
 
-    invoke-virtual {v1}, Landroid/os/ParcelFileDescriptor;->dup()Landroid/os/ParcelFileDescriptor;
+    invoke-virtual {v3}, Landroid/os/ParcelFileDescriptor;->dup()Landroid/os/ParcelFileDescriptor;
 
-    move-result-object v1
+    move-result-object v3
 
     iget v4, p0, Landroid/media/soundtrigger/SoundModel;->dataSize:I
 
-    invoke-static {v1, v4}, Landroid/hardware/soundtrigger/ConversionUtil;->sharedMemoryToByteArray(Landroid/os/ParcelFileDescriptor;I)[B
+    invoke-static {v3, v4}, Landroid/hardware/soundtrigger/ConversionUtil;->sharedMemoryToByteArray(Landroid/os/ParcelFileDescriptor;I)[B
 
-    move-result-object v1
+    move-result-object v3
 
-    .line 61
-    invoke-static {v1}, Lcom/k4/soundtrigger/K4WakeupGuard;->sha256([B)Ljava/lang/String;
+    .line 59
+    invoke-static {v3}, Lcom/k4/soundtrigger/K4WakeupGuard;->sha256([B)Ljava/lang/String;
 
     move-result-object v4
-    :try_end_3e
-    .catchall {:try_start_2e .. :try_end_3e} :catchall_50
+    :try_end_3d
+    .catchall {:try_start_2d .. :try_end_3d} :catchall_4f
 
-    .line 62
-    :try_start_3e
-    array-length v1, v1
+    .line 60
+    :try_start_3d
+    array-length v3, v3
 
-    invoke-static {v4, v1}, Lcom/k4/soundtrigger/K4WakeupGuard;->modelName(Ljava/lang/String;I)Ljava/lang/String;
+    invoke-static {v4, v3}, Lcom/k4/soundtrigger/K4WakeupGuard;->modelName(Ljava/lang/String;I)Ljava/lang/String;
 
-    move-result-object v1
-    :try_end_43
-    .catchall {:try_start_3e .. :try_end_43} :catchall_4d
+    move-result-object v3
+    :try_end_42
+    .catchall {:try_start_3d .. :try_end_42} :catchall_4c
 
-    .line 63
-    if-eqz v1, :cond_4c
+    .line 61
+    if-eqz v3, :cond_4b
 
-    :try_start_45
-    invoke-static {v1}, Lcom/k4/soundtrigger/K4WakeupGuard;->a52sModel(Ljava/lang/String;)[B
+    :try_start_44
+    invoke-static {v3}, Lcom/k4/soundtrigger/K4WakeupGuard;->a52sModel(Ljava/lang/String;)[B
 
     move-result-object v0
-    :try_end_49
-    .catchall {:try_start_45 .. :try_end_49} :catchall_4a
+    :try_end_48
+    .catchall {:try_start_44 .. :try_end_48} :catchall_49
 
-    goto :goto_4c
+    goto :goto_4b
+
+    .line 62
+    :catchall_49
+    move-exception v5
+
+    goto :goto_52
 
     .line 64
-    :catchall_4a
+    :cond_4b
+    :goto_4b
+    goto :goto_57
+
+    .line 62
+    :catchall_4c
     move-exception v5
 
-    goto :goto_53
+    move-object v3, v0
 
-    .line 66
-    :cond_4c
-    :goto_4c
-    goto :goto_58
+    goto :goto_52
 
-    .line 64
-    :catchall_4d
+    :catchall_4f
     move-exception v5
 
-    move-object v1, v0
+    move-object v3, v0
 
-    goto :goto_53
+    move-object v4, v3
 
-    :catchall_50
-    move-exception v5
-
-    move-object v1, v0
-
-    move-object v4, v1
-
-    .line 65
-    :goto_53
+    .line 63
+    :goto_52
     const-string v6, "cannot read the Samsung voice wake-up model"
 
     invoke-static {v2, v6, v5}, Landroid/util/Slog;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    .line 67
-    :goto_58
-    if-nez v0, :cond_8e
+    .line 65
+    :goto_57
+    if-nez v0, :cond_8d
 
-    .line 68
-    if-eqz v1, :cond_5d
+    .line 66
+    if-eqz v3, :cond_5c
 
-    goto :goto_5e
+    goto :goto_5d
 
-    :cond_5d
-    move-object v1, v4
+    :cond_5c
+    move-object v3, v4
 
-    :goto_5e
+    :goto_5d
     iget p0, p0, Landroid/media/soundtrigger/SoundModel;->dataSize:I
 
     new-instance v0, Ljava/lang/StringBuilder;
@@ -613,13 +611,13 @@
 
     move-result-object v0
 
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    const-string v1, " ("
+    const-string v3, " ("
 
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
@@ -639,20 +637,20 @@
 
     invoke-static {v2, p0}, Landroid/util/Slog;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 70
+    .line 68
     new-instance p0, Lcom/android/server/soundtrigger_middleware/RecoverableException;
 
     const-string v0, "This Samsung voice wake-up model is not supported on this device"
 
-    invoke-direct {p0, v3, v0}, Lcom/android/server/soundtrigger_middleware/RecoverableException;-><init>(ILjava/lang/String;)V
+    invoke-direct {p0, v1, v0}, Lcom/android/server/soundtrigger_middleware/RecoverableException;-><init>(ILjava/lang/String;)V
 
     throw p0
 
-    .line 73
-    :cond_8e
-    iget-object v3, p0, Landroid/media/soundtrigger/SoundModel;->data:Landroid/os/ParcelFileDescriptor;
+    .line 71
+    :cond_8d
+    iget-object v1, p0, Landroid/media/soundtrigger/SoundModel;->data:Landroid/os/ParcelFileDescriptor;
 
-    .line 74
+    .line 72
     const-string v4, "K4WakeupModel"
 
     invoke-static {v0, v4}, Landroid/hardware/soundtrigger/ConversionUtil;->byteArrayToSharedMemory([BLjava/lang/String;)Landroid/os/ParcelFileDescriptor;
@@ -661,47 +659,47 @@
 
     iput-object v4, p0, Landroid/media/soundtrigger/SoundModel;->data:Landroid/os/ParcelFileDescriptor;
 
-    .line 75
+    .line 73
     array-length v4, v0
 
     iput v4, p0, Landroid/media/soundtrigger/SoundModel;->dataSize:I
 
-    .line 77
-    if-eqz v3, :cond_a3
+    .line 75
+    if-eqz v1, :cond_a2
 
-    :try_start_9d
-    invoke-virtual {v3}, Landroid/os/ParcelFileDescriptor;->close()V
-    :try_end_a0
-    .catchall {:try_start_9d .. :try_end_a0} :catchall_a1
+    :try_start_9c
+    invoke-virtual {v1}, Landroid/os/ParcelFileDescriptor;->close()V
+    :try_end_9f
+    .catchall {:try_start_9c .. :try_end_9f} :catchall_a0
+
+    goto :goto_a2
+
+    .line 76
+    :catchall_a0
+    move-exception p0
 
     goto :goto_a3
 
-    .line 78
-    :catchall_a1
-    move-exception p0
-
-    goto :goto_a4
-
-    .line 79
-    :cond_a3
-    :goto_a3
+    .line 77
+    :cond_a2
+    :goto_a2
     nop
 
-    .line 80
-    :goto_a4
+    .line 78
+    :goto_a3
     array-length p0, v0
 
     new-instance v0, Ljava/lang/StringBuilder;
 
     invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
 
-    const-string v3, "Samsung voice wake-up model "
+    const-string v1, "Samsung voice wake-up model "
 
-    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
@@ -727,27 +725,27 @@
 
     invoke-static {v2, p0}, Landroid/util/Slog;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 81
+    .line 79
     return-void
 
-    .line 54
-    :cond_cc
-    const-string p0, "refusing a Samsung voice wake-up model: the A52s ADSP firmware crashes on it (SoC reset)"
+    .line 52
+    :cond_cb
+    const-string p0, "refusing every Samsung voice wake-up model (persist.sys.k4.samsung_wakeup=2)"
 
     invoke-static {v2, p0}, Landroid/util/Slog;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 55
+    .line 53
     new-instance p0, Lcom/android/server/soundtrigger_middleware/RecoverableException;
 
-    const-string v0, "Samsung voice wake-up is not supported on this device"
+    const-string v0, "Samsung voice wake-up is turned off"
 
-    invoke-direct {p0, v3, v0}, Lcom/android/server/soundtrigger_middleware/RecoverableException;-><init>(ILjava/lang/String;)V
+    invoke-direct {p0, v1, v0}, Lcom/android/server/soundtrigger_middleware/RecoverableException;-><init>(ILjava/lang/String;)V
 
     throw p0
 
     .line 43
-    :cond_d9
-    :goto_d9
+    :cond_d8
+    :goto_d8
     return-void
 .end method
 
@@ -763,7 +761,7 @@
 
     monitor-enter v0
 
-    .line 106
+    .line 104
     :try_start_3
     sget-object v1, Lcom/k4/soundtrigger/K4WakeupGuard;->sNames:Ljava/util/HashMap;
 
@@ -787,11 +785,11 @@
 
     return-object p0
 
-    .line 107
+    .line 105
     :cond_15
     nop
 
-    .line 108
+    .line 106
     :try_start_16
     invoke-static {}, Lcom/k4/soundtrigger/K4WakeupGuard;->appApks()Ljava/util/List;
 
@@ -818,7 +816,7 @@
     :try_end_2b
     .catchall {:try_start_16 .. :try_end_2b} :catchall_d3
 
-    .line 109
+    .line 107
     :try_start_2b
     new-instance v4, Ljava/util/zip/ZipFile;
 
@@ -826,13 +824,13 @@
     :try_end_30
     .catchall {:try_start_2b .. :try_end_30} :catchall_9c
 
-    .line 110
+    .line 108
     :try_start_30
     invoke-virtual {v4}, Ljava/util/zip/ZipFile;->entries()Ljava/util/Enumeration;
 
     move-result-object v5
 
-    .line 111
+    .line 109
     :cond_34
     :goto_34
     if-nez v2, :cond_8e
@@ -843,19 +841,19 @@
 
     if-eqz v6, :cond_8e
 
-    .line 112
+    .line 110
     invoke-interface {v5}, Ljava/util/Enumeration;->nextElement()Ljava/lang/Object;
 
     move-result-object v6
 
     check-cast v6, Ljava/util/zip/ZipEntry;
 
-    .line 113
+    .line 111
     invoke-virtual {v6}, Ljava/util/zip/ZipEntry;->getName()Ljava/lang/String;
 
     move-result-object v7
 
-    .line 114
+    .line 112
     const-string v8, "assets/kwdModel/"
 
     invoke-virtual {v7, v8}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
@@ -884,7 +882,7 @@
 
     goto :goto_34
 
-    .line 115
+    .line 113
     :cond_60
     invoke-virtual {v4, v6}, Ljava/util/zip/ZipFile;->getInputStream(Ljava/util/zip/ZipEntry;)Ljava/io/InputStream;
 
@@ -892,7 +890,7 @@
     :try_end_64
     .catchall {:try_start_30 .. :try_end_64} :catchall_92
 
-    .line 116
+    .line 114
     :try_start_64
     invoke-virtual {v6}, Ljava/io/InputStream;->readAllBytes()[B
 
@@ -920,7 +918,7 @@
     :try_end_7c
     .catchall {:try_start_64 .. :try_end_7c} :catchall_82
 
-    .line 117
+    .line 115
     :cond_7c
     if-eqz v6, :cond_81
 
@@ -929,11 +927,11 @@
     :try_end_81
     .catchall {:try_start_7e .. :try_end_81} :catchall_92
 
-    .line 118
+    .line 116
     :cond_81
     goto :goto_34
 
-    .line 115
+    .line 113
     :catchall_82
     move-exception v5
 
@@ -958,17 +956,17 @@
     :try_end_8e
     .catchall {:try_start_8a .. :try_end_8e} :catchall_92
 
-    .line 119
+    .line 117
     :cond_8e
     :try_start_8e
     invoke-virtual {v4}, Ljava/util/zip/ZipFile;->close()V
     :try_end_91
     .catchall {:try_start_8e .. :try_end_91} :catchall_9c
 
-    .line 121
+    .line 119
     goto :goto_c7
 
-    .line 109
+    .line 107
     :catchall_92
     move-exception v5
 
@@ -990,11 +988,11 @@
     :try_end_9c
     .catchall {:try_start_98 .. :try_end_9c} :catchall_9c
 
-    .line 119
+    .line 117
     :catchall_9c
     move-exception v4
 
-    .line 120
+    .line 118
     :try_start_9d
     const-string v5, "K4WakeupGuard"
 
@@ -1036,17 +1034,17 @@
 
     invoke-static {v5, v3}, Landroid/util/Slog;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 122
+    .line 120
     :goto_c7
     if-eqz v2, :cond_ca
 
     goto :goto_cc
 
-    .line 123
+    .line 121
     :cond_ca
     goto/16 :goto_1f
 
-    .line 124
+    .line 122
     :cond_cc
     :goto_cc
     sget-object p1, Lcom/k4/soundtrigger/K4WakeupGuard;->sNames:Ljava/util/HashMap;
@@ -1055,12 +1053,12 @@
     :try_end_d1
     .catchall {:try_start_9d .. :try_end_d1} :catchall_d3
 
-    .line 125
+    .line 123
     monitor-exit v0
 
     return-object v2
 
-    .line 105
+    .line 103
     :catchall_d3
     move-exception p0
 
@@ -1080,7 +1078,7 @@
         }
     .end annotation
 
-    .line 146
+    .line 144
     invoke-virtual {p0}, Ljava/io/File;->length()J
 
     move-result-wide v0
@@ -1089,19 +1087,19 @@
 
     new-array v1, v0, [B
 
-    .line 147
+    .line 145
     new-instance v2, Ljava/io/FileInputStream;
 
     invoke-direct {v2, p0}, Ljava/io/FileInputStream;-><init>(Ljava/io/File;)V
 
-    .line 148
+    .line 146
     const/4 v3, 0x0
 
-    .line 149
+    .line 147
     :goto_d
     if-ge v3, v0, :cond_2d
 
-    .line 150
+    .line 148
     sub-int v4, v0, v3
 
     :try_start_11
@@ -1109,16 +1107,16 @@
 
     move-result v4
 
-    .line 151
+    .line 149
     if-ltz v4, :cond_19
 
-    .line 152
+    .line 150
     add-int/2addr v3, v4
 
-    .line 153
+    .line 151
     goto :goto_d
 
-    .line 151
+    .line 149
     :cond_19
     new-instance v0, Ljava/io/EOFException;
 
@@ -1132,7 +1130,7 @@
     :try_end_23
     .catchall {:try_start_11 .. :try_end_23} :catchall_23
 
-    .line 147
+    .line 145
     :catchall_23
     move-exception p0
 
@@ -1151,11 +1149,11 @@
     :goto_2c
     throw p0
 
-    .line 154
+    .line 152
     :cond_2d
     invoke-virtual {v2}, Ljava/io/FileInputStream;->close()V
 
-    .line 155
+    .line 153
     return-object v1
 .end method
 
@@ -1167,7 +1165,7 @@
         }
     .end annotation
 
-    .line 159
+    .line 157
     const-string v0, "SHA-256"
 
     invoke-static {v0}, Ljava/security/MessageDigest;->getInstance(Ljava/lang/String;)Ljava/security/MessageDigest;
@@ -1178,14 +1176,14 @@
 
     move-result-object p0
 
-    .line 160
+    .line 158
     new-instance v0, Ljava/lang/StringBuilder;
 
     const/16 v1, 0x40
 
     invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(I)V
 
-    .line 161
+    .line 159
     array-length v1, p0
 
     const/4 v2, 0x0
@@ -1221,7 +1219,7 @@
 
     goto :goto_13
 
-    .line 162
+    .line 160
     :cond_31
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
