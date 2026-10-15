@@ -1,0 +1,10 @@
+# patches/launch_tuning: see module.prop
+on early-boot
+    # before the Qualcomm perf HAL starts: it records the current value as its default and puts that back after every
+    # boost, so it used to keep restoring 94 94 instead of the vendor's 71 95 (init.kernel.post_boot-yupik.sh)
+    write /proc/sys/kernel/sched_upmigrate "71 95"
+
+on post-fs-data
+    # zram is only set up at sys.boot_completed (RAM Plus, swapon_all fstab.ramplus); lz4 decompresses much faster
+    # than the default lzo-rle, which is what an app resumed from swap waits on
+    write /sys/block/zram0/comp_algorithm lz4

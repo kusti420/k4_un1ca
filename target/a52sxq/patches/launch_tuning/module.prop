@@ -1,0 +1,4 @@
+id=a52sxq_launch_tuning
+name=Galaxy A52s 5G: faster app resume (lz4 zram, vendor upmigrate)
+author=kusti420
+description=Measured on 9.3.36 (agent profiling, 2026-10-15): the slow part of using apps is resuming one that sat idle, whose memory is in zram (8 GB with RAM Plus) and partly in the RAM Plus backing file: Samsung Internet's resume read 7,675 pages back from swap (864 ms). zram now compresses with lz4 instead of lzo-rle (much faster to decompress on the A78/A55 cores, slightly lower ratio). sched_upmigrate is written as 71 95 at early-boot, before the Qualcomm perf HAL records its defaults: it used to record 94 94 and restore that after every launch boost, overriding the vendor's 71 95 (temporary test: launcher janky frames 5.9% -> 3.3-4.6%). RAM Plus itself stays a user setting (Device care > Memory).
