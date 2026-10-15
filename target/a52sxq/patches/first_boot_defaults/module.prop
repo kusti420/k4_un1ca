@@ -1,0 +1,4 @@
+id=a52sxq_first_boot_defaults
+name=Galaxy A52s 5G: ROM defaults applied once ("Reduce transparency and blur" on)
+author=kusti420
+description=A small hook at the start of ActivityManagerService.finishBooting() applies the ROM's changed defaults once per device (marker persist.sys.k4.defaults_v1), so a user who changes a setting back keeps it. v1 turns Accessibility > Visibility enhancements > "Reduce transparency and blur" on: measured on the A52s (9.3.36, ABBA, scripted shade/recents/app drawer loop) launcher janky frames 4.9% -> 3.6%, 90th percentile frame 10.5 -> 8 ms, GPU load about a quarter lower; SystemUI's shade about the same. Blur stays one switch away. K4Defaults.smali is generated from src/ (javac + d8 + baksmali, stubs in src/stubs).
