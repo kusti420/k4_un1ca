@@ -1,0 +1,4 @@
+id=a52sxq_apexd_dm_mtime
+name=Galaxy A52s 5G: Google Play system updates activate again
+author=kusti420
+description=Android 17's apexd sets the mtime of every APEX dm block device it activates. The A17 policy only lets it do that on apex_dm_device, but on the A52s the /dev/block/dm-N node still has the generic dm_device label at that moment (ueventd relabels it a little later), so every staged Play system update failed at boot with "Failed to set mtime for /dev/block/dm-N: Permission denied" (avc: denied { setattr } apexd dm_device blk_file) and was marked failed; the other APEXes kept working. Allow apexd setattr on dm_device block nodes (no neverallow covers apexd). The vendor has no precompiled_sepolicy, so init compiles the changed CIL at boot.
