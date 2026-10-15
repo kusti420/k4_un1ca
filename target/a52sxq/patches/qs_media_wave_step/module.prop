@@ -1,0 +1,4 @@
+id=a52sxq_qs_media_wave_step
+name=Galaxy A52s 5G: lighter media player wave in the quick panel
+author=kusti420
+description=The One UI 9 media player wave (colorfulwave MultiWaveAreaTrackRenderer) rebuilds its path every frame with one point every stepX pixels for each wave layer; the default tuning (WaveTuning, used by the quick panel player and the medium/large Now bar) is 2 px. Raised to 8 px, the renderer's own upper clamp. Idea from the LSPosed module com.samsung.music.qs.lagfix by DanGLVK (Apache-2.0, https://github.com/Xposed-Modules-Repo/com.samsung.music.qs.lagfix), which sets stepX 10 in the older audiovisseekbar renderer; the S26U SystemUI already ships that one with 10.
