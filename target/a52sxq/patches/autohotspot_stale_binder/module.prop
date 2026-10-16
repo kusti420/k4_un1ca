@@ -1,0 +1,4 @@
+id=a52sxq_autohotspot_stale_binder
+name=Auto Hotspot: drop the MCF binder on unbind
+author=kusti420
+description=UNTESTED-ON-DEVICE. Stock One UI 9 bug (semwifi-service.jar, identical in the S26U firmware): SemAutohotspotServiceBind unbinds com.samsung.android.mcf.autohotspot when Bluetooth turns off / the Samsung account logs out (handler message 2), clears iSemAutohotspotMcfBinded but keeps iSemAutohotspotMcfService. The unbound service process then becomes an empty process and gets killed, and every Wi-Fi picker refresh (getWifiApBleScanDetail -> getMcfScanDetail) transacts on the dead proxy and prints a DeadObjectException trace in system_server. The proxy is now cleared on unbind, so getMcfScanDetail returns the empty list it would return anyway; the existing rebind paths (Bluetooth on, account login, Wi-Fi on) are unchanged.
