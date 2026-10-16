@@ -10,6 +10,11 @@ calls", walking the configfs format list). Turn the function on and enumerate th
 descriptors instead (same data the host sees, no configfs refactor needed). Only MJPEG and YUY2, the two
 formats uvc_v4l2_set_format() takes, are reported.
 
+Frame intervals are reported as reduced fractions (1/30, not
+333333/10000000), like upstream's v4l2_simplify_fraction(.., 8, 333): DeviceAsWebcam computes
+numerator * 10000000 / denominator in 32 bits, so the unreduced 100 ns value overflowed and the
+camera was asked for 114942 fps (IPE timeout, camera provider abort, gadget torn down).
+
 Used by MonsterROM target/a52sxq/patches/usb_webcam (vendor init descriptors + ro.usb.uvc.enabled).
 ---
 diff --git a/arch/arm64/configs/vendor/a52sxq_kor_single_defconfig b/arch/arm64/configs/vendor/a52sxq_kor_single_defconfig
@@ -35,7 +40,7 @@ diff --git a/drivers/usb/gadget/function/uvc_v4l2.c b/drivers/usb/gadget/functio
  #include <linux/videodev2.h>
  #include <linux/vmalloc.h>
  #include <linux/wait.h>
-@@ -238,6 +239,157 @@
+@@ -238,6 +239,203 @@ uvc_v4l2_unsubscribe_event(struct v4l2_fh *fh,
  	return v4l2_event_unsubscribe(fh, sub);
  }
  
@@ -149,6 +154,50 @@ diff --git a/drivers/usb/gadget/function/uvc_v4l2.c b/drivers/usb/gadget/functio
 +	return -EINVAL;
 +}
 +
++/*
++ * Reduce a frame interval to its simplest fraction (333333/10000000 -> 1/30),
++ * like upstream does with v4l2_simplify_fraction(..., 8, 333) - a copy of
++ * uvcvideo's uvc_simplify_fraction(), which 5.4 doesn't export to the gadget.
++ * Userspace multiplies the numerator by 10000000 in 32 bits (Android's
++ * DeviceAsWebcam: numerator * 10'000'000 / denominator), so an unreduced
++ * 100 ns numerator overflows and turns 15 fps into a 114942 fps request.
++ */
++static void uvc_v4l2_simplify_fraction(u32 *numerator, u32 *denominator)
++{
++	enum { N_TERMS = 8, THRESHOLD = 333 };
++	u32 an[N_TERMS];
++	u32 x, y, r;
++	unsigned int i, n;
++
++	x = *numerator;
++	y = *denominator;
++
++	for (n = 0; n < N_TERMS && y != 0; ++n) {
++		an[n] = x / y;
++		if (an[n] >= THRESHOLD) {
++			if (n < 2)
++				n++;
++			break;
++		}
++
++		r = x - an[n] * y;
++		x = y;
++		y = r;
++	}
++
++	x = 0;
++	y = 1;
++
++	for (i = n; i > 0; --i) {
++		r = y;
++		y = an[i - 1] * y + x;
++		x = r;
++	}
++
++	*numerator = y;
++	*denominator = x;
++}
++
 +static int
 +uvc_v4l2_enum_framesizes(struct file *file, void *fh,
 +			 struct v4l2_frmsizeenum *fsize)
@@ -187,13 +236,15 @@ diff --git a/drivers/usb/gadget/function/uvc_v4l2.c b/drivers/usb/gadget/functio
 +	fival->discrete.numerator =
 +		le32_to_cpu(frm->dwFrameInterval[fival->index]);
 +	fival->discrete.denominator = 10000000;
++	uvc_v4l2_simplify_fraction(&fival->discrete.numerator,
++				   &fival->discrete.denominator);
 +	return 0;
 +}
 +
  static long
  uvc_v4l2_ioctl_default(struct file *file, void *fh, bool valid_prio,
  		       unsigned int cmd, void *arg)
-@@ -258,6 +410,9 @@
+@@ -258,6 +456,9 @@ const struct v4l2_ioctl_ops uvc_v4l2_ioctl_ops = {
  	.vidioc_querycap = uvc_v4l2_querycap,
  	.vidioc_g_fmt_vid_out = uvc_v4l2_get_format,
  	.vidioc_s_fmt_vid_out = uvc_v4l2_set_format,
