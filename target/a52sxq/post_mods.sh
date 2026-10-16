@@ -32,3 +32,13 @@ if [ ! -f "$SRC_DIR/target/a52sxq/patches/kernel_bone_machine/disable" ]; then
 fi
 # Glasses (XR projected) support from the S26U Miracle features: no glasses app on this port (feature audit 2026-10-16 F7)
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_COMMON_SUPPORT_WEARABLE_GLASSES" --delete
+
+# Gallery Remaster AI HDR models (target/a52sxq/patches/remaster_models): installed here, not from the patch, because
+# unica/patches/legacy replaces /vendor/etc/midas after the device patches have run
+if [ ! -f "$SRC_DIR/target/a52sxq/patches/remaster_models/disable" ]; then
+    # shellcheck source=/dev/null
+    source "$SRC_DIR/target/a52sxq/patches/remaster_models/install.sh"
+    REMASTER_MODELS_INSTALL
+    unset REMASTER_MODELS_LIST
+    unset -f REMASTER_MODELS_SRC REMASTER_MODELS_CHECK_SOURCES REMASTER_MODELS_INSTALL
+fi
