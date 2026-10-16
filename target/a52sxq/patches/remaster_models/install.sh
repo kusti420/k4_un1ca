@@ -17,8 +17,9 @@ S moire_detection/moire_detection.tflite moire_detection/moire_detection.tflite"
 REMASTER_MODELS_SRC()
 {
     case "$1" in
-        T) echo "$FW_DIR/$TARGET_FIRMWARE_PATH" ;;
-        S) echo "$FW_DIR/$SOURCE_FIRMWARE_PATH" ;;
+        # post_mods.sh runs without make_rom.sh's *_FIRMWARE_PATH variables: derive them the same way (model/csc)
+        T) echo "$FW_DIR/${TARGET_FIRMWARE_PATH:-$(cut -d "/" -f 1 -s <<< "$TARGET_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$TARGET_FIRMWARE")}" ;;
+        S) echo "$FW_DIR/${SOURCE_FIRMWARE_PATH:-$(cut -d "/" -f 1 -s <<< "$SOURCE_FIRMWARE")_$(cut -d "/" -f 2 -s <<< "$SOURCE_FIRMWARE")}" ;;
         *) return 1 ;;
     esac
 }
