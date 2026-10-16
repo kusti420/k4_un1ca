@@ -1,0 +1,4 @@
+id=a52sxq_launcher_log_gate
+name=Galaxy A52s 5G: quieter One UI Home main thread
+author=kusti420
+description=One UI Home logs through LogTagBuildersKt.info/debug ("HoneySpace.<TAG>", 7,722 info call sites), unconditionally and on the main thread: 300-930 lines/s while Recents opens and per-frame lines from the blur applier, CellLayoutBlurUpdater and the touch scroll detector (log 2026-10-16). info/debug now return unless log.tag.HoneySpace is D or lower (adb shell setprop log.tag.HoneySpace D re-enables them live); warnings and errors are unchanged. FastRecyclerView.updateScrollPosLog, a String.format twice per frame during home page swipes into a debug buffer, is disabled.

@@ -1,0 +1,4 @@
+id=a52sxq_sysui_frame_logs
+name=Galaxy A52s 5G: no per-frame debug logs in SystemUI animations
+author=kusti420
+description=Shade, QS and lock-screen pulls logged ~13 main-thread and ~6 RenderThread lines per frame (2026-10-16 runs). Removed: the R8 float-log outline used by 24 debug traces (QsOpenAnimator panelExpandedFraction, QsExpandAnimator, setTransitionToFullShadeAmount, LockscreenShadeTransitionController, ImmersiveScrollAnimator, SecPanelBackgroundBinder, Now bar occlude progress, ...); the logcat copy of the WMShell ProtoLog groups RECENT_TASKS, DRAG_AND_DROP and TASK_ORG (~400 lines/s on the wmshell main thread with Recents open; perfetto ProtoLog and `wm shell protolog enable-text` still work); and, via log.tag.*=I, the D-level SurfaceComposerClient blur-region dump on the RenderThread, PluginLockMediatorImpl, SecPanelWindowBlurInteractor and SecPanelWindowBlurBinder (setprop log.tag.<TAG> D restores any of them).

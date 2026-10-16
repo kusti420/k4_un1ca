@@ -1,0 +1,4 @@
+id=a52sxq_sysui_chip_minute_reinit
+name=Galaxy A52s 5G: no status bar chip rebuild at every minute
+author=kusti420
+description=Whenever the status bar clock changes width (most minute ticks), the One UI 9 Compose status bar recomposes and calls OngoingActivityController.initCapsuleLayout again with the same views: it unregisters and re-registers about ten listeners, cancels and relaunches a coroutine, recreates the chip animation controller and layout manager, resets the RecyclerView adapter and rebuilds the ongoing list (log 2026-10-16: 10-25 ms of SystemUI main thread at 19:08:00, 19:10:00, 19:11:00 with no chip shown). The status bar call site now skips that when the controller is already bound to the same capsule and status bar views; a re-inflated status bar still re-initialises.

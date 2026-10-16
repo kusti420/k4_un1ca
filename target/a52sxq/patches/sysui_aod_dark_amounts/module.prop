@@ -1,0 +1,4 @@
+id=a52sxq_sysui_aod_dark_amounts
+name=Galaxy A52s 5G: no exception per frame in the AOD/lock screen clock morph
+author=kusti420
+description=During the 500 ms AOD <-> lock screen light reveal, SystemUI's FaceWidgetContainerWrapper.setDarkAmounts calls PluginKeyguardStatusView.setDarkAmounts(FF) on every frame, a method neither the shipped AODService nor its 8.5.10 update implements, so each frame throws and catches an AbstractMethodError (exception object, message and stack walk) before falling back to setDarkAmount. The wrapper now remembers a plugin instance that threw IncompatibleClassChangeError and calls setDarkAmount directly for it. Same visuals; a plugin that does implement setDarkAmounts is unaffected.
