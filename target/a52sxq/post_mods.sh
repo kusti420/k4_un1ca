@@ -14,6 +14,15 @@ SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_SUPPORT_TOUCH_FAST_RE
 # the user to the Store for an SM8850 Language Core. Cloud Writing/Chat assist and call summaries don't use these keys.
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GENAI_SUPPORT_OFFLINE_LANGUAGEMODEL" --delete
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GENAI_CONFIG_FOUNDATION_MODEL" --delete
+# GENAI_CONFIG_LLM_VERSION (miracle sets 2.81, S26U stock 0.81) is the on-device Gauss generation, read only by
+# on-device paths (feature audit 2026-10-16 F1): Launcher Finder "Recall" (decimal >= 70), My Files "Show file
+# summaries"/summary notice (dots stripped, > 70, so "2.69" would still be 269: delete, don't lower), Keyboard
+# on-device contextual/suggested replies (>= 50 / >= 70), InCallUI live suggestions + TelephonyUI call brief/call
+# suggestion (>= 81, also need PERSONALIZED_DATA_CORE), Smart Suggestions suggested replies, Moments AI summary and
+# services.jar NmRune AI notification priority/summary/nudge. Every reader treats a missing key as unsupported.
+# Keyboard Writing assist (cloud), Interpreter and Finder semantic search (SSCO + SEMANTIC_SEARCH_VERSION) don't read
+# it; TelephonyUI's call screening badge helper does (isSupportCallScreeningLlm) but nothing calls it.
+SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GENAI_CONFIG_LLM_VERSION" --delete
 # Time/weather AI wallpaper (SpriteWallpaper "magician", any value but V1/None): generated through SamsungAiCore's
 # LVM (LVMInterface.RunWallpaperMix* on QNN HTP V81), on-device only. "None" is the __floating_feature fallback.
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GENAI_SUPPORT_TIME_WEATHER_WALLPAPER" "None"
@@ -32,6 +41,20 @@ if [ ! -f "$SRC_DIR/target/a52sxq/patches/kernel_bone_machine/disable" ]; then
 fi
 # Glasses (XR projected) support from the S26U Miracle features: no glasses app on this port (feature audit 2026-10-16 F7)
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_COMMON_SUPPORT_WEARABLE_GLASSES" --delete
+
+# Guard: one line per key. SET_FLOATING_FEATURE_CONFIG replaces by line number, so a key that ever ends up twice
+# (e.g. EU_BATTERY_REGULATORY, reported twice on the phone) breaks later replaces. Keep the first occurrence.
+FF_XML="$WORK_DIR/system/system/etc/floating_feature.xml"
+if [ -f "$FF_XML" ]; then
+    FF_DUPES="$(grep -o -P '(?<=<)SEC_FLOATING_FEATURE_[A-Z0-9_]+(?=>)' "$FF_XML" | sort | uniq -d | tr '\n' ' ')"
+    if [ "$FF_DUPES" ]; then
+        LOG "- Removing duplicate floating features: $FF_DUPES"
+        awk 'match($0, /<SEC_FLOATING_FEATURE_[A-Z0-9_]+>/) { k = substr($0, RSTART, RLENGTH); if (seen[k]++) next } { print }' \
+            "$FF_XML" > "$FF_XML.tmp" && mv -f "$FF_XML.tmp" "$FF_XML"
+    fi
+    unset FF_DUPES
+fi
+unset FF_XML
 
 # Gallery Remaster AI HDR models (target/a52sxq/patches/remaster_models): installed here, not from the patch, because
 # unica/patches/legacy replaces /vendor/etc/midas after the device patches have run
