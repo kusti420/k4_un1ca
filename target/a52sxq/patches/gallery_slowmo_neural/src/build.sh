@@ -15,5 +15,6 @@ done
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 cp "$CRT/crtbegin_dynamic/android_arm64_armv8-a/crtbegin_dynamic.o" "$CRT/crtend_android/android_arm64_armv8-a/crtend_android.o" "$T/"
 "$CLANG" --target=aarch64-linux-android30 --sysroot="$SYSROOT" -B"$T" -O2 -fPIE -pie -Wall -Wno-unused-function -ffp-contract=fast \
+    -Wl,--export-dynamic-symbol=remote_handle64_control \
     k4neuralmpp.c k4n_engine.c -o ../prebuilt/k4neuralmpp -lbinder_ndk -llog -lm -ldl
 ls -la ../prebuilt/k4neuralmpp; sha256sum ../prebuilt/k4neuralmpp

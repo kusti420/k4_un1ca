@@ -132,6 +132,31 @@ static int engine_status(void) {        // TX_K4_STATUS: 1 ready, 0 not built (w
 static int prop_int(const char* name, int def) { char v[PROP_VALUE_MAX] = ""; return __system_property_get(name, v) > 0 ? atoi(v) : def; }
 static int neural_mode(void) { const char* e = getenv("K4N_MODE"); return e ? atoi(e) : prop_int("persist.sys.k4.slowmo_neural", 1); }
 
+// FastRPC CPU latency vote. libSnpeHtpV68Stub.so (setRemoteRpcControl, burst profile) asks libcdsprpc for a 100 us
+// PM QoS vote: remote_handle64_control(h, DSPRPC_CONTROL_LATENCY = 1, {RPC_PM_QOS, 100}, 8). libcdsprpc's latency
+// thread later releases it with FASTRPC_IOCTL_CONTROL (cmd 12) and enable = 0, which this 5.4 kernel turns into
+// dev_pm_qos_update_request(-1) for every silver core: WARN at drivers/base/power/qos.c:158 (apply_constraint),
+// "FASTRPC IOCTL FAIL cmd 12 error 1", and the silver cores keep a 0 us resume latency constraint until the session
+// is closed. The executable exports this symbol (build.sh: --export-dynamic-symbol), the stub's PLT binds to it
+// (the main executable comes first in the lookup order) and the vote is never made; every other request goes to
+// libcdsprpc unchanged. persist.sys.k4.slowmo_rpc_qos=1 lets the vote through again (read on every request).
+__attribute__((visibility("default"), used))
+int remote_handle64_control(uint64_t h, uint32_t req, void* data, uint32_t datalen) {
+    static int (*real)(uint64_t, uint32_t, void*, uint32_t);
+    static int told;
+    if (req == 1 && !prop_int("persist.sys.k4.slowmo_rpc_qos", 0)) {
+        if (!__atomic_exchange_n(&told, 1, __ATOMIC_RELAXED)) K4N_LOG("FastRPC latency vote skipped (persist.sys.k4.slowmo_rpc_qos=0)");
+        return 0;
+    }
+    if (!real) {
+        void* lib = dlopen("libcdsprpc.so", RTLD_NOW | RTLD_NOLOAD);
+        int (*f)(uint64_t, uint32_t, void*, uint32_t) = lib ? (int (*)(uint64_t, uint32_t, void*, uint32_t)) dlsym(lib, "remote_handle64_control") : NULL;
+        if (f == remote_handle64_control) f = NULL;
+        real = f;
+    }
+    return real ? real(h, req, data, datalen) : 20 /* AEE_EUNSUPPORTED */;
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 typedef struct { int fd; uint8_t* p; size_t size; int valid, stride, scan, dmabuf; } Buf;
 typedef struct { int id; long long ts; int flag; } InItem;

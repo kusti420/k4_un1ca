@@ -5,8 +5,15 @@ Our own binary (plain C, NDK binder; no third-party code): the neural MPP front 
 - Source: `../src/{k4neuralmpp.c,k4n_engine.c,k4n.h}`; rebuild with `../src/build.sh` (AOSP prebuilt clang r596125,
   NDK sysroot API 30 and bionic crt objects of an AOSP tree; C only, no libc++). Working copy and test tools:
   `/mnt/B1/OneUi9/scratch/htpre/neural` on the build PC (NOTES.md one level up).
-- This copy: sha256 `84d04202c5d73c2e2e05698933e02a536cd06603c61dd6791c576fc356fe22ff`, 106832 bytes, built 2026-10-15 with
-  `build.sh`: better hands in saved clips (render session): a second FILM crop when a second region moves at least half
+- This copy: sha256 `a7fb6df755ecf547cbdb47a5e250ccec3ee2ff1dbedd46870ec737c2198ecdda`, 110456 bytes, built 2026-10-16 with
+  `build.sh`: the previous copy plus no FastRPC CPU latency vote. The executable exports `remote_handle64_control`
+  (build.sh `--export-dynamic-symbol`), so libSnpeHtpV68Stub.so's burst-profile request DSPRPC_CONTROL_LATENCY (100 us)
+  lands there and is dropped; libcdsprpc's release of that vote (FASTRPC_IOCTL_CONTROL cmd 12, enable 0) made this 5.4
+  kernel call dev_pm_qos_update_request(-1): WARN at drivers/base/power/qos.c:158 and a 0 us resume latency constraint
+  on the silver cores until the session closed. Every other request is passed on to libcdsprpc.
+  `persist.sys.k4.slowmo_rpc_qos=1` lets the vote through again. NOT yet run on a phone.
+  Previous copy: sha256 `84d04202c5d73c2e2e05698933e02a536cd06603c61dd6791c576fc356fe22ff`, 106832 bytes, built 2026-10-15 with
+  `build.sh` (rebuilt byte for byte from its sources on 2026-10-16): better hands in saved clips (render session): a second FILM crop when a second region moves at least half
   as much as the first, FILM also at the quarter positions for the fastest 25% of pairs (x4 saves), the strongest
   motion kept >= 48 px inside the crop; persist.sys.k4.slowmo_save_hands (default 1) switches it off. About 1.27x the
   config-A save time on the reference clip (/mnt/B1/OneUi9/scratch/htpre/hands_patch/NOTES.md). NOT yet run on a phone.
