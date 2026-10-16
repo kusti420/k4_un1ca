@@ -1,0 +1,4 @@
+id=a52sxq_popup_caption_change_fix
+name=Galaxy A52s 5G: pop-up view caption follows maximize/resize
+author=kusti420
+description=UNTESTED-ON-DEVICE. With desktop windowing off (sff.sh / config_isDesktopModeSupported=false) WMShell uses the AOSP CaptionWindowDecorViewModel for pop-up view tasks. Samsung's FreeformTaskTransitionObserver sends CHANGE transitions (maximize, resize, freeform <-> fullscreen) to the 5-argument onTaskChanging(..., boolean) overload, which only DesktopModeWindowDecorViewModel implements; the interface default is an empty method. So after Maximize the stale back/minimize/maximize/close caption stayed on the now-fullscreen task at y=0, under the status bar (tester video 2026-10-16, Calculator and Samsung Internet). The overload now forwards to the 4-argument onTaskChanging, as AOSP does for TRANSIT_CHANGE: the caption is destroyed when the task leaves freeform and relaid out when it is resized.
