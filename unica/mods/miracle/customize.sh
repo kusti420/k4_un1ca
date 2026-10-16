@@ -52,6 +52,22 @@ else
 fi
 LOG_STEP_OUT
 
+# Pet detection for Galaxy AI Portrait studio (Photo Editor, Contacts), Sketch to image (SketchBook) and VisualCloudCore:
+# they read /vendor/etc/petdetector/studio_pd, a CPU TFLite model (studio_pd_cnn.info: model_type cpu, float16). It lives
+# in the source vendor, so a target vendor without it (e.g. SM7325) loses pet support. Upstream UN1CA's paradigm mod
+# imports the same three files (from pa2qxxx); take them from the source firmware.
+if [ ! -d "$WORK_DIR/vendor/etc/petdetector/studio_pd" ] && \
+        [ -f "$FW_DIR/$SOURCE_FIRMWARE_PATH/vendor/etc/petdetector/studio_pd/studio_pd_cnn.tflite" ]; then
+    LOG_STEP_IN "- Adding Pet Detector support in Galaxy AI features"
+    ADD_TO_WORK_DIR "$SOURCE_FIRMWARE" "vendor" "etc/petdetector" 0 2000 755 "u:object_r:vendor_configs_file:s0"
+    SET_METADATA "vendor" "etc/petdetector/studio_pd" 0 2000 755 "u:object_r:vendor_configs_file:s0"
+    for f in config_thresholds.json studio_pd_cnn.info studio_pd_cnn.tflite; do
+        SET_METADATA "vendor" "etc/petdetector/studio_pd/$f" 0 0 644 "u:object_r:vendor_configs_file:s0"
+    done
+    unset f
+    LOG_STEP_OUT
+fi
+
 if ! $TARGET_AUDIO_SUPPORT_ACH_RINGTONE; then
     LOG_STEP_IN "- Adding non-ACH audio fallback"
     # Newer sources (e.g. Galaxy S26 Ultra) only ship the ACH_ variants of these sounds; a prop naming a missing file
