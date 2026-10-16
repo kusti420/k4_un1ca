@@ -47,3 +47,22 @@ s = s.rstrip("\n") + "\n\n" + FIVE + """
 open(f[0], "w").write(s)
 PYEOF
 LOG "- SystemUI: pop-up view caption is removed on Maximize and follows resizes (CaptionWindowDecorViewModel CHANGE overload)"
+
+# The close button of the same caption sat lower than the others: res/layout/caption_window_decor.xml gives back /
+# minimize / maximize android:layout_gravity="end|center" but close_window none. The buttons (32 dp + 5 dp margins) are
+# taller than the caption, so the centred ones shift up evenly while the top-aligned close button keeps its 5 dp top
+# margin. AOSP centres all four; give close_window the same gravity.
+python3 - "$APKTOOL_DIR/system_ext/priv-app/SystemUI/SystemUI.apk/res/layout/caption_window_decor.xml" << 'PYEOF' || ABORT "Failed to centre the pop-up view close button"
+import sys
+p = sys.argv[1]; s = open(p).read()
+old = '<Button android:id="@id/close_window" '
+new = '<Button android:layout_gravity="end|center" android:id="@id/close_window" '
+if new in s:
+    print("  - caption close button already centred")
+else:
+    assert s.count(old) == 1, "close_window button: %d" % s.count(old)
+    assert s.count('android:layout_gravity="end|center"') == 3, "the other caption buttons changed"
+    open(p, "w").write(s.replace(old, new))
+    print("  - caption close button centred like back / minimize / maximize")
+PYEOF
+LOG "- SystemUI: pop-up view caption close button vertically centred"
