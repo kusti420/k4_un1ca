@@ -1,12 +1,15 @@
 # patches/launch_tuning: see module.prop
 on post-fs-data
-    # The Qualcomm perf HAL (perf-hal-2-2) records the current value as its default and puts that back after every
-    # boost, so the phone kept returning to 94 94 instead of the vendor's 71 95 (init.kernel.post_boot-yupik.sh).
-    # 94 94 is the kernel default the HAL records before the vendor script runs. Written here, before every HAL class
-    # start; downmigrate first, because the kernel rejects an upmigrate below the current downmigrate (EINVAL - 9.3.40
-    # wrote upmigrate alone and failed). Same pair as the vendor script.
-    write /proc/sys/kernel/sched_downmigrate "65 85"
-    write /proc/sys/kernel/sched_upmigrate "71 95"
     # zram is only set up at sys.boot_completed (RAM Plus, swapon_all fstab.ramplus); lz4 decompresses much faster
     # than the default lzo-rle, which is what an app resumed from swap waits on
     write /sys/block/zram0/comp_algorithm lz4
+
+on property:vendor.post_boot.parsed=1
+    # The Qualcomm perf HAL (perf-hal-2-2) records sched_upmigrate when it starts - the kernel default 94 94, before the
+    # vendor script sets 71 95 - and puts that back after every boost, so the phone ran at 94 94 after the first app
+    # launch. Earlier writes are rejected (EINVAL at post-fs-data: the scheduler is not ready). Once the vendor script
+    # is done, set the pair again and restart the HAL so it records 71 95 (tested live on 9.3.41: 71 95 held over
+    # three launches, no crashes).
+    write /proc/sys/kernel/sched_downmigrate "65 85"
+    write /proc/sys/kernel/sched_upmigrate "71 95"
+    restart perf-hal-2-2
