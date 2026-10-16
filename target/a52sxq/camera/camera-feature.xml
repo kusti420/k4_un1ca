@@ -210,4 +210,11 @@
     <!-- camera assistant features -->
     <local name="SUPPORT_CAMERA_ASSISTANT" value="true"/>
 
+    <!-- k4 2026-10-16 (s26u_features TRACKER S15): S26U keys that the shipped r9qxxx SamsungCamera 16.0 implements
+         app-side only (Pro histogram from preview YUV, early shutter feedback, Video mode zoom slider, selfie tone UI) -->
+    <local name="SUPPORT_HISTOGRAM" value="true"/>
+    <local name="SUPPORT_QUICK_SHUTTER" value="true"/>
+    <local name="SUPPORT_VIDEO_MODE_ZOOM_ROCKER" value="true"/>
+    <local name="SUPPORT_SELFIE_TONE_MODE" value="true"/>
+
 </resources>

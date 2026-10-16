@@ -1,0 +1,205 @@
+From: kusti420 <virtuaalnepannkook@gmail.com>
+Subject: [PATCH] usb: gadget: uvc: enable the configfs webcam function and add V4L2 format enumeration
+
+One UI 9 / Android 17 "Use phone as webcam" (com.android.DeviceAsWebcam, USB function "uvc") binds the UVC
+gadget and asks it what it advertises with VIDIOC_ENUM_FMT, VIDIOC_ENUM_FRAMESIZES and
+VIDIOC_ENUM_FRAMEINTERVALS (checked in libjni_deviceAsWebcam.so: ioctl numbers 0xc0405602, 0xc02c564a,
+0xc034564b; it never calls G_FMT/TRY_FMT). The a52sxq defconfig left CONFIG_USB_CONFIGFS_F_UVC off, and the
+5.4 gadget has no enumeration ioctls (upstream added them in 6.1, "usb: gadget: uvc: add v4l2 enumeration api
+calls", walking the configfs format list). Turn the function on and enumerate the bound streaming class
+descriptors instead (same data the host sees, no configfs refactor needed). Only MJPEG and YUY2, the two
+formats uvc_v4l2_set_format() takes, are reported.
+
+Used by MonsterROM target/a52sxq/patches/usb_webcam (vendor init descriptors + ro.usb.uvc.enabled).
+---
+diff --git a/arch/arm64/configs/vendor/a52sxq_kor_single_defconfig b/arch/arm64/configs/vendor/a52sxq_kor_single_defconfig
+--- a/arch/arm64/configs/vendor/a52sxq_kor_single_defconfig
++++ b/arch/arm64/configs/vendor/a52sxq_kor_single_defconfig
+@@ -4536,7 +4536,7 @@
+ CONFIG_USB_CONFIGFS_F_UAC2=y
+ CONFIG_USB_CONFIGFS_F_MIDI=y
+ CONFIG_USB_CONFIGFS_F_HID=y
+-# CONFIG_USB_CONFIGFS_F_UVC is not set
++CONFIG_USB_CONFIGFS_F_UVC=y
+ # CONFIG_USB_CONFIGFS_F_PRINTER is not set
+ CONFIG_USB_CONFIGFS_F_DIAG=y
+ CONFIG_USB_CONFIGFS_F_QDSS=y
+diff --git a/drivers/usb/gadget/function/uvc_v4l2.c b/drivers/usb/gadget/function/uvc_v4l2.c
+--- a/drivers/usb/gadget/function/uvc_v4l2.c
++++ b/drivers/usb/gadget/function/uvc_v4l2.c
+@@ -11,6 +11,7 @@
+ #include <linux/kernel.h>
+ #include <linux/list.h>
+ #include <linux/usb/g_uvc.h>
++#include <linux/usb/video.h>
+ #include <linux/videodev2.h>
+ #include <linux/vmalloc.h>
+ #include <linux/wait.h>
+@@ -238,6 +239,157 @@
+ 	return v4l2_event_unsubscribe(fh, sub);
+ }
+ 
++/*
++ * Format and frame enumeration (VIDIOC_ENUM_FMT, VIDIOC_ENUM_FRAMESIZES,
++ * VIDIOC_ENUM_FRAMEINTERVALS). Upstream added these in 6.1 by walking the
++ * configfs format list; Android's DeviceAsWebcam needs them to learn what the
++ * gadget advertises. Here they walk the streaming class descriptors the host
++ * is given (uvc->desc.*_streaming, NULL terminated, fixed while the function
++ * exists), so they report exactly what the host sees. Only the formats
++ * uvc_v4l2_set_format() accepts are listed: MJPEG and YUY2 uncompressed.
++ */
++static const struct uvc_descriptor_header * const *
++uvc_v4l2_strm_desc(struct uvc_device *uvc)
++{
++	struct usb_composite_dev *cdev = uvc->func.config->cdev;
++
++	if (cdev->gadget->speed >= USB_SPEED_SUPER && uvc->desc.ss_streaming)
++		return uvc->desc.ss_streaming;
++	if (cdev->gadget->speed != USB_SPEED_FULL && uvc->desc.hs_streaming)
++		return uvc->desc.hs_streaming;
++	return uvc->desc.fs_streaming;
++}
++
++static u32 uvc_v4l2_desc_fcc(const struct uvc_descriptor_header *h)
++{
++	static const u8 guid_yuy2[16] = {
++		'Y', 'U', 'Y', '2', 0x00, 0x00, 0x10, 0x00,
++		0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71
++	};
++	const struct uvc_format_uncompressed *u;
++
++	switch (h->bDescriptorSubType) {
++	case UVC_VS_FORMAT_MJPEG:
++		return V4L2_PIX_FMT_MJPEG;
++	case UVC_VS_FORMAT_UNCOMPRESSED:
++		u = (const struct uvc_format_uncompressed *)h;
++		if (!memcmp(u->guidFormat, guid_yuy2, sizeof(guid_yuy2)))
++			return V4L2_PIX_FMT_YUYV;
++		return 0;
++	default:
++		return 0;
++	}
++}
++
++/*
++ * The index-th frame of format fcc, or with index < 0 the frame of that
++ * format with the given size. Frame descriptors follow their format
++ * descriptor; uncompressed and MJPEG frames share one layout.
++ */
++static const struct uvc_frame_uncompressed *
++uvc_v4l2_find_frame(struct uvc_device *uvc, u32 fcc, int index, u32 width,
++		    u32 height)
++{
++	const struct uvc_descriptor_header * const *d;
++	const struct uvc_frame_uncompressed *frm;
++	u32 cur = 0;
++	int n = 0;
++
++	for (d = uvc_v4l2_strm_desc(uvc); d && *d; d++) {
++		switch ((*d)->bDescriptorSubType) {
++		case UVC_VS_FORMAT_UNCOMPRESSED:
++		case UVC_VS_FORMAT_MJPEG:
++			cur = uvc_v4l2_desc_fcc(*d);
++			break;
++		case UVC_VS_FRAME_UNCOMPRESSED:
++		case UVC_VS_FRAME_MJPEG:
++			if (!cur || cur != fcc)
++				break;
++			frm = (const struct uvc_frame_uncompressed *)*d;
++			if (index >= 0) {
++				if (n++ == index)
++					return frm;
++			} else if (le16_to_cpu(frm->wWidth) == width &&
++				   le16_to_cpu(frm->wHeight) == height) {
++				return frm;
++			}
++			break;
++		}
++	}
++
++	return NULL;
++}
++
++static int
++uvc_v4l2_enum_format(struct file *file, void *fh, struct v4l2_fmtdesc *f)
++{
++	struct video_device *vdev = video_devdata(file);
++	struct uvc_device *uvc = video_get_drvdata(vdev);
++	const struct uvc_descriptor_header * const *d;
++	u32 n = 0, fcc;
++
++	for (d = uvc_v4l2_strm_desc(uvc); d && *d; d++) {
++		fcc = uvc_v4l2_desc_fcc(*d);
++		if (!fcc || n++ != f->index)
++			continue;
++
++		f->pixelformat = fcc;
++		if (fcc == V4L2_PIX_FMT_MJPEG) {
++			f->flags = V4L2_FMT_FLAG_COMPRESSED;
++			strscpy(f->description, "Motion-JPEG",
++				sizeof(f->description));
++		} else {
++			f->flags = 0;
++			strscpy(f->description, "YUYV 4:2:2",
++				sizeof(f->description));
++		}
++		return 0;
++	}
++
++	return -EINVAL;
++}
++
++static int
++uvc_v4l2_enum_framesizes(struct file *file, void *fh,
++			 struct v4l2_frmsizeenum *fsize)
++{
++	struct video_device *vdev = video_devdata(file);
++	struct uvc_device *uvc = video_get_drvdata(vdev);
++	const struct uvc_frame_uncompressed *frm;
++
++	if (fsize->index > INT_MAX)
++		return -EINVAL;
++
++	frm = uvc_v4l2_find_frame(uvc, fsize->pixel_format, fsize->index, 0, 0);
++	if (!frm)
++		return -EINVAL;
++
++	fsize->type = V4L2_FRMSIZE_TYPE_DISCRETE;
++	fsize->discrete.width = le16_to_cpu(frm->wWidth);
++	fsize->discrete.height = le16_to_cpu(frm->wHeight);
++	return 0;
++}
++
++static int
++uvc_v4l2_enum_frameintervals(struct file *file, void *fh,
++			     struct v4l2_frmivalenum *fival)
++{
++	struct video_device *vdev = video_devdata(file);
++	struct uvc_device *uvc = video_get_drvdata(vdev);
++	const struct uvc_frame_uncompressed *frm;
++
++	frm = uvc_v4l2_find_frame(uvc, fival->pixel_format, -1, fival->width,
++				  fival->height);
++	if (!frm || fival->index >= frm->bFrameIntervalType)
++		return -EINVAL;
++
++	fival->type = V4L2_FRMIVAL_TYPE_DISCRETE;
++	fival->discrete.numerator =
++		le32_to_cpu(frm->dwFrameInterval[fival->index]);
++	fival->discrete.denominator = 10000000;
++	return 0;
++}
++
+ static long
+ uvc_v4l2_ioctl_default(struct file *file, void *fh, bool valid_prio,
+ 		       unsigned int cmd, void *arg)
+@@ -258,6 +410,9 @@
+ 	.vidioc_querycap = uvc_v4l2_querycap,
+ 	.vidioc_g_fmt_vid_out = uvc_v4l2_get_format,
+ 	.vidioc_s_fmt_vid_out = uvc_v4l2_set_format,
++	.vidioc_enum_fmt_vid_out = uvc_v4l2_enum_format,
++	.vidioc_enum_framesizes = uvc_v4l2_enum_framesizes,
++	.vidioc_enum_frameintervals = uvc_v4l2_enum_frameintervals,
+ 	.vidioc_reqbufs = uvc_v4l2_reqbufs,
+ 	.vidioc_querybuf = uvc_v4l2_querybuf,
+ 	.vidioc_qbuf = uvc_v4l2_qbuf,
