@@ -51,6 +51,7 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
     private final boolean mOffline;
     private Thread mWorker; private volatile float mWork; private volatile boolean mStop;      // offline: the render thread, its progress (0..1), stop request
     private String mOfflineNote = "";
+    private String mHandsNote = "";      // offline: second crops / FILM quarters used
     private boolean mAudio;
     private float mPlayRate;
     private final Listener mListener;
@@ -475,21 +476,26 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
             cx = mean3(median5(cx)); cy = mean3(median5(cy));
             final int[] x0 = new int[m], y0 = new int[m];
             for (int k = 0; k < m; k++) { x0[k] = (int) Math.min(Math.max(cx[k] - CROP / 2f, 0), mWidth - CROP) & ~1; y0[k] = (int) Math.min(Math.max(cy[k] - CROP / 2f, 0), mHeight - CROP) & ~1; }
-            // hands (persist.sys.k4.slowmo_save_hands, default on; quality/hands3.py + hands4_*.py): a second FILM crop where a second
-            // region moves at least half as much as the first (busier half of the section), and FILM also at t = .25 / .75 inside the
-            // crop(s) for the fastest quarter of the pairs at x4. ~+6 % and ~+20 % save time on the reference section.
-            final boolean hands = intProperty("persist.sys.k4.slowmo_save_hands", 1) != 0;
+            // hands (persist.sys.k4.slowmo_save_hands; quality/hands3.py + hands4_*.py, 9.3.40 phone test): 1 (default) = a second
+            // FILM crop only where a second region moves like a busy main region (>= the section's 75th percentile and >= half the
+            // first); 2 = also FILM at t = .25 / .75 inside the crop(s) for the fastest quarter of the pairs at x4 - measured on the
+            // reference section: +46 % save time for frames that differ from config A by < 0.5 levels (v3 already agrees there),
+            // so it is opt-in. The first crop is kept >= 48 px around the strongest motion in the daemon (k4n_render_score2).
+            final int hands = intProperty("persist.sys.k4.slowmo_save_hands", 1);
             final boolean[] two = new boolean[m], quart = new boolean[m]; final int[] x1 = new int[m], y1 = new int[m];
-            if (hands && m > 0) {
+            int twoN = 0, quartN = 0;
+            if (hands > 0 && m > 0) {
                 float[] s1 = new float[m]; for (int k = 0; k < m; k++) s1[k] = score.get(key(jobs.get(k)[0], jobs.get(k)[1]))[0];
-                float[] srt = s1.clone(); java.util.Arrays.sort(srt); float med = srt[m / 2], p75 = srt[Math.min(m - 1, (3 * m) / 4)];
+                float[] srt = s1.clone(); java.util.Arrays.sort(srt); float p75 = srt[Math.min(m - 1, (3 * m) / 4)];
                 for (int k = 0; k < m; k++) {
                     float[] r = score.get(key(jobs.get(k)[0], jobs.get(k)[1]));
-                    two[k] = r.length > 6 && r[4] >= 0.5f * r[0] && r[0] >= med && r[0] > 0;
-                    quart[k] = mScale == 4 && jobs.get(k)[2] == 0 && s1[k] >= p75 && s1[k] > 0;
-                    if (two[k]) { x1[k] = (int) Math.min(Math.max(r[5] - CROP / 2f, 0), mWidth - CROP) & ~1; y1[k] = (int) Math.min(Math.max(r[6] - CROP / 2f, 0), mHeight - CROP) & ~1; }
+                    two[k] = r.length > 6 && r[0] > 0 && r[4] >= 0.5f * r[0] && r[4] >= p75;
+                    quart[k] = hands >= 2 && mScale == 4 && jobs.get(k)[2] == 0 && s1[k] >= p75 && s1[k] > 0;
+                    if (two[k]) { twoN++; x1[k] = (int) Math.min(Math.max(r[5] - CROP / 2f, 0), mWidth - CROP) & ~1; y1[k] = (int) Math.min(Math.max(r[6] - CROP / 2f, 0), mHeight - CROP) & ~1; }
+                    if (quart[k]) quartN++;
                 }
             }
+            mHandsNote = "hands " + hands + ": " + twoN + " second crops, " + quartN + " pairs with FILM quarters";
             mExpected = expected;
             // audio stretched to the real frame count (the muxer takes its format at the encoder's first output, after this)
             if (mAudio) try { prepareAudio(); } catch (Throwable t) { mAudioFormat = null; mAudioData.clear(); mAudioInfo.clear(); mAudioNote = "audio left out: " + t; }
@@ -510,7 +516,7 @@ public final class K4SlowMoExport implements Runnable, InvocationHandler {
             } });
             if (n2 != n || next[0] != jobs.size()) throw new IllegalStateException("pass 2 decoded " + next[0] + " of " + jobs.size() + " pairs, " + n2 + " of " + n + " frames");
             int i = dequeueInput(); mEncoder.queueInputBuffer(i, 0, 0, (long) mQueued * mFrameUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-            mOfflineNote = n + " source frames, " + jobs.size() + " pairs (" + films[0] + " with FILM), pass 1 " + (t1 - t0) + " ms, pass 2 " + (SystemClock.elapsedRealtime() - t1)
+            mOfflineNote = n + " source frames, " + jobs.size() + " pairs (" + films[0] + " with FILM; " + mHandsNote + "), pass 1 " + (t1 - t0) + " ms, pass 2 " + (SystemClock.elapsedRealtime() - t1)
                     + " ms (v3 " + (int) ms[0] + ", FILM " + (int) ms[1] + ", warps " + (int) ms[2] + " ms)";
         } catch (Throwable t) {
             if (!mStop && mError == null) mError = "offline render: " + t;

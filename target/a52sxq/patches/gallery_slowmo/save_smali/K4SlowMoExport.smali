@@ -101,6 +101,8 @@
 
 .field private blacklist mHandler:Landroid/os/Handler;
 
+.field private blacklist mHandsNote:Ljava/lang/String;
+
 .field private blacklist mHeight:I
 
 .field private final blacklist mIn:Ljava/io/FileDescriptor;
@@ -327,6 +329,8 @@
 
     iput-object v0, p0, Lcom/k4/media/K4SlowMoExport;->mOfflineNote:Ljava/lang/String;
 
+    iput-object v0, p0, Lcom/k4/media/K4SlowMoExport;->mHandsNote:Ljava/lang/String;
+
     const/4 v0, -0x1
 
     iput v0, p0, Lcom/k4/media/K4SlowMoExport;->mAudioTrack:I
@@ -387,16 +391,16 @@
 
     cmpg-float p1, p9, p1
 
-    if-gtz p1, :cond_4d
+    if-gtz p1, :cond_4f
 
     const/4 p1, 0x4
 
-    goto :goto_4e
+    goto :goto_50
 
-    :cond_4d
+    :cond_4f
     const/4 p1, 0x2
 
-    :goto_4e
+    :goto_50
     iput p1, p0, Lcom/k4/media/K4SlowMoExport;->mScale:I
 
     iput-object p10, p0, Lcom/k4/media/K4SlowMoExport;->mListener:Lcom/k4/media/K4SlowMoExport$Listener;
@@ -4661,7 +4665,7 @@
 .end method
 
 .method private blacklist renderOffline()V
-    .registers 49
+    .registers 44
 
     move-object/from16 v1, p0
 
@@ -4692,7 +4696,7 @@
 
     move-result-object v7
     :try_end_17
-    .catchall {:try_start_7 .. :try_end_17} :catchall_3fb
+    .catchall {:try_start_7 .. :try_end_17} :catchall_44c
 
     :try_start_17
     invoke-virtual {v7}, Landroid/os/SharedMemory;->mapReadWrite()Ljava/nio/ByteBuffer;
@@ -4703,7 +4707,7 @@
 
     move-result-object v9
     :try_end_1f
-    .catchall {:try_start_17 .. :try_end_1f} :catchall_3f4
+    .catchall {:try_start_17 .. :try_end_1f} :catchall_445
 
     :try_start_1f
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
@@ -4726,11 +4730,11 @@
 
     move-result v15
     :try_end_36
-    .catchall {:try_start_1f .. :try_end_36} :catchall_3ee
+    .catchall {:try_start_1f .. :try_end_36} :catchall_43f
 
     const-string v12, " frames"
 
-    if-lt v15, v6, :cond_3d2
+    if-lt v15, v6, :cond_423
 
     :try_start_3a
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
@@ -4744,6 +4748,8 @@
     invoke-static {v0, v13}, Lcom/k4/media/K4SlowMoExport;->intProperty(Ljava/lang/String;I)I
 
     move-result v0
+    :try_end_45
+    .catchall {:try_start_3a .. :try_end_45} :catchall_43f
 
     const/4 v14, 0x0
 
@@ -4757,183 +4763,185 @@
     move v0, v14
 
     :goto_4b
-    move/from16 v20, v6
+    :try_start_4b
+    new-instance v3, Ljava/util/ArrayList;
 
-    new-instance v6, Ljava/util/ArrayList;
-
-    invoke-direct {v6}, Ljava/util/ArrayList;-><init>()V
-    :try_end_52
-    .catchall {:try_start_3a .. :try_end_52} :catchall_3ee
-
-    move v3, v13
-
-    move/from16 v22, v14
-
-    move/from16 v23, v22
-
-    :goto_57
-    if-ge v3, v15, :cond_bd
-
-    :try_start_59
-    invoke-virtual {v11, v3}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
-
-    move-result-object v24
-
-    check-cast v24, Ljava/lang/Float;
-
-    invoke-virtual/range {v24 .. v24}, Ljava/lang/Float;->floatValue()F
-
-    move-result v24
-
-    const v25, 0x3e19999a    # 0.15f
-
-    cmpg-float v24, v24, v25
-
-    if-gez v24, :cond_6d
-
-    move/from16 v24, v13
-
-    goto :goto_6f
-
-    :cond_6d
-    move/from16 v24, v14
-
-    :goto_6f
-    add-int/lit8 v4, v15, -0x1
-
-    if-ne v3, v4, :cond_75
+    invoke-direct {v3}, Ljava/util/ArrayList;-><init>()V
 
     move v4, v13
+
+    move/from16 v21, v14
+
+    move/from16 v22, v21
+
+    :goto_55
+    if-ge v4, v15, :cond_bf
+
+    invoke-virtual {v11, v4}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+
+    move-result-object v23
+
+    check-cast v23, Ljava/lang/Float;
+
+    invoke-virtual/range {v23 .. v23}, Ljava/lang/Float;->floatValue()F
+
+    move-result v23
+
+    const v24, 0x3e19999a    # 0.15f
+
+    cmpg-float v23, v23, v24
+
+    if-gez v23, :cond_6b
+
+    move/from16 v23, v13
+
+    goto :goto_6d
+
+    :cond_6b
+    move/from16 v23, v14
+
+    :goto_6d
+    move/from16 v24, v6
+
+    add-int/lit8 v6, v15, -0x1
+
+    if-ne v4, v6, :cond_75
+
+    move v6, v13
 
     goto :goto_76
 
     :cond_75
-    move v4, v14
+    move v6, v14
 
     :goto_76
-    if-eqz v22, :cond_9e
+    if-eqz v21, :cond_9e
 
-    add-int/lit8 v4, v3, -0x2
+    add-int/lit8 v6, v4, -0x2
 
-    if-eqz v24, :cond_91
+    if-eqz v23, :cond_91
 
-    add-int/lit8 v13, v3, -0x1
+    add-int/lit8 v13, v4, -0x1
 
-    filled-new-array {v4, v13, v14}, [I
+    filled-new-array {v6, v13, v14}, [I
 
-    move-result-object v4
+    move-result-object v6
 
-    invoke-virtual {v6, v4}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    invoke-virtual {v3, v6}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    filled-new-array {v13, v3, v14}, [I
+    filled-new-array {v13, v4, v14}, [I
 
-    move-result-object v4
+    move-result-object v6
 
-    invoke-virtual {v6, v4}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    invoke-virtual {v3, v6}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    move/from16 v22, v14
+    move/from16 v21, v14
 
-    move/from16 v23, v20
+    move/from16 v22, v24
 
     goto :goto_b9
 
     :cond_91
     const/4 v13, 0x1
 
-    filled-new-array {v4, v3, v13}, [I
+    filled-new-array {v6, v4, v13}, [I
 
-    move-result-object v4
+    move-result-object v6
 
-    invoke-virtual {v6, v4}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    invoke-virtual {v3, v6}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    move/from16 v22, v14
+    move/from16 v21, v14
 
-    move/from16 v23, v22
+    move/from16 v22, v21
 
     goto :goto_b9
 
     :cond_9e
     if-eqz v0, :cond_a9
 
-    if-eqz v24, :cond_a9
+    if-eqz v23, :cond_a9
 
-    if-nez v23, :cond_a9
+    if-nez v22, :cond_a9
 
-    if-nez v4, :cond_a9
+    if-nez v6, :cond_a9
 
-    const/16 v22, 0x1
+    const/16 v21, 0x1
 
     goto :goto_b9
 
     :cond_a9
-    if-eqz v24, :cond_ae
+    if-eqz v23, :cond_ae
 
-    add-int/lit8 v23, v23, 0x1
+    add-int/lit8 v22, v22, 0x1
 
     goto :goto_b0
 
     :cond_ae
-    move/from16 v23, v14
+    move/from16 v22, v14
 
     :goto_b0
-    add-int/lit8 v4, v3, -0x1
+    add-int/lit8 v6, v4, -0x1
 
-    filled-new-array {v4, v3, v14}, [I
+    filled-new-array {v6, v4, v14}, [I
 
-    move-result-object v4
+    move-result-object v6
 
-    invoke-virtual {v6, v4}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    invoke-virtual {v3, v6}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
     :goto_b9
-    add-int/lit8 v3, v3, 0x1
+    add-int/lit8 v4, v4, 0x1
+
+    move/from16 v6, v24
 
     const/4 v13, 0x1
 
-    goto :goto_57
+    goto :goto_55
 
-    :cond_bd
-    invoke-virtual {v6}, Ljava/util/ArrayList;->size()I
+    :cond_bf
+    move/from16 v24, v6
+
+    invoke-virtual {v3}, Ljava/util/ArrayList;->size()I
 
     move-result v0
 
-    new-array v3, v0, [F
-
     new-array v4, v0, [F
+
+    new-array v6, v0, [F
 
     move v11, v14
 
     const/4 v13, 0x1
 
-    :goto_c7
-    if-ge v11, v0, :cond_10e
+    :goto_cb
+    if-ge v11, v0, :cond_112
 
-    invoke-virtual {v6, v11}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+    invoke-virtual {v3, v11}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
-    move-result-object v22
+    move-result-object v21
 
-    check-cast v22, [I
+    check-cast v21, [I
 
-    move/from16 v23, v14
+    move/from16 v22, v14
 
-    aget v14, v22, v23
+    aget v14, v21, v22
 
-    invoke-virtual {v6, v11}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+    invoke-virtual {v3, v11}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
-    move-result-object v22
+    move-result-object v21
 
-    check-cast v22, [I
+    check-cast v21, [I
 
-    move-object/from16 v24, v2
+    move-object/from16 v23, v2
 
-    const/16 v26, 0x1
+    const/16 v25, 0x1
 
-    aget v2, v22, v26
+    aget v2, v21, v25
 
     invoke-static {v14, v2}, Lcom/k4/media/K4SlowMoExport;->key(II)J
 
-    move-result-wide v27
+    move-result-wide v26
 
-    invoke-static/range {v27 .. v28}, Ljava/lang/Long;->valueOf(J)Ljava/lang/Long;
+    invoke-static/range {v26 .. v27}, Ljava/lang/Long;->valueOf(J)Ljava/lang/Long;
 
     move-result-object v2
 
@@ -4943,50 +4951,50 @@
 
     check-cast v2, [F
 
-    aget v14, v2, v26
+    aget v14, v2, v25
 
-    aput v14, v3, v11
+    aput v14, v4, v11
 
-    aget v2, v2, v20
+    aget v2, v2, v24
 
-    aput v2, v4, v11
+    aput v2, v6, v11
 
-    invoke-virtual {v6, v11}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+    invoke-virtual {v3, v11}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
     move-result-object v2
 
     check-cast v2, [I
 
-    aget v2, v2, v20
+    aget v2, v2, v24
 
-    if-eqz v2, :cond_104
+    if-eqz v2, :cond_108
 
     iget v2, v1, Lcom/k4/media/K4SlowMoExport;->mScale:I
 
     mul-int/lit8 v2, v2, 0x2
 
-    goto :goto_106
+    goto :goto_10a
 
-    :cond_104
+    :cond_108
     iget v2, v1, Lcom/k4/media/K4SlowMoExport;->mScale:I
 
-    :goto_106
+    :goto_10a
     add-int/2addr v13, v2
 
     add-int/lit8 v11, v11, 0x1
 
-    move/from16 v14, v23
+    move/from16 v14, v22
 
-    move-object/from16 v2, v24
+    move-object/from16 v2, v23
 
-    goto :goto_c7
+    goto :goto_cb
 
-    :cond_10e
-    move-object/from16 v24, v2
+    :cond_112
+    move-object/from16 v23, v2
 
-    move/from16 v23, v14
+    move/from16 v22, v14
 
-    invoke-static {v3}, Lcom/k4/media/K4SlowMoExport;->median5([F)[F
+    invoke-static {v4}, Lcom/k4/media/K4SlowMoExport;->median5([F)[F
 
     move-result-object v2
 
@@ -4994,50 +5002,47 @@
 
     move-result-object v2
 
-    invoke-static {v4}, Lcom/k4/media/K4SlowMoExport;->median5([F)[F
+    invoke-static {v6}, Lcom/k4/media/K4SlowMoExport;->median5([F)[F
 
-    move-result-object v3
+    move-result-object v4
 
-    invoke-static {v3}, Lcom/k4/media/K4SlowMoExport;->mean3([F)[F
+    invoke-static {v4}, Lcom/k4/media/K4SlowMoExport;->mean3([F)[F
 
-    move-result-object v3
-    :try_end_122
-    .catchall {:try_start_59 .. :try_end_122} :catchall_3cc
+    move-result-object v4
+    :try_end_126
+    .catchall {:try_start_4b .. :try_end_126} :catchall_41d
 
-    move-object v4, v7
+    move-object v6, v7
 
-    :try_start_123
+    :try_start_127
     new-array v7, v0, [I
-    :try_end_125
-    .catchall {:try_start_123 .. :try_end_125} :catchall_3c8
 
     move-object v11, v4
 
     move-object v4, v8
 
-    :try_start_127
     new-array v8, v0, [I
 
-    move/from16 v14, v23
+    move/from16 v14, v22
 
-    :goto_12b
-    const/high16 v22, 0x43000000    # 128.0f
+    :goto_12f
+    const/high16 v21, 0x43000000    # 128.0f
 
-    move-object/from16 v27, v2
+    move-object/from16 v26, v2
 
     const/4 v2, 0x0
 
-    if-ge v14, v0, :cond_168
+    if-ge v14, v0, :cond_16c
 
-    aget v28, v27, v14
+    aget v27, v26, v14
 
-    move-object/from16 v29, v3
+    move-object/from16 v28, v4
 
-    sub-float v3, v28, v22
+    sub-float v4, v27, v21
 
-    invoke-static {v3, v2}, Ljava/lang/Math;->max(FF)F
+    invoke-static {v4, v2}, Ljava/lang/Math;->max(FF)F
 
-    move-result v3
+    move-result v4
 
     iget v2, v1, Lcom/k4/media/K4SlowMoExport;->mWidth:I
 
@@ -5045,7 +5050,7 @@
 
     int-to-float v2, v2
 
-    invoke-static {v3, v2}, Ljava/lang/Math;->min(FF)F
+    invoke-static {v4, v2}, Ljava/lang/Math;->min(FF)F
 
     move-result v2
 
@@ -5055,23 +5060,23 @@
 
     aput v2, v7, v14
 
-    aget v2, v29, v14
+    aget v2, v11, v14
 
-    sub-float v2, v2, v22
+    sub-float v2, v2, v21
 
-    const/4 v3, 0x0
+    const/4 v4, 0x0
 
-    invoke-static {v2, v3}, Ljava/lang/Math;->max(FF)F
+    invoke-static {v2, v4}, Ljava/lang/Math;->max(FF)F
 
     move-result v2
 
-    iget v3, v1, Lcom/k4/media/K4SlowMoExport;->mHeight:I
+    iget v4, v1, Lcom/k4/media/K4SlowMoExport;->mHeight:I
 
-    add-int/lit16 v3, v3, -0x100
+    add-int/lit16 v4, v4, -0x100
 
-    int-to-float v3, v3
+    int-to-float v4, v4
 
-    invoke-static {v2, v3}, Ljava/lang/Math;->min(FF)F
+    invoke-static {v2, v4}, Ljava/lang/Math;->min(FF)F
 
     move-result v2
 
@@ -5083,182 +5088,166 @@
 
     add-int/lit8 v14, v14, 0x1
 
-    move-object/from16 v2, v27
+    move-object/from16 v2, v26
 
-    move-object/from16 v3, v29
+    move-object/from16 v4, v28
 
-    goto :goto_12b
+    goto :goto_12f
 
-    :cond_168
+    :cond_16c
+    move-object/from16 v28, v4
+
     const-string v2, "persist.sys.k4.slowmo_save_hands"
 
-    const/4 v3, 0x1
+    const/4 v4, 0x1
 
-    invoke-static {v2, v3}, Lcom/k4/media/K4SlowMoExport;->intProperty(Ljava/lang/String;I)I
+    invoke-static {v2, v4}, Lcom/k4/media/K4SlowMoExport;->intProperty(Ljava/lang/String;I)I
 
     move-result v2
-    :try_end_16f
-    .catchall {:try_start_127 .. :try_end_16f} :catchall_3c3
 
-    if-eqz v2, :cond_173
-
-    const/4 v2, 0x1
-
-    goto :goto_175
-
-    :cond_173
-    move/from16 v2, v23
-
-    :goto_175
-    move-object v3, v11
-
-    :try_start_176
     new-array v11, v0, [Z
 
-    move-object v14, v12
+    move-object v4, v12
 
     new-array v12, v0, [Z
-    :try_end_17b
-    .catchall {:try_start_176 .. :try_end_17b} :catchall_3bf
+    :try_end_17a
+    .catchall {:try_start_127 .. :try_end_17a} :catchall_419
 
-    move-object/from16 v27, v9
+    move-object v14, v6
 
-    :try_start_17d
+    move-object v6, v9
+
+    :try_start_17c
     new-array v9, v0, [I
 
-    move/from16 v29, v2
+    move-object/from16 v26, v4
 
-    new-array v2, v0, [I
+    new-array v4, v0, [I
 
-    if-eqz v29, :cond_28c
+    if-lez v2, :cond_2a8
 
-    if-lez v0, :cond_28c
+    if-lez v0, :cond_2a8
 
-    move-object/from16 v29, v2
+    move-object/from16 v29, v4
 
-    new-array v2, v0, [F
+    new-array v4, v0, [F
 
-    move-object/from16 v30, v2
+    move-object/from16 v30, v4
 
-    move/from16 v2, v23
+    move/from16 v4, v22
 
-    :goto_18f
-    if-ge v2, v0, :cond_1be
+    :goto_18e
+    if-ge v4, v0, :cond_1bd
 
-    invoke-virtual {v6, v2}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
-
-    move-result-object v31
-
-    check-cast v31, [I
-    :try_end_197
-    .catchall {:try_start_17d .. :try_end_197} :catchall_3b9
-
-    move-object/from16 v32, v3
-
-    :try_start_199
-    aget v3, v31, v23
-
-    invoke-virtual {v6, v2}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+    invoke-virtual {v3, v4}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
     move-result-object v31
 
     check-cast v31, [I
 
-    move/from16 v33, v2
+    move/from16 v32, v5
 
-    const/16 v26, 0x1
+    aget v5, v31, v22
 
-    aget v2, v31, v26
+    invoke-virtual {v3, v4}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
-    invoke-static {v3, v2}, Lcom/k4/media/K4SlowMoExport;->key(II)J
+    move-result-object v31
 
-    move-result-wide v2
+    check-cast v31, [I
 
-    invoke-static {v2, v3}, Ljava/lang/Long;->valueOf(J)Ljava/lang/Long;
+    move/from16 v33, v4
 
-    move-result-object v2
+    const/16 v25, 0x1
 
-    invoke-virtual {v10, v2}, Ljava/util/HashMap;->get(Ljava/lang/Object;)Ljava/lang/Object;
+    aget v4, v31, v25
 
-    move-result-object v2
+    invoke-static {v5, v4}, Lcom/k4/media/K4SlowMoExport;->key(II)J
 
-    check-cast v2, [F
+    move-result-wide v4
 
-    aget v2, v2, v23
+    invoke-static {v4, v5}, Ljava/lang/Long;->valueOf(J)Ljava/lang/Long;
 
-    aput v2, v30, v33
+    move-result-object v4
 
-    add-int/lit8 v2, v33, 0x1
+    invoke-virtual {v10, v4}, Ljava/util/HashMap;->get(Ljava/lang/Object;)Ljava/lang/Object;
 
-    move-object/from16 v3, v32
+    move-result-object v4
 
-    goto :goto_18f
+    check-cast v4, [F
 
-    :cond_1be
-    move-object/from16 v32, v3
+    aget v4, v4, v22
+
+    aput v4, v30, v33
+
+    add-int/lit8 v4, v33, 0x1
+
+    move/from16 v5, v32
+
+    goto :goto_18e
+
+    :cond_1bd
+    move/from16 v32, v5
 
     invoke-virtual/range {v30 .. v30}, [F->clone()Ljava/lang/Object;
 
-    move-result-object v2
+    move-result-object v4
 
-    check-cast v2, [F
+    check-cast v4, [F
 
-    invoke-static {v2}, Ljava/util/Arrays;->sort([F)V
+    invoke-static {v4}, Ljava/util/Arrays;->sort([F)V
 
-    div-int/lit8 v3, v0, 0x2
+    add-int/lit8 v5, v0, -0x1
 
-    aget v3, v2, v3
+    mul-int/lit8 v31, v0, 0x3
 
-    move-object/from16 v31, v2
+    move-object/from16 v33, v4
 
-    add-int/lit8 v2, v0, -0x1
+    const/16 v34, 0x4
 
-    mul-int/lit8 v33, v0, 0x3
+    div-int/lit8 v4, v31, 0x4
 
-    move/from16 v34, v3
+    invoke-static {v5, v4}, Ljava/lang/Math;->min(II)I
 
-    const/16 v35, 0x4
+    move-result v4
 
-    div-int/lit8 v3, v33, 0x4
+    aget v4, v33, v4
 
-    invoke-static {v2, v3}, Ljava/lang/Math;->min(II)I
+    move/from16 v5, v22
 
-    move-result v2
+    move/from16 v31, v5
 
-    aget v2, v31, v2
+    move/from16 v33, v31
 
-    move/from16 v3, v23
+    :goto_1de
+    if-ge v5, v0, :cond_29f
 
-    :goto_1e1
-    if-ge v3, v0, :cond_290
+    invoke-virtual {v3, v5}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
-    invoke-virtual {v6, v3}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+    move-result-object v35
 
-    move-result-object v31
+    check-cast v35, [I
 
-    check-cast v31, [I
+    move/from16 v36, v0
 
-    move/from16 v33, v0
+    aget v0, v35, v22
 
-    aget v0, v31, v23
+    invoke-virtual {v3, v5}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
-    invoke-virtual {v6, v3}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+    move-result-object v35
 
-    move-result-object v31
+    check-cast v35, [I
 
-    check-cast v31, [I
+    move/from16 v37, v4
 
-    move/from16 v36, v2
+    const/16 v25, 0x1
 
-    const/16 v26, 0x1
+    aget v4, v35, v25
 
-    aget v2, v31, v26
+    invoke-static {v0, v4}, Lcom/k4/media/K4SlowMoExport;->key(II)J
 
-    invoke-static {v0, v2}, Lcom/k4/media/K4SlowMoExport;->key(II)J
+    move-result-wide v38
 
-    move-result-wide v37
-
-    invoke-static/range {v37 .. v38}, Ljava/lang/Long;->valueOf(J)Ljava/lang/Long;
+    invoke-static/range {v38 .. v39}, Ljava/lang/Long;->valueOf(J)Ljava/lang/Long;
 
     move-result-object v0
 
@@ -5268,109 +5257,124 @@
 
     check-cast v0, [F
 
-    array-length v2, v0
+    array-length v4, v0
 
-    move-object/from16 v31, v0
+    move-object/from16 v35, v0
 
     const/4 v0, 0x6
 
-    if-le v2, v0, :cond_226
+    if-le v4, v0, :cond_223
 
-    aget v2, v31, v35
+    aget v4, v35, v22
 
-    aget v37, v31, v23
+    const/16 v27, 0x0
 
-    const/high16 v38, 0x3f000000    # 0.5f
+    cmpl-float v38, v4, v27
 
-    mul-float v38, v38, v37
+    if-lez v38, :cond_223
 
-    cmpl-float v2, v2, v38
+    aget v38, v35, v34
 
-    if-ltz v2, :cond_226
+    const/high16 v39, 0x3f000000    # 0.5f
 
-    cmpl-float v2, v37, v34
+    mul-float v4, v4, v39
 
-    if-ltz v2, :cond_226
+    cmpl-float v4, v38, v4
 
-    const/16 v28, 0x0
+    if-ltz v4, :cond_223
 
-    cmpl-float v2, v37, v28
+    cmpl-float v4, v38, v37
 
-    if-lez v2, :cond_226
+    if-ltz v4, :cond_223
 
-    move/from16 v2, v26
+    move/from16 v4, v25
 
-    goto :goto_228
+    goto :goto_225
 
-    :cond_226
-    move/from16 v2, v23
+    :cond_223
+    move/from16 v4, v22
 
-    :goto_228
-    aput-boolean v2, v11, v3
+    :goto_225
+    aput-boolean v4, v11, v5
 
-    iget v2, v1, Lcom/k4/media/K4SlowMoExport;->mScale:I
+    move/from16 v4, v24
 
-    move/from16 v37, v0
+    if-lt v2, v4, :cond_24e
 
-    move/from16 v0, v35
+    move/from16 v24, v0
 
-    if-ne v2, v0, :cond_24b
+    iget v0, v1, Lcom/k4/media/K4SlowMoExport;->mScale:I
 
-    invoke-virtual {v6, v3}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+    move/from16 v38, v4
 
-    move-result-object v2
+    move/from16 v4, v34
 
-    check-cast v2, [I
+    if-ne v0, v4, :cond_254
 
-    aget v2, v2, v20
+    invoke-virtual {v3, v5}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
-    if-nez v2, :cond_24b
+    move-result-object v0
 
-    aget v2, v30, v3
+    check-cast v0, [I
 
-    cmpl-float v35, v2, v36
+    aget v0, v0, v38
 
-    if-ltz v35, :cond_24b
+    if-nez v0, :cond_254
 
-    const/16 v28, 0x0
+    aget v0, v30, v5
 
-    cmpl-float v2, v2, v28
+    cmpl-float v34, v0, v37
 
-    if-lez v2, :cond_24b
+    if-ltz v34, :cond_254
 
-    move/from16 v2, v26
+    const/16 v27, 0x0
 
-    goto :goto_24d
+    cmpl-float v0, v0, v27
 
-    :cond_24b
-    move/from16 v2, v23
+    if-lez v0, :cond_254
 
-    :goto_24d
-    aput-boolean v2, v12, v3
+    move/from16 v0, v25
 
-    aget-boolean v2, v11, v3
+    goto :goto_256
 
-    if-eqz v2, :cond_282
+    :cond_24e
+    move/from16 v24, v0
 
-    const/4 v2, 0x5
+    move/from16 v38, v4
 
-    aget v2, v31, v2
+    move/from16 v4, v34
 
-    sub-float v2, v2, v22
+    :cond_254
+    move/from16 v0, v22
 
-    const/4 v0, 0x0
+    :goto_256
+    aput-boolean v0, v12, v5
 
-    invoke-static {v2, v0}, Ljava/lang/Math;->max(FF)F
+    aget-boolean v0, v11, v5
 
-    move-result v2
+    if-eqz v0, :cond_28d
 
-    iget v0, v1, Lcom/k4/media/K4SlowMoExport;->mWidth:I
+    add-int/lit8 v31, v31, 0x1
 
-    add-int/lit16 v0, v0, -0x100
+    const/4 v0, 0x5
 
-    int-to-float v0, v0
+    aget v0, v35, v0
 
-    invoke-static {v2, v0}, Ljava/lang/Math;->min(FF)F
+    sub-float v0, v0, v21
+
+    const/4 v4, 0x0
+
+    invoke-static {v0, v4}, Ljava/lang/Math;->max(FF)F
+
+    move-result v0
+
+    iget v4, v1, Lcom/k4/media/K4SlowMoExport;->mWidth:I
+
+    add-int/lit16 v4, v4, -0x100
+
+    int-to-float v4, v4
+
+    invoke-static {v0, v4}, Ljava/lang/Math;->min(FF)F
 
     move-result v0
 
@@ -5378,25 +5382,25 @@
 
     and-int/lit8 v0, v0, -0x2
 
-    aput v0, v9, v3
+    aput v0, v9, v5
 
-    aget v0, v31, v37
+    aget v0, v35, v24
 
-    sub-float v0, v0, v22
+    sub-float v0, v0, v21
 
-    const/4 v2, 0x0
+    const/4 v4, 0x0
 
-    invoke-static {v0, v2}, Ljava/lang/Math;->max(FF)F
+    invoke-static {v0, v4}, Ljava/lang/Math;->max(FF)F
 
     move-result v0
 
-    iget v2, v1, Lcom/k4/media/K4SlowMoExport;->mHeight:I
+    iget v4, v1, Lcom/k4/media/K4SlowMoExport;->mHeight:I
 
-    add-int/lit16 v2, v2, -0x100
+    add-int/lit16 v4, v4, -0x100
 
-    int-to-float v2, v2
+    int-to-float v4, v4
 
-    invoke-static {v0, v2}, Ljava/lang/Math;->min(FF)F
+    invoke-static {v0, v4}, Ljava/lang/Math;->min(FF)F
 
     move-result v0
 
@@ -5404,48 +5408,106 @@
 
     and-int/lit8 v0, v0, -0x2
 
-    aput v0, v29, v3
+    aput v0, v29, v5
 
-    :cond_282
-    add-int/lit8 v3, v3, 0x1
+    :cond_28d
+    aget-boolean v0, v12, v5
 
-    move/from16 v0, v33
+    if-eqz v0, :cond_293
 
-    move/from16 v2, v36
+    add-int/lit8 v33, v33, 0x1
 
-    const/16 v35, 0x4
+    :cond_293
+    add-int/lit8 v5, v5, 0x1
 
-    goto/16 :goto_1e1
+    move/from16 v0, v36
 
-    :cond_28c
-    move-object/from16 v29, v2
+    move/from16 v4, v37
 
-    move-object/from16 v32, v3
+    move/from16 v24, v38
 
-    :cond_290
-    const/16 v26, 0x1
+    const/16 v34, 0x4
+
+    goto/16 :goto_1de
+
+    :cond_29f
+    move/from16 v38, v24
+
+    const/16 v25, 0x1
+
+    move/from16 v0, v31
+
+    move/from16 v4, v33
+
+    goto :goto_2b3
+
+    :cond_2a8
+    move-object/from16 v29, v4
+
+    move/from16 v32, v5
+
+    move/from16 v38, v24
+
+    const/16 v25, 0x1
+
+    move/from16 v0, v22
+
+    move v4, v0
+
+    :goto_2b3
+    new-instance v5, Ljava/lang/StringBuilder;
+
+    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v10, "hands "
+
+    invoke-virtual {v5, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v5, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v2, ": "
+
+    invoke-virtual {v5, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v5, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v0, " second crops, "
+
+    invoke-virtual {v5, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v5, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v0, " pairs with FILM quarters"
+
+    invoke-virtual {v5, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    iput-object v0, v1, Lcom/k4/media/K4SlowMoExport;->mHandsNote:Ljava/lang/String;
 
     iput v13, v1, Lcom/k4/media/K4SlowMoExport;->mExpected:I
 
     iget-boolean v0, v1, Lcom/k4/media/K4SlowMoExport;->mAudio:Z
-    :try_end_296
-    .catchall {:try_start_199 .. :try_end_296} :catchall_3b7
+    :try_end_2df
+    .catchall {:try_start_17c .. :try_end_2df} :catchall_415
 
-    if-eqz v0, :cond_2bd
+    if-eqz v0, :cond_306
 
-    :try_start_298
+    :try_start_2e1
     invoke-direct {v1}, Lcom/k4/media/K4SlowMoExport;->prepareAudio()V
-    :try_end_29b
-    .catchall {:try_start_298 .. :try_end_29b} :catchall_29c
+    :try_end_2e4
+    .catchall {:try_start_2e1 .. :try_end_2e4} :catchall_2e5
 
-    goto :goto_2bd
+    goto :goto_306
 
-    :catchall_29c
+    :catchall_2e5
     move-exception v0
 
     const/4 v2, 0x0
 
-    :try_start_29e
+    :try_start_2e7
     iput-object v2, v1, Lcom/k4/media/K4SlowMoExport;->mAudioFormat:Landroid/media/MediaFormat;
 
     iget-object v2, v1, Lcom/k4/media/K4SlowMoExport;->mAudioData:Ljava/util/ArrayList;
@@ -5460,9 +5522,9 @@
 
     invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
 
-    const-string v3, "audio left out: "
+    const-string v4, "audio left out: "
 
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/Object;)Ljava/lang/StringBuilder;
 
@@ -5471,65 +5533,70 @@
     move-result-object v0
 
     iput-object v0, v1, Lcom/k4/media/K4SlowMoExport;->mAudioNote:Ljava/lang/String;
-    :try_end_2bd
-    .catchall {:try_start_29e .. :try_end_2bd} :catchall_3b7
+    :try_end_306
+    .catchall {:try_start_2e7 .. :try_end_306} :catchall_415
 
-    :cond_2bd
-    :goto_2bd
+    :cond_306
+    :goto_306
     const/4 v2, 0x3
 
-    :try_start_2be
+    :try_start_307
     new-array v13, v2, [D
-    :try_end_2c0
-    .catchall {:try_start_2be .. :try_end_2c0} :catchall_3b2
+    :try_end_309
+    .catchall {:try_start_307 .. :try_end_309} :catchall_410
 
-    move/from16 v21, v2
+    move/from16 v20, v2
 
-    :try_start_2c2
-    filled-new-array/range {v23 .. v23}, [I
+    :try_start_30b
+    filled-new-array/range {v22 .. v22}, [I
 
     move-result-object v2
+    :try_end_30f
+    .catchall {:try_start_30b .. :try_end_30f} :catchall_40c
 
-    move-object v3, v14
+    move-object v4, v14
 
-    filled-new-array/range {v23 .. v23}, [I
+    :try_start_310
+    filled-new-array/range {v22 .. v22}, [I
 
     move-result-object v14
 
     new-instance v0, Lcom/k4/media/K4SlowMoExport$7;
-    :try_end_2cd
-    .catchall {:try_start_2c2 .. :try_end_2cd} :catchall_3ae
+    :try_end_316
+    .catchall {:try_start_310 .. :try_end_316} :catchall_404
 
-    move-object/from16 v40, v3
+    move-object/from16 v20, v4
 
-    move-object v3, v6
+    move-object/from16 v40, v23
 
-    move-object/from16 v39, v24
+    move-object/from16 v41, v26
 
-    move-object/from16 v6, v27
+    move-object/from16 v4, v28
 
     move-object/from16 v10, v29
 
-    :try_start_2d6
+    move/from16 v5, v32
+
+    :try_start_322
     invoke-direct/range {v0 .. v15}, Lcom/k4/media/K4SlowMoExport$7;-><init>(Lcom/k4/media/K4SlowMoExport;[ILjava/util/ArrayList;Ljava/nio/ByteBuffer;ILandroid/os/IBinder;[I[I[I[I[Z[Z[D[II)V
 
     invoke-direct {v1, v4, v5, v0}, Lcom/k4/media/K4SlowMoExport;->decodeSection(Ljava/nio/ByteBuffer;ILcom/k4/media/K4SlowMoExport$FrameSink;)I
 
     move-result v0
 
-    if-ne v0, v15, :cond_373
+    if-ne v0, v15, :cond_3c9
 
-    aget v4, v2, v23
+    aget v4, v2, v22
 
     invoke-virtual {v3}, Ljava/util/ArrayList;->size()I
 
     move-result v5
 
-    if-ne v4, v5, :cond_373
+    if-ne v4, v5, :cond_3c9
 
     invoke-direct {v1}, Lcom/k4/media/K4SlowMoExport;->dequeueInput()I
 
-    move-result v42
+    move-result v27
 
     iget-object v0, v1, Lcom/k4/media/K4SlowMoExport;->mEncoder:Landroid/media/MediaCodec;
 
@@ -5539,17 +5606,17 @@
 
     iget-wide v7, v1, Lcom/k4/media/K4SlowMoExport;->mFrameUs:J
 
-    mul-long v45, v4, v7
+    mul-long v30, v4, v7
 
-    const/16 v47, 0x4
+    const/16 v32, 0x4
 
-    const/16 v43, 0x0
+    const/16 v28, 0x0
 
-    const/16 v44, 0x0
+    const/16 v29, 0x0
 
-    move-object/from16 v41, v0
+    move-object/from16 v26, v0
 
-    invoke-virtual/range {v41 .. v47}, Landroid/media/MediaCodec;->queueInputBuffer(IIIJI)V
+    invoke-virtual/range {v26 .. v32}, Landroid/media/MediaCodec;->queueInputBuffer(IIIJI)V
 
     new-instance v0, Ljava/lang/StringBuilder;
 
@@ -5571,11 +5638,19 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    aget v2, v14, v23
+    aget v2, v14, v22
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    const-string v2, " with FILM), pass 1 "
+    const-string v2, " with FILM; "
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    iget-object v2, v1, Lcom/k4/media/K4SlowMoExport;->mHandsNote:Ljava/lang/String;
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v2, "), pass 1 "
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -5599,7 +5674,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    aget-wide v2, v13, v23
+    aget-wide v2, v13, v22
 
     double-to-int v2, v2
 
@@ -5609,7 +5684,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    aget-wide v2, v13, v26
+    aget-wide v2, v13, v25
 
     double-to-int v2, v2
 
@@ -5619,7 +5694,7 @@
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    aget-wide v2, v13, v20
+    aget-wide v2, v13, v38
 
     double-to-int v2, v2
 
@@ -5634,12 +5709,12 @@
     move-result-object v0
 
     iput-object v0, v1, Lcom/k4/media/K4SlowMoExport;->mOfflineNote:Ljava/lang/String;
-    :try_end_361
-    .catchall {:try_start_2d6 .. :try_end_361} :catchall_3ac
+    :try_end_3b7
+    .catchall {:try_start_322 .. :try_end_3b7} :catchall_402
 
-    if-eqz v6, :cond_36f
+    if-eqz v6, :cond_3c5
 
-    :try_start_363
+    :try_start_3b9
     invoke-static {}, Lcom/k4/media/K4SlowMoExport;->req()Landroid/os/Parcel;
 
     move-result-object v0
@@ -5651,19 +5726,19 @@
     move-result-object v0
 
     invoke-virtual {v0}, Landroid/os/Parcel;->recycle()V
-    :try_end_36f
-    .catchall {:try_start_363 .. :try_end_36f} :catchall_36f
+    :try_end_3c5
+    .catchall {:try_start_3b9 .. :try_end_3c5} :catchall_3c5
 
-    :catchall_36f
-    :cond_36f
-    if-eqz v32, :cond_42e
+    :catchall_3c5
+    :cond_3c5
+    if-eqz v20, :cond_47f
 
-    goto/16 :goto_42b
+    goto/16 :goto_47c
 
-    :cond_373
+    :cond_3c9
     const/4 v4, 0x3
 
-    :try_start_374
+    :try_start_3ca
     new-instance v5, Ljava/lang/IllegalStateException;
 
     new-instance v7, Ljava/lang/StringBuilder;
@@ -5674,11 +5749,11 @@
 
     invoke-virtual {v7, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    aget v2, v2, v23
+    aget v2, v2, v22
 
     invoke-virtual {v7, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    move-object/from16 v2, v39
+    move-object/from16 v2, v40
 
     invoke-virtual {v7, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -5698,9 +5773,9 @@
 
     invoke-virtual {v7, v15}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    move-object/from16 v3, v40
+    move-object/from16 v2, v41
 
-    invoke-virtual {v7, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v7, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     invoke-virtual {v7}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
@@ -5710,89 +5785,76 @@
 
     throw v5
 
-    :catchall_3ac
+    :catchall_402
     move-exception v0
 
-    goto :goto_3d0
+    goto :goto_421
 
-    :catchall_3ae
+    :catchall_404
     move-exception v0
 
-    move/from16 v4, v21
+    move/from16 v42, v20
 
-    goto :goto_3b4
+    move-object/from16 v20, v4
 
-    :catchall_3b2
+    move/from16 v4, v42
+
+    goto :goto_452
+
+    :catchall_40c
+    move-exception v0
+
+    move/from16 v4, v20
+
+    goto :goto_412
+
+    :catchall_410
     move-exception v0
 
     move v4, v2
 
-    :goto_3b4
-    move-object/from16 v6, v27
+    :goto_412
+    move-object/from16 v20, v14
 
-    goto :goto_401
+    goto :goto_452
 
-    :catchall_3b7
+    :catchall_415
     move-exception v0
 
-    goto :goto_3bc
+    move-object/from16 v20, v14
 
-    :catchall_3b9
+    goto :goto_421
+
+    :catchall_419
     move-exception v0
 
-    move-object/from16 v32, v3
+    move-object/from16 v20, v6
 
-    :goto_3bc
-    move-object/from16 v6, v27
+    goto :goto_420
 
-    goto :goto_3d0
-
-    :catchall_3bf
+    :catchall_41d
     move-exception v0
 
-    move-object/from16 v32, v3
+    move-object/from16 v20, v7
 
-    goto :goto_3cf
-
-    :catchall_3c3
-    move-exception v0
-
+    :goto_420
     move-object v6, v9
 
-    move-object/from16 v32, v11
-
-    goto :goto_3d0
-
-    :catchall_3c8
-    move-exception v0
-
-    move-object/from16 v32, v4
-
-    goto :goto_3cf
-
-    :catchall_3cc
-    move-exception v0
-
-    move-object/from16 v32, v7
-
-    :goto_3cf
-    move-object v6, v9
-
-    :goto_3d0
+    :goto_421
     const/4 v4, 0x3
 
-    goto :goto_401
+    goto :goto_452
 
-    :cond_3d2
+    :cond_423
     move v4, v3
 
-    move-object/from16 v32, v7
+    move-object/from16 v20, v7
 
     move-object v6, v9
 
-    move-object v3, v12
+    move-object v2, v12
 
-    new-instance v2, Ljava/lang/IllegalStateException;
+    new-instance v3, Ljava/lang/IllegalStateException;
 
     new-instance v5, Ljava/lang/StringBuilder;
 
@@ -5800,48 +5862,48 @@
 
     invoke-virtual {v5, v15}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v5, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v5, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     invoke-virtual {v5}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v0
 
-    invoke-direct {v2, v0}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
+    invoke-direct {v3, v0}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
 
-    throw v2
-    :try_end_3ec
-    .catchall {:try_start_374 .. :try_end_3ec} :catchall_3ec
+    throw v3
+    :try_end_43d
+    .catchall {:try_start_3ca .. :try_end_43d} :catchall_43d
 
-    :catchall_3ec
+    :catchall_43d
     move-exception v0
 
-    goto :goto_401
+    goto :goto_452
 
-    :catchall_3ee
+    :catchall_43f
     move-exception v0
 
     move v4, v3
 
-    move-object/from16 v32, v7
+    move-object/from16 v20, v7
 
     move-object v6, v9
 
-    goto :goto_401
+    goto :goto_452
 
-    :catchall_3f4
+    :catchall_445
     move-exception v0
 
     move v4, v3
 
-    move-object/from16 v32, v7
+    move-object/from16 v20, v7
 
     const/4 v2, 0x0
 
     move-object v6, v2
 
-    goto :goto_401
+    goto :goto_452
 
-    :catchall_3fb
+    :catchall_44c
     move-exception v0
 
     move v4, v3
@@ -5850,17 +5912,17 @@
 
     move-object v6, v2
 
-    move-object/from16 v32, v6
+    move-object/from16 v20, v6
 
-    :goto_401
-    :try_start_401
+    :goto_452
+    :try_start_452
     iget-boolean v2, v1, Lcom/k4/media/K4SlowMoExport;->mStop:Z
 
-    if-nez v2, :cond_41c
+    if-nez v2, :cond_46d
 
     iget-object v2, v1, Lcom/k4/media/K4SlowMoExport;->mError:Ljava/lang/String;
 
-    if-nez v2, :cond_41c
+    if-nez v2, :cond_46d
 
     new-instance v2, Ljava/lang/StringBuilder;
 
@@ -5877,13 +5939,13 @@
     move-result-object v0
 
     iput-object v0, v1, Lcom/k4/media/K4SlowMoExport;->mError:Ljava/lang/String;
-    :try_end_41c
-    .catchall {:try_start_401 .. :try_end_41c} :catchall_42f
+    :try_end_46d
+    .catchall {:try_start_452 .. :try_end_46d} :catchall_480
 
-    :cond_41c
-    if-eqz v6, :cond_429
+    :cond_46d
+    if-eqz v6, :cond_47a
 
-    :try_start_41e
+    :try_start_46f
     invoke-static {}, Lcom/k4/media/K4SlowMoExport;->req()Landroid/os/Parcel;
 
     move-result-object v0
@@ -5893,25 +5955,25 @@
     move-result-object v0
 
     invoke-virtual {v0}, Landroid/os/Parcel;->recycle()V
-    :try_end_429
-    .catchall {:try_start_41e .. :try_end_429} :catchall_429
+    :try_end_47a
+    .catchall {:try_start_46f .. :try_end_47a} :catchall_47a
 
-    :catchall_429
-    :cond_429
-    if-eqz v32, :cond_42e
+    :catchall_47a
+    :cond_47a
+    if-eqz v20, :cond_47f
 
-    :goto_42b
-    invoke-virtual/range {v32 .. v32}, Landroid/os/SharedMemory;->close()V
+    :goto_47c
+    invoke-virtual/range {v20 .. v20}, Landroid/os/SharedMemory;->close()V
 
-    :cond_42e
+    :cond_47f
     return-void
 
-    :catchall_42f
+    :catchall_480
     move-exception v0
 
-    if-eqz v6, :cond_43d
+    if-eqz v6, :cond_48e
 
-    :try_start_432
+    :try_start_483
     invoke-static {}, Lcom/k4/media/K4SlowMoExport;->req()Landroid/os/Parcel;
 
     move-result-object v1
@@ -5921,16 +5983,16 @@
     move-result-object v1
 
     invoke-virtual {v1}, Landroid/os/Parcel;->recycle()V
-    :try_end_43d
-    .catchall {:try_start_432 .. :try_end_43d} :catchall_43d
+    :try_end_48e
+    .catchall {:try_start_483 .. :try_end_48e} :catchall_48e
 
-    :catchall_43d
-    :cond_43d
-    if-eqz v32, :cond_442
+    :catchall_48e
+    :cond_48e
+    if-eqz v20, :cond_493
 
-    invoke-virtual/range {v32 .. v32}, Landroid/os/SharedMemory;->close()V
+    invoke-virtual/range {v20 .. v20}, Landroid/os/SharedMemory;->close()V
 
-    :cond_442
+    :cond_493
     throw v0
 .end method
 
