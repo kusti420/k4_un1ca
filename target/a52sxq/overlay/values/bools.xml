@@ -5,6 +5,6 @@
     <bool name="config_supportAudioSourceUnprocessed">false</bool>
     <!-- Not a foldable (see arrays.xml) -->
     <bool name="config_unfoldTransitionEnabled">false</bool>
-    <!-- Desktop windowing gives every fullscreen task an app-handle caption window (ShellWindowDecoration) -->
-    <bool name="config_isDesktopModeSupported">false</bool>
+    <!-- Desktop windowing / Samsung DeX back on (9.3.42 test, S26U default); was off on the Fold8 base -->
+    <bool name="config_isDesktopModeSupported">true</bool>
 </resources>
