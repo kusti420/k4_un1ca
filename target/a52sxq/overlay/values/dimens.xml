@@ -31,4 +31,7 @@
          patches/statusbar_icon_size), so clock, battery and status icons keep their FHD+ size; HD+ (was 0.872) and
          540p (was 0.844) become identical to it. Side effect: the ratio no longer rises in landscape. -->
     <dimen name="status_bar_scale_garden_fixed_ratio">0.8588</dimen>
+    <!-- Letterboxed apps (fixed aspect ratio) centred vertically like the A52s stock (S26U product overlay sets 0.5 too,
+         our overlay replaces it, the framework default 0.0 put them at the top). Feature audit 2026-10-16 F3. -->
+    <item name="config_letterboxVerticalPositionMultiplier" format="float" type="dimen">0.5</item>
 </resources>

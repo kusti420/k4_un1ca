@@ -30,3 +30,5 @@ SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_CONFIG_GAME_DEFAULT_F
 if [ ! -f "$SRC_DIR/target/a52sxq/patches/kernel_bone_machine/disable" ]; then
     SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_BATTERY_SUPPORT_PASS_THROUGH" "TRUE"
 fi
+# Glasses (XR projected) support from the S26U Miracle features: no glasses app on this port (feature audit 2026-10-16 F7)
+SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_COMMON_SUPPORT_WEARABLE_GLASSES" --delete
