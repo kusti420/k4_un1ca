@@ -1,0 +1,4 @@
+id=a52sxq_aod_lockscreen_morph_speed
+name=Galaxy A52s 5G: quicker AOD <-> lock screen clock change
+author=kusti420
+description=UNTESTED-ON-DEVICE. UX tuning, not a bug fix. The clock size/shape change between AOD and the lock screen follows SystemUI's dozeAmount animator (StatusBarStateControllerImpl.createDarkAnimator), 500 ms, and the keyguard light reveal (LightRevealScrimInteractor) uses the same 500 ms. On the A52s the first ~200 ms of it fall into AOD plugin teardown on SystemUI's main thread and the rest draws at ~30 fps (9.3.48 log 2026-10-17: morph 54.967 -> 55.549, first drawn step at 55.216), which reads as a slow, steppy change. Both are now 350 ms; the 650 ms home -> AOD reveal and the KeyguardTransition durations are unchanged.
