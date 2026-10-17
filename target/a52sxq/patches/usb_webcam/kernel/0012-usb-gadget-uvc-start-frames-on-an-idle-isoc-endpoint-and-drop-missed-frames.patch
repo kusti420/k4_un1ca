@@ -1,0 +1,758 @@
+From: kusti420 <virtuaalnepannkook@gmail.com>
+Subject: [PATCH] usb: gadget: uvc: start frames on an idle isoc endpoint, drop frames with missed payloads
+
+"Use phone as webcam" delivered corrupted MJPEG frames to the host: at 1080p
+4% of the frames were cut off (no EOI, a whole number of 3070-byte payloads,
+next frame intact) and another 7.5% lacked whole payloads in the middle but
+still ended with EOI (ffmpeg "overread"). Neither was flagged as an error, so
+the host showed them.
+
+The 5.4 gadget keeps 4 requests (500 us of data at 3 x 1024 bytes per
+microframe) queued and refills one per completion, and starts every frame on
+whatever isochronous transfer is running. When a completion is handled late,
+the controller runs out of requests; the requests appended afterwards are
+past their interval and are not sent (missed isoc) until the driver catches
+up or the frame ends. With 0011 they complete with -EXDEV; before, they
+completed as successful.
+
+Scheduling:
+- Queue up to 64 requests (module parameter usb_f_uvc.num_requests, 4..64,
+  read at stream start, default 64 = 192 KiB per burst).
+- Start a frame only on an idle endpoint (the controller owns no request
+  and dwc3 has ended the transfer), and queue all of it in one go with the
+  queue irqlock held, so it can't be preempted half way: dwc3 starts the new
+  transfer 16 microframes after the first request, long after the last one
+  was appended. A 40-60 KB 1080p frame is 15-20 payloads.
+- The completion handler refills only to continue a frame that is larger
+  than the request pool (with up to 63 requests still queued ahead).
+- When the controller owns no request any more, a work item (after dwc3
+  ended the transfer) marks the endpoint idle and starts the next frame.
+
+Missed intervals (as upstream 2a3b7af12047 "usb: gadget: uvc: mark incomplete
+frames with UVC_STREAM_ERR" and ab9ffa51d5a2 "usb: gadget: uvc: dont drop
+frames if zero length packages are late", adapted to dwc3 5.4, where the
+payloads queued after a missed one are missed as well):
+- On the first request completed with -EXDEV, the frame being encoded is not
+  continued (its V4L2 buffer is returned with an error) and nothing more is
+  queued on the late transfer.
+- Once the controller owns no request any more, the work item closes the
+  damaged frame on the host with a header-only payload with the same FID and
+  UVC_STREAM_ERR | UVC_STREAM_EOF, so that the host completes it as
+  erroneous (V4L2_BUF_FLAG_ERROR, or dropped), and streaming resumes with
+  the next FID. If the missed payload was the first of its frame, the next
+  frame reuses the FID instead. If the error payload is missed too, this
+  repeats with the same FID.
+
+uvc_unbind() cancels the work item before the uvc_device can be freed; it is
+not queued once the endpoint is disabled (-ESHUTDOWN completions).
+
+A per-stream summary is logged when streaming stops (frames encoded, frames
+dropped, missed requests, error payloads sent). Diagnostics:
+usb_f_uvc.drop_missed=0 only counts missed requests and completes the frame
+as before.
+
+Used by MonsterROM target/a52sxq/patches/usb_webcam (on top of 0009, 0010
+and 0011).
+---
+diff --git a/drivers/usb/gadget/function/f_uvc.c b/drivers/usb/gadget/function/f_uvc.c
+--- a/drivers/usb/gadget/function/f_uvc.c
++++ b/drivers/usb/gadget/function/f_uvc.c
+@@ -990,6 +990,9 @@
+ 		uvcg_warn(f, "%s: video device still open, freeing it on release\n",
+ 			  __func__);
+ 
++	/* The endpoints are disabled: no completion queues it any more. */
++	cancel_work_sync(&uvc->video.idle_work);
++
+ 	usb_ep_free_request(cdev->gadget->ep0, uvc->control_req);
+ 	kfree(uvc->control_buf);
+ 
+diff --git a/drivers/usb/gadget/function/uvc.h b/drivers/usb/gadget/function/uvc.h
+--- a/drivers/usb/gadget/function/uvc.h
++++ b/drivers/usb/gadget/function/uvc.h
+@@ -13,6 +13,7 @@
+ #include <linux/mutex.h>
+ #include <linux/spinlock.h>
+ #include <linux/wait.h>
++#include <linux/workqueue.h>
+ #include <linux/usb/composite.h>
+ #include <linux/videodev2.h>
+ 
+@@ -66,7 +67,8 @@
+  * Driver specific constants
+  */
+ 
+-#define UVC_NUM_REQUESTS			4
++#define UVC_MIN_NUM_REQUESTS			4
++#define UVC_MAX_NUM_REQUESTS			64
+ #define UVC_MAX_REQUEST_SIZE			64
+ #define UVC_MAX_EVENTS				4
+ 
+@@ -74,6 +76,14 @@
+  * Structures
+  */
+ 
++struct uvc_video;
++
++/* usb_request context */
++struct uvc_request {
++	struct uvc_video *video;
++	bool first;		/* carries the first payload of a frame */
++};
++
+ struct uvc_video {
+ 	struct uvc_device *uvc;
+ 	struct usb_ep *ep;
+@@ -89,11 +99,30 @@
+ 	/* Requests */
+ 	bool is_enabled; /* tracks whether video stream is enabled */
+ 	unsigned int req_size;
+-	struct usb_request *req[UVC_NUM_REQUESTS];
+-	__u8 *req_buffer[UVC_NUM_REQUESTS];
++	unsigned int num_requests;
++	struct usb_request *req[UVC_MAX_NUM_REQUESTS];
++	__u8 *req_buffer[UVC_MAX_NUM_REQUESTS];
+ 	struct list_head req_free;
+ 	spinlock_t req_lock;
+ 
++	/*
++	 * Isochronous scheduling and missed transfers, protected by
++	 * queue.irqlock. See uvcg_video_pump() and uvc_video_missed() in
++	 * uvc_video.c.
++	 */
++	unsigned int in_flight;	/* requests owned by the controller */
++	bool ep_idle;		/* controller owns nothing, transfer ended */
++	bool recover;		/* a payload was missed, waiting for the drain */
++	bool recover_err;	/* close the frame with an error payload */
++	u8 recover_fid;		/* FID of the frame that lost a payload */
++	struct work_struct idle_work;
++
++	/* Per-stream statistics, protected by queue.irqlock */
++	unsigned int stat_frames;	/* frames encoded completely */
++	unsigned int stat_dropped;	/* frames dropped after a missed payload */
++	unsigned int stat_missed;	/* requests completed with -EXDEV */
++	unsigned int stat_markers;	/* error payloads sent */
++
+ 	void (*encode) (struct usb_request *req, struct uvc_video *video,
+ 			struct uvc_buffer *buf);
+ 
+diff --git a/drivers/usb/gadget/function/uvc_video.c b/drivers/usb/gadget/function/uvc_video.c
+--- a/drivers/usb/gadget/function/uvc_video.c
++++ b/drivers/usb/gadget/function/uvc_video.c
+@@ -7,8 +7,10 @@
+  */
+ 
+ #include <linux/kernel.h>
++#include <linux/delay.h>
+ #include <linux/device.h>
+ #include <linux/errno.h>
++#include <linux/moduleparam.h>
+ #include <linux/usb/ch9.h>
+ #include <linux/usb/gadget.h>
+ #include <linux/usb/video.h>
+@@ -19,6 +21,27 @@
+ #include "uvc_queue.h"
+ #include "uvc_video.h"
+ 
++/*
++ * Number of USB requests per stream. With high-bandwidth isochronous
++ * endpoints (3 x 1024 bytes per microframe) 64 requests hold 192 KiB, i.e. a
++ * whole MJPEG frame is handed to the controller at once and the controller
++ * has several milliseconds of data queued while the completion handler
++ * refills it. Read when the stream is enabled.
++ */
++static unsigned int uvc_num_requests = UVC_MAX_NUM_REQUESTS;
++module_param_named(num_requests, uvc_num_requests, uint, 0644);
++MODULE_PARM_DESC(num_requests, "USB requests per video stream (4-64)");
++
++/*
++ * Diagnostics only: with drop_missed=0, a frame that lost a payload to a
++ * missed isochronous interval is still completed normally (the host then
++ * receives it truncated, the behaviour before missed transfers were
++ * handled); the missed requests are only counted.
++ */
++static bool uvc_drop_missed = true;
++module_param_named(drop_missed, uvc_drop_missed, bool, 0644);
++MODULE_PARM_DESC(drop_missed, "Drop frames that lost a payload to a missed isochronous interval");
++
+ /* --------------------------------------------------------------------------
+  * Video codecs
+  */
+@@ -79,12 +102,14 @@
+ 
+ 	req->length = video->req_size - len;
+ 	req->zero = video->payload_size == video->max_payload_size;
++	((struct uvc_request *)req->context)->first = false;
+ 
+ 	if (buf->bytesused == video->queue.buf_used) {
+ 		video->queue.buf_used = 0;
+ 		buf->state = UVC_BUF_STATE_DONE;
+ 		uvcg_queue_next_buffer(&video->queue, buf);
+ 		video->fid ^= UVC_STREAM_FID;
++		video->stat_frames++;
+ 
+ 		video->payload_size = 0;
+ 	}
+@@ -98,10 +123,13 @@
+ uvc_video_encode_isoc(struct usb_request *req, struct uvc_video *video,
+ 		struct uvc_buffer *buf)
+ {
++	struct uvc_request *ureq = req->context;
+ 	void *mem = req->buf;
+ 	int len = video->req_size;
+ 	int ret;
+ 
++	ureq->first = video->queue.buf_used == 0;
++
+ 	/* Add the header. */
+ 	ret = uvc_video_encode_header(video, buf, mem, len);
+ 	mem += ret;
+@@ -118,6 +146,7 @@
+ 		buf->state = UVC_BUF_STATE_DONE;
+ 		uvcg_queue_next_buffer(&video->queue, buf);
+ 		video->fid ^= UVC_STREAM_FID;
++		video->stat_frames++;
+ 	}
+ }
+ 
+@@ -125,11 +154,14 @@
+  * Request handling
+  */
+ 
++/* Called with video->queue.irqlock held. */
+ static int uvcg_video_ep_queue(struct uvc_video *video, struct usb_request *req)
+ {
+ 	int ret;
+ 
+ 	ret = usb_ep_queue(video->ep, req, GFP_ATOMIC);
++	if (ret == 0)
++		video->in_flight++;
+ 	if (ret < 0) {
+ 		uvcg_err(&video->uvc->func, "Failed to queue request (%d).\n",
+ 			 ret);
+@@ -152,10 +184,234 @@
+ static void
+ uvc_video_free_request(struct usb_request *req, struct usb_ep *ep)
+ {
++	kfree(req->context);
+ 	kfree(req->buf);
+ 	usb_ep_free_request(ep, req);
+ }
+ 
++/* Give a request back to req_free, or free it if the stream was disabled. */
++static void
++uvc_video_put_request(struct uvc_video *video, struct usb_request *req)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&video->req_lock, flags);
++	/*
++	 * The video stream might have been disabled while we were processing
++	 * the current usb_request, so make sure we're still streaming before
++	 * putting it back on req_free.
++	 */
++	if (video->is_enabled)
++		list_add_tail(&req->list, &video->req_free);
++	else
++		uvc_video_free_request(req, video->ep);
++	spin_unlock_irqrestore(&video->req_lock, flags);
++}
++
++/*
++ * Isochronous scheduling
++ *
++ * dwc3 schedules the requests of an isochronous transfer on consecutive
++ * (micro)frame intervals. A request appended after the controller ran out of
++ * requests is late: its interval has passed, it completes with -EXDEV (since
++ * 0011, as successful before) and its payload is never sent. The requests
++ * appended after it are late as well until the driver catches up, so a frame
++ * loses its tail (truncated frame) or payloads in the middle (corrupted frame
++ * that still has its EOF), and the host can't tell either from a good frame.
++ *
++ * The 5.4 driver started each frame on whatever transfer was running and kept
++ * 4 requests (500 us at 3 KiB per microframe) queued, refilled one per
++ * completion, i.e. it relied on every completion being handled within 500 us.
++ * Now:
++ * - a frame is only started on an idle endpoint (the controller owns no
++ *   request and dwc3 has ended the transfer). uvcg_video_pump() then queues
++ *   all of it, up to num_requests payloads, in one go with the irqlock held;
++ *   dwc3 starts the new transfer 16 microframes after the first request was
++ *   queued, long after the last one was appended;
++ * - the completion handler only refills to continue a frame larger than the
++ *   request pool, with up to num_requests - 1 requests still queued ahead;
++ * - when the controller owns no request any more, uvc_video_idle_work()
++ *   marks the endpoint idle and starts the next frame, if one is queued.
++ *
++ * Missed intervals
++ *
++ * Should a payload still be missed, the frame is dropped (upstream does the
++ * same since 2a3b7af12047 "usb: gadget: uvc: mark incomplete frames with
++ * UVC_STREAM_ERR"). On the first missed request:
++ * - the frame being encoded is not continued: its V4L2 buffer is returned
++ *   with an error and nothing more is queued on the late transfer;
++ * - once the controller owns no request any more, uvc_video_idle_work()
++ *   closes the damaged frame on the host side with a header-only payload
++ *   carrying its FID and the UVC_STREAM_ERR and UVC_STREAM_EOF bits, so that
++ *   the host completes it as erroneous and drops it, then streaming resumes
++ *   with the next buffer and the next FID on a new transfer.
++ * If the missed payload was the first one of its frame, the host has nothing
++ * of that frame and the error payload is not needed; the next frame then
++ * reuses the FID. If the error payload itself is missed, the same happens
++ * again with the same FID: the frame stays open on the host until an error
++ * payload got through.
++ *
++ * Called with video->queue.irqlock held.
++ */
++static void uvc_video_missed(struct uvc_video *video, struct usb_request *req)
++{
++	struct uvc_request *ureq = req->context;
++	struct uvc_video_queue *queue = &video->queue;
++	struct uvc_buffer *buf;
++	u8 fid;
++
++	if (video->recover || video->max_payload_size || req->length < 2)
++		return;
++
++	fid = ((u8 *)req->buf)[1] & UVC_STREAM_FID;
++
++	video->recover = true;
++	video->recover_fid = fid;
++	video->recover_err = !ureq->first;
++	video->stat_dropped++;
++
++	if (queue->buf_used && !list_empty(&queue->irqqueue)) {
++		buf = list_first_entry(&queue->irqqueue, struct uvc_buffer,
++				       queue);
++		list_del(&buf->queue);
++		buf->state = UVC_BUF_STATE_ERROR;
++		vb2_buffer_done(&buf->buf.vb2_buf, VB2_BUF_STATE_ERROR);
++		queue->buf_used = 0;
++		/* The frame after the damaged one was already started. */
++		if ((video->fid & UVC_STREAM_FID) != fid)
++			video->stat_dropped++;
++	}
++
++	if (video->stat_dropped <= 2)
++		uvcg_info(&video->uvc->func,
++			  "missed isochronous transfer, dropping frame\n");
++}
++
++/*
++ * Fill and queue requests, called with video->queue.irqlock held.
++ *
++ * @burst: the endpoint is idle, so frames may be started. Otherwise only a
++ * frame that is already being sent is continued.
++ *
++ * Returns true if queueing failed and the video queue must be cancelled
++ * (after releasing the irqlock).
++ */
++static bool __uvcg_video_pump(struct uvc_video *video, bool burst)
++{
++	struct uvc_video_queue *queue = &video->queue;
++	bool isoc = !video->max_payload_size;
++	struct usb_request *req;
++	struct uvc_buffer *buf;
++
++	/* Nothing to do if the streaming endpoint is not enabled. */
++	while (video->ep->enabled && !video->recover) {
++		buf = uvcg_queue_head(queue);
++		if (buf == NULL)
++			break;
++
++		/* Never start a frame on a running isochronous transfer. */
++		if (isoc && !burst && queue->buf_used == 0)
++			break;
++
++		spin_lock(&video->req_lock);
++		if (!video->is_enabled || list_empty(&video->req_free)) {
++			spin_unlock(&video->req_lock);
++			break;
++		}
++		req = list_first_entry(&video->req_free, struct usb_request,
++					list);
++		list_del(&req->list);
++		spin_unlock(&video->req_lock);
++
++		video->encode(req, video, buf);
++
++		/* Queue the USB request; the endpoint then owns it. */
++		if (uvcg_video_ep_queue(video, req) < 0) {
++			spin_lock(&video->req_lock);
++			if (video->is_enabled)
++				list_add_tail(&req->list, &video->req_free);
++			else
++				uvc_video_free_request(req, video->ep);
++			spin_unlock(&video->req_lock);
++			if (!video->in_flight)
++				video->ep_idle = true;
++			return true;
++		}
++		video->ep_idle = false;
++	}
++
++	return false;
++}
++
++static void uvc_video_idle_work(struct work_struct *work)
++{
++	struct uvc_video *video = container_of(work, struct uvc_video,
++					       idle_work);
++	struct uvc_video_queue *queue = &video->queue;
++	struct usb_request *req = NULL;
++	unsigned long flags;
++	bool cancel;
++	u8 *data;
++
++	/*
++	 * The completion handler gave back the last request the controller
++	 * owned; dwc3 ends the isochronous transfer as soon as that handler
++	 * returns, and starts a new one for the next request queued.
++	 */
++	usleep_range(500, 1000);
++
++	spin_lock_irqsave(&queue->irqlock, flags);
++	if (video->in_flight) {
++		/* Its completion queues this work again. */
++		spin_unlock_irqrestore(&queue->irqlock, flags);
++		return;
++	}
++	video->ep_idle = true;
++
++	if (video->recover && video->recover_err) {
++		spin_lock(&video->req_lock);
++		if (video->is_enabled && !list_empty(&video->req_free)) {
++			req = list_first_entry(&video->req_free,
++					       struct usb_request, list);
++			list_del(&req->list);
++		}
++		spin_unlock(&video->req_lock);
++		if (!req) {
++			/* The stream is being disabled. */
++			spin_unlock_irqrestore(&queue->irqlock, flags);
++			return;
++		}
++
++		((struct uvc_request *)req->context)->first = false;
++		data = req->buf;
++		data[0] = 2;
++		data[1] = UVC_STREAM_EOH | UVC_STREAM_ERR | UVC_STREAM_EOF |
++			  video->recover_fid;
++		req->length = 2;
++
++		if (uvcg_video_ep_queue(video, req) < 0) {
++			/* Endpoint disabled: the stream is being stopped. */
++			spin_unlock_irqrestore(&queue->irqlock, flags);
++			uvc_video_put_request(video, req);
++			return;
++		}
++		video->ep_idle = false;
++		video->stat_markers++;
++		video->fid = video->recover_fid ^ UVC_STREAM_FID;
++		video->recover = false;
++	} else if (video->recover) {
++		video->fid = video->recover_fid;
++		video->recover = false;
++	}
++
++	/* Same transfer as the error payload, if any. */
++	cancel = __uvcg_video_pump(video, true);
++	spin_unlock_irqrestore(&queue->irqlock, flags);
++
++	if (cancel)
++		uvcg_queue_cancel(queue, 0);
++}
++
+ /*
+  * I somehow feel that synchronisation won't be easy to achieve here. We have
+  * three events that control USB requests submission:
+@@ -189,10 +445,12 @@
+ static void
+ uvc_video_complete(struct usb_ep *ep, struct usb_request *req)
+ {
+-	struct uvc_video *video = req->context;
++	struct uvc_request *ureq = req->context;
++	struct uvc_video *video = ureq->video;
+ 	struct uvc_video_queue *queue = &video->queue;
+ 	struct uvc_buffer *buf;
+ 	unsigned long flags;
++	bool idle = false;
+ 	int ret;
+ 
+ 	spin_lock_irqsave(&video->req_lock, flags);
+@@ -207,16 +465,36 @@
+ 	}
+ 	spin_unlock_irqrestore(&video->req_lock, flags);
+ 
++	spin_lock_irqsave(&queue->irqlock, flags);
++	if (video->in_flight)
++		video->in_flight--;
++
+ 	switch (req->status) {
+ 	case 0:
+ 		break;
+ 
++	case -EXDEV:	/* missed isochronous interval, nothing was sent */
++		uvcg_dbg(&video->uvc->func, "VS request missed xfer.\n");
++		if (req->length == 0)
++			break;
++		video->stat_missed++;
++		if (uvc_drop_missed)
++			uvc_video_missed(video, req);
++		break;
++
+ 	case -ESHUTDOWN:	/* disconnect from host. */
++		/*
++		 * The endpoint is being disabled: no idle work (enabling the
++		 * stream again resets ep_idle).
++		 */
++		spin_unlock_irqrestore(&queue->irqlock, flags);
+ 		uvcg_dbg(&video->uvc->func, "VS request cancelled.\n");
+ 		uvcg_queue_cancel(queue, 1);
+ 		goto requeue;
+ 
+ 	default:
++		idle = video->in_flight == 0;
++		spin_unlock_irqrestore(&queue->irqlock, flags);
+ 		uvcg_warn(&video->uvc->func,
+ 			  "VS request completed with status %d.\n",
+ 			  req->status);
+@@ -224,37 +502,34 @@
+ 		goto requeue;
+ 	}
+ 
+-	spin_lock_irqsave(&video->queue.irqlock, flags);
+-	buf = uvcg_queue_head(&video->queue);
+-	if (buf == NULL) {
+-		spin_unlock_irqrestore(&video->queue.irqlock, flags);
+-		goto requeue;
+-	}
+-
+-	video->encode(req, video, buf);
++	/*
++	 * Only continue a frame that is being sent (a frame larger than the
++	 * request pool): new frames are started on an idle endpoint, and
++	 * nothing is queued on a transfer that missed an interval.
++	 */
++	buf = uvcg_queue_head(queue);
++	if (!video->recover && buf &&
++	    (video->max_payload_size || queue->buf_used)) {
++		video->encode(req, video, buf);
+ 
+-	ret = uvcg_video_ep_queue(video, req);
+-	spin_unlock_irqrestore(&video->queue.irqlock, flags);
++		ret = uvcg_video_ep_queue(video, req);
++		idle = ret < 0 && video->in_flight == 0;
++		spin_unlock_irqrestore(&queue->irqlock, flags);
+ 
+-	if (ret < 0) {
+-		uvcg_queue_cancel(queue, 0);
+-		goto requeue;
++		if (ret < 0) {
++			uvcg_queue_cancel(queue, 0);
++			goto requeue;
++		}
++		return;
+ 	}
+ 
+-	return;
++	idle = video->in_flight == 0;
++	spin_unlock_irqrestore(&queue->irqlock, flags);
+ 
+ requeue:
+-	spin_lock_irqsave(&video->req_lock, flags);
+-	/*
+-	 * The video stream might have been disabled while we were processing
+-	 * the current usb_request, so make sure we're still streaming before
+-	 * putting it back on req_free.
+-	 */
+-	if (video->is_enabled)
+-		list_add_tail(&req->list, &video->req_free);
+-	else
+-		uvc_video_free_request(req, ep);
+-	spin_unlock_irqrestore(&video->req_lock, flags);
++	uvc_video_put_request(video, req);
++	if (idle)
++		queue_work(system_highpri_wq, &video->idle_work);
+ }
+ 
+ static int
+@@ -262,8 +537,9 @@
+ {
+ 	unsigned int i;
+ 
+-	for (i = 0; i < UVC_NUM_REQUESTS; ++i) {
++	for (i = 0; i < UVC_MAX_NUM_REQUESTS; ++i) {
+ 		if (video->req[i]) {
++			kfree(video->req[i]->context);
+ 			usb_ep_free_request(video->ep, video->req[i]);
+ 			video->req[i] = NULL;
+ 		}
+@@ -292,7 +568,9 @@
+ 		 * max_t(unsigned int, video->ep->maxburst, 1)
+ 		 * (video->ep->mult);
+ 
+-	for (i = 0; i < UVC_NUM_REQUESTS; ++i) {
++	for (i = 0; i < video->num_requests; ++i) {
++		struct uvc_request *ureq;
++
+ 		video->req_buffer[i] = kmalloc(req_size, GFP_KERNEL);
+ 		if (video->req_buffer[i] == NULL)
+ 			goto error;
+@@ -301,10 +579,15 @@
+ 		if (video->req[i] == NULL)
+ 			goto error;
+ 
++		ureq = kzalloc(sizeof(*ureq), GFP_KERNEL);
++		video->req[i]->context = ureq;
++		if (ureq == NULL)
++			goto error;
++		ureq->video = video;
++
+ 		video->req[i]->buf = video->req_buffer[i];
+ 		video->req[i]->length = 0;
+ 		video->req[i]->complete = uvc_video_complete;
+-		video->req[i]->context = video;
+ 
+ 		list_add_tail(&video->req[i]->list, &video->req_free);
+ 	}
+@@ -331,66 +614,21 @@
+ int uvcg_video_pump(struct uvc_video *video)
+ {
+ 	struct uvc_video_queue *queue = &video->queue;
+-	struct usb_request *req = NULL;
+-	struct uvc_buffer *buf;
+ 	unsigned long flags;
+-	int ret;
++	bool cancel;
+ 
+ 	/*
+-	 * Callers (qbuf, streamon) are serialised against uvcg_video_enable()
+-	 * by video->mutex; the completion handler only touches requests it
+-	 * owns, under req_lock / queue->irqlock.
++	 * Callers (qbuf, streamon) may run concurrently with the completion
++	 * handler and uvc_video_idle_work(): requests are taken from req_free
++	 * under req_lock, and filled and queued under queue->irqlock, which is
++	 * held for the whole burst so that a frame isn't preempted half way.
+ 	 */
++	spin_lock_irqsave(&queue->irqlock, flags);
++	cancel = __uvcg_video_pump(video, video->ep_idle);
++	spin_unlock_irqrestore(&queue->irqlock, flags);
+ 
+-	/* Nothing to do if the streaming endpoint is not enabled. */
+-	while (video->ep->enabled) {
+-		/* Check is_enabled and retrieve the first available USB
+-		 * request, protected by the request lock.
+-		 */
+-		spin_lock_irqsave(&video->req_lock, flags);
+-		if (!video->is_enabled || list_empty(&video->req_free)) {
+-			spin_unlock_irqrestore(&video->req_lock, flags);
+-			return 0;
+-		}
+-		req = list_first_entry(&video->req_free, struct usb_request,
+-					list);
+-		list_del(&req->list);
+-		spin_unlock_irqrestore(&video->req_lock, flags);
+-
+-		/* Retrieve the first available video buffer and fill the
+-		 * request, protected by the video queue irqlock.
+-		 */
+-		spin_lock_irqsave(&queue->irqlock, flags);
+-		buf = uvcg_queue_head(queue);
+-		if (buf == NULL) {
+-			spin_unlock_irqrestore(&queue->irqlock, flags);
+-			break;
+-		}
+-
+-		video->encode(req, video, buf);
+-
+-		/* Queue the USB request */
+-		ret = uvcg_video_ep_queue(video, req);
+-		spin_unlock_irqrestore(&queue->irqlock, flags);
+-
+-		if (ret < 0) {
+-			uvcg_queue_cancel(queue, 0);
+-			break;
+-		}
+-
+-		/* Endpoint now owns the request */
+-		req = NULL;
+-	}
+-
+-	if (!req)
+-		return 0;
+-
+-	spin_lock_irqsave(&video->req_lock, flags);
+-	if (video->is_enabled)
+-		list_add_tail(&req->list, &video->req_free);
+-	else
+-		uvc_video_free_request(req, video->ep);
+-	spin_unlock_irqrestore(&video->req_lock, flags);
++	if (cancel)
++		uvcg_queue_cancel(queue, 0);
+ 	return 0;
+ }
+ 
+@@ -399,6 +637,7 @@
+  */
+ int uvcg_video_enable(struct uvc_video *video, int enable)
+ {
++	unsigned int frames, dropped, missed, markers;
+ 	struct usb_request *req, *temp;
+ 	unsigned long flags;
+ 	unsigned int i;
+@@ -425,7 +664,7 @@
+ 			uvc_video_free_request(req, video->ep);
+ 		}
+ 
+-		for (i = 0; i < UVC_NUM_REQUESTS; ++i) {
++		for (i = 0; i < UVC_MAX_NUM_REQUESTS; ++i) {
+ 			video->req[i] = NULL;
+ 			video->req_buffer[i] = NULL;
+ 		}
+@@ -433,6 +672,23 @@
+ 		video->req_size = 0;
+ 		spin_unlock_irqrestore(&video->req_lock, flags);
+ 
++		/* The idle work doesn't take video->mutex. */
++		cancel_work_sync(&video->idle_work);
++
++		spin_lock_irqsave(&video->queue.irqlock, flags);
++		frames = video->stat_frames;
++		dropped = video->stat_dropped;
++		missed = video->stat_missed;
++		markers = video->stat_markers;
++		video->stat_frames = video->stat_dropped = 0;
++		video->stat_missed = video->stat_markers = 0;
++		video->recover = false;
++		spin_unlock_irqrestore(&video->queue.irqlock, flags);
++		if (frames || missed)
++			uvcg_info(&video->uvc->func,
++				  "stream stopped: %u frames, %u dropped, %u missed requests, %u error payloads\n",
++				  frames, dropped, missed, markers);
++
+ 		uvcg_queue_cancel(&video->queue, 0);
+ 		uvcg_queue_enable(&video->queue, 0);
+ 		return 0;
+@@ -444,6 +700,14 @@
+ 	 * handling thread will become active until this function returns.
+ 	 */
+ 	video->is_enabled = true;
++	video->num_requests = clamp_t(unsigned int, uvc_num_requests,
++				      UVC_MIN_NUM_REQUESTS,
++				      UVC_MAX_NUM_REQUESTS);
++	video->in_flight = 0;
++	video->ep_idle = true;
++	video->recover = false;
++	video->stat_frames = video->stat_dropped = 0;
++	video->stat_missed = video->stat_markers = 0;
+ 
+ 	if ((ret = uvcg_queue_enable(&video->queue, 1)) < 0)
+ 		return ret;
+@@ -468,6 +732,7 @@
+ 	video->is_enabled = false;
+ 	INIT_LIST_HEAD(&video->req_free);
+ 	spin_lock_init(&video->req_lock);
++	INIT_WORK(&video->idle_work, uvc_video_idle_work);
+ 
+ 	video->uvc = uvc;
+ 	video->fcc = V4L2_PIX_FMT_YUYV;

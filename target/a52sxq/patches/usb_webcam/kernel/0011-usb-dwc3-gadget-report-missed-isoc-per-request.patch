@@ -1,0 +1,55 @@
+From: kusti420 <virtuaalnepannkook@gmail.com>
+Subject: [PATCH] usb: dwc3: gadget: report missed isochronous transfers per request
+
+The A73 USB backport (6f6ff833223a "drivers: usb: Backport changes from A73")
+moved dwc3_gadget_ep_cleanup_completed_requests() in
+dwc3_gadget_endpoint_transfer_in_progress() above the DEPEVT_STATUS_MISSED_ISOC
+check. Requests are now given back before status is set to -EXDEV, so an
+isochronous request whose interval had passed (its data was never sent)
+completes with status 0. Only requests with no_interrupt get -EXDEV, from the
+TRB status (0d1c407b1a74 "usb: dwc3: gadget: Return proper request status").
+
+Function drivers therefore cannot see missed isochronous transfers at all. On
+the UVC gadget this means that when the request ring runs dry in the middle of
+a frame, every payload appended afterwards is silently dropped (the transfer
+stays behind schedule) and the host receives a truncated frame that it cannot
+tell from a good one.
+
+Take the status of isochronous requests from their TRB, as is already done for
+no_interrupt requests: TRBSTS_MISSED_ISOC gives -EXDEV, anything else keeps the
+event status (0, or -ECONNRESET on a bus error). Unlike the upstream ordering
+(-EXDEV for every request completed by an event that has MISSED_ISOC set), only
+the request that was actually missed is flagged.
+
+Used by MonsterROM target/a52sxq/patches/usb_webcam.
+---
+diff --git a/drivers/usb/dwc3/gadget.c b/drivers/usb/dwc3/gadget.c
+--- a/drivers/usb/dwc3/gadget.c
++++ b/drivers/usb/dwc3/gadget.c
+@@ -3596,8 +3596,15 @@
+ 	 * For the requests that don't set interrupt on completion, the driver
+ 	 * needs to check and return the status of the completed TRBs associated
+ 	 * with the request. Use the status of the last TRB of the request.
++	 *
++	 * Isochronous requests are completed before the event's MISSED_ISOC
++	 * status is looked at (dwc3_gadget_endpoint_transfer_in_progress()),
++	 * so their status has to come from the TRB as well: a TRB whose
++	 * interval had already passed was never sent, and the function driver
++	 * must see -EXDEV for it rather than a successful transfer.
+ 	 */
+-	if (req->request.no_interrupt) {
++	if (req->request.no_interrupt ||
++	    (dep->endpoint.desc && usb_endpoint_xfer_isoc(dep->endpoint.desc))) {
+ 		struct dwc3_trb *trb;
+ 
+ 		trb = dwc3_ep_prev_trb(dep, dep->trb_dequeue);
+@@ -3612,7 +3619,8 @@
+ 			/* Control endpoint only */
+ 		case DWC3_TRBSTS_OK:
+ 		default:
+-			request_status = 0;
++			/* keep a bus error reported by the event itself */
++			request_status = req->request.no_interrupt ? 0 : status;
+ 			break;
+ 		}
+ 	} else {
