@@ -93,3 +93,7 @@ shutil.copytree(os.path.join(helpers, "com/k4/homeclock"), dst)
 print("  - %d helper classes -> %s" % (len(os.listdir(dst)), os.path.relpath(dst, root)))
 PYEOF
 unset SPRITE
+
+# Wallpaper & style editor integration (dressroom.sh) is DISABLED: the phase 3 hook broke the Home editor's layout
+# (menu gone, preview card shifted; it added a view from a global layout listener) and is being redone.
+# source "$SRC_DIR/target/a52sxq/patches/home_depth_clock/dressroom.sh"

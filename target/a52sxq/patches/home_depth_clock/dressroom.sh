@@ -1,0 +1,179 @@
+# Home screen depth clock inside Wallpaper & style (DressRoom): the Home "Set as wallpaper" editor shows Samsung's own
+# lock clock item (guide box, drag, resize, tap -> clock panel) behind the cut-out subject, with a "Clock" entry in the
+# editor's menu. See dressroom/src/com/k4/dressroom/HomeClock.java for what each hook does. Sourced from customize.sh.
+# Built on the DressRoom the phone runs from the Galaxy Store (3.0.10.38; dressroom/DressRoom.apk.sha256): a Store copy
+# in /data/app would shadow a patched system APK, so the patched one ships as the system priv-app with a versionCode
+# above the Store's (DRESSROOM_VERSION_CODE); PackageManager drops the /data update at boot (same version line, no
+# downgrade of its data) and the Store stops offering updates. Classes are found by log text, every member asserted.
+DRESSROOM="system/priv-app/DressRoom/DressRoom.apk"
+DRESSROOM_SRC="$SRC_DIR/target/a52sxq/patches/home_depth_clock/dressroom"
+DRESSROOM_VERSION_CODE="1301038000"
+if [ -f "$DRESSROOM_SRC/DressRoom.apk" ]; then
+    # the Store build we patch (not in git: fetch it with dressroom/fetch_store_apk.sh)
+    sha256sum -c --status <(echo "$(cat "$DRESSROOM_SRC/DressRoom.apk.sha256")  $DRESSROOM_SRC/DressRoom.apk") \
+        || ABORT "home_depth_clock: dressroom/DressRoom.apk is not the expected Store build"
+    EVAL "cp -f \"$DRESSROOM_SRC/DressRoom.apk\" \"$WORK_DIR/system/$DRESSROOM\""
+else
+    ABORT "home_depth_clock: dressroom/DressRoom.apk (Store 3.0.10.38) missing"
+fi
+DECODE_APK "system" "$DRESSROOM" || ABORT "Failed to decode $DRESSROOM"
+LOG "- Clock in the Home screen wallpaper editor (DressRoom)"
+python3 - "$APKTOOL_DIR/system/${DRESSROOM//system\//}" "$DRESSROOM_SRC/smali" "$DRESSROOM_SRC/res" \
+    "$DRESSROOM_VERSION_CODE" << 'PYEOF' || ABORT "Failed to add the home clock to DressRoom"
+import glob, os, re, shutil, sys
+root, helpers, res, version_code = sys.argv[1:5]
+HC = "Lcom/k4/dressroom/HomeClock;"
+
+def by_text(text, sub="smali*"):
+    hits = [f for f in glob.glob(root + "/%s/**/*.smali" % sub, recursive=True) if text in open(f).read()]
+    assert len(hits) == 1, "%r: %d classes" % (text, len(hits))
+    return hits[0]
+
+def cls(f):
+    return re.match(r"\.class [^\n]*?(L[^;\s]+;)", open(f).read()).group(1)
+
+def method(s, sig):
+    m = re.search(r"^\.method %s\n.*?^\.end method\n" % re.escape(sig), s, re.M | re.S)
+    assert m, sig
+    return m.group(0)
+
+def nlocals(body):
+    return int(re.search(r"^    \.locals (\d+)$", body, re.M).group(1))
+
+def low(body, reg):
+    return int(reg[1:]) + (nlocals(body) if reg[0] == "p" else 0) < 16
+
+def patch(f, sig, fn, what):
+    s = open(f).read()
+    body = method(s, sig)
+    if HC in body:
+        print("  - %s already hooked" % what)
+        return
+    new = fn(body)
+    assert new != body and HC in new, what
+    open(f, "w").write(s.replace(body, new, 1))
+    print("  - %s" % what)
+
+def call_after(body, anchor_re, call, what):
+    hits = re.findall(anchor_re, body)
+    assert len(hits) == 1, "%s: anchor %d" % (what, len(hits))
+    return re.sub(anchor_re, lambda m: m.group(0) + "\n" + call, body, 1)
+
+# 1. ComponentMediator.<init>: which (h) / isCover (j) are parsed before the "parseIntent:  Which: " log
+f = by_text('"generateComponents: Generate Lockscreen and Homescreen components."')
+med = cls(f)
+s = open(f).read()
+for fld in (".field public f:Landroid/view/View;", ".field public g:Landroid/view/View;", ".field public final h:I", ".field public final j:Z"):
+    assert fld in s, "ComponentMediator " + fld
+sig = re.search(r"^\.method public constructor (<init>\(Lcom/samsung/android/app/dressroom/presentation/preview/activity/EditBaseActivity;\)V)$", s, re.M)
+assert sig, "ComponentMediator.<init>(EditBaseActivity)"
+def h1(body):
+    a = '    const-string v6, "parseIntent:  Which: "\n'
+    assert body.count(a) == 1 and low(body, "p0"), "parseIntent log"
+    return body.replace(a, "    invoke-static {p0}, %s->begin(%s)V\n\n" % (HC, med) + a, 1)
+patch(f, "public constructor " + sig.group(1), h1, "ComponentMediator.<init> -> HomeClock.begin")
+# ... and at the end of w(Bundle), once every component is set up
+def h2(body):
+    # p0 is reused as a scratch register inside w(): keep `this` in one extra local for the call at the end
+    rets = body.count("    return-void\n")
+    n = nlocals(body)
+    assert rets == 1 and n + 2 <= 16, "ComponentMediator.w: %d returns, %d locals" % (rets, n)
+    body = body.replace("    .locals %d\n\n" % n, "    .locals %d\n\n    move-object v%d, p0\n\n" % (n + 1, n), 1)
+    return body.replace("    return-void\n", "    invoke-static {v%d}, %s->afterComponents(%s)V\n\n    return-void\n" % (n, HC, med))
+patch(f, "public final w(Landroid/os/Bundle;)V", h2, "ComponentMediator.w -> HomeClock.afterComponents")
+
+# 2. ItemEditorController / BlurItemController: their item set (Set) goes through HomeClock.filter
+for text, what in (('"inflateEditor: "', "ItemEditorController"), ('"BlurItemController"', "BlurItemController")):
+    f = by_text(text)
+    c = cls(f)
+    s = open(f).read()
+    sig = re.findall(r"^\.method public constructor (<init>\([^)]*Ljava/util/Set;[^)]*\)V)$", s, re.M)
+    assert len(sig) == 1, what + " constructor"
+    def hs(body, c=c, what=what):
+        m = re.findall(r"    iput-object (\w+), \w+, %s->\w+:Ljava/util/Set;\n" % re.escape(c), body)
+        assert len(m) == 1 and low(body, m[0]), what + ": Set store"
+        reg = m[0]
+        store = re.search(r"    iput-object %s, \w+, %s->\w+:Ljava/util/Set;\n" % (reg, re.escape(c)), body).group(0)
+        call = "    invoke-static {%s}, %s->filter(Ljava/util/Set;)Ljava/util/Set;\n\n    move-result-object %s\n\n" % (reg, HC, reg)
+        return body.replace(store, call + store, 1)
+    patch(f, "public constructor " + sig[0], hs, "%s.<init> -> HomeClock.filter" % what)
+assert any("Lmf/o0;" in l for l in open(by_text('"inflateEditor: "')).read().splitlines()) or glob.glob(root + "/smali*/mf/o0.smali"), "mf.o0 (clock item data)"
+
+# 3. WALLPAPER menu: one more slot (DesignPreviewController.V1) and the Clock entry in it (EffectPreviewController.U1)
+f = by_text('"getEffectMenuItemsCount: "')
+eff = cls(f)
+def hu(body):
+    a = "    :goto_4\n    iget-object p0, p0, Lo6/e0;->T0:Lp8/i;\n"
+    if body.count(a) != 1:
+        raise AssertionError("U1: menu hand-off")
+    return body.replace(a, "    :goto_4\n    invoke-static {p0, v0}, %s->addMenu(Lo6/e0;[Lk6/m;)V\n\n    iget-object p0, p0, Lo6/e0;->T0:Lp8/i;\n" % HC, 1)
+patch(f, "public final U1()[Lk6/m;", hu, "EffectPreviewController.U1 -> HomeClock.addMenu")
+f = [x for x in glob.glob(root + "/smali*/e7/*.smali") if re.search(r"^\.method public final V1\(\)I$", open(x).read(), re.M)]
+assert len(f) == 1, "V1: %d" % len(f)
+def hv(body):
+    rets = re.findall(r"    return (\w+)\n", body)
+    assert len(rets) == 2 and rets[0] == "p0", "V1 returns %s" % rets
+    r = rets[1]
+    return body.replace("    return %s\n" % r, "    invoke-static {%s}, %s->menuSize(I)I\n\n    move-result %s\n\n    return %s\n" % (r, HC, r, r), 1)
+patch(f[0], "public final V1()I", hv, "DesignPreviewController.V1 -> HomeClock.menuSize")
+s = open(glob.glob(root + "/smali*/o6/e0.smali")[0]).read()
+assert ".field public final M:Landroid/app/Activity;" in s and ".field public T0:Lp8/i;" in s, "o6.e0 fields"
+s = open(by_text('"setMenuItemActivated: null menu"')).read()
+assert cls(by_text('"setMenuItemActivated: null menu"')) == "Lp8/i;" and ".method public final g(Ljava/lang/String;Z)V" in s, "EditorMenuMediator.g"
+km = open(glob.glob(root + "/smali*/k6/m.smali")[0]).read()
+assert ".field public j:Z" in km and ".method public constructor <init>(IILjava/lang/Runnable;Ljava/lang/String;)V" in km, "k6.m"
+
+# 4. NotifyObjectFinish (y7.d.c): Samsung's subject segmentation result -> subject above the clock
+f = by_text('"intersect result is empty"')
+s = open(f).read()
+sig = re.findall(r"^\.method public static (c\(Lcom/samsung/android/app/dressroom/presentation/preview/widget/CropImageView;L[^;]+;Landroid/graphics/Bitmap;\)V)$", s, re.M)
+assert len(sig) == 1, "NotifyObjectFinish.c"
+def ho(body):
+    # at the start, while p0..p2 (CropImageView, result, bitmap) are still the parameters
+    n = nlocals(body)
+    assert n + 3 <= 16, "NotifyObjectFinish.c locals"
+    hdr = "    .locals %d\n\n" % n
+    assert body.count(hdr) == 1
+    return body.replace(hdr, hdr + "    invoke-static {p0, p1, p2}, %s->onObject(Landroid/view/View;Ljava/lang/Object;Landroid/graphics/Bitmap;)V\n\n" % HC, 1)
+patch(f, "public static " + sig[0], ho, "NotifyObjectFinish.c -> HomeClock.onObject")
+m8 = open(glob.glob(root + "/smali*/m8/c.smali")[0]).read()
+for fld in (".field public h:Landroid/graphics/RectF;", ".field public i:Landroid/graphics/Bitmap;", ".field public j:Landroid/graphics/Rect;"):
+    assert fld in m8, "m8.c " + fld
+assert ".field public static c:Lm8/c;" in open(glob.glob(root + "/smali*/q8/m.smali")[0]).read(), "q8.m.c"
+
+# 5. LockScreenComponent.Y: the lock save is skipped for a Home-only apply -> HomeClock.onHomeSave
+f = by_text('"save skipped isLockPreviewScreenExists:"')
+s = open(f).read()
+assert re.search(r"^\.field public g0:Lmf/o0;$", s, re.M), "LockScreenComponent.g0"
+def hsave(body):
+    a = r"    invoke-static \{(v\d+), v\d+, v\d+\}, Loc/d;->k\(Loc/c;Ljava/lang/String;Ljava/lang/String;\)V\n"
+    i = body.index('"save skipped isLockPreviewScreenExists:"')
+    m = re.compile(a).search(body, i)
+    assert m and m.start() - i < 400 and int(m.group(1)[1:]) < 16, "save skip log"
+    return body[:m.end()] + "\n    invoke-static {%s}, %s->onHomeSave(Ljava/lang/Object;)V\n" % (m.group(1), HC) + body[m.end():]
+patch(f, "public final Y(Lk6/s;Lj6/d;)V", hsave, "LockScreenComponent.Y -> HomeClock.onHomeSave")
+
+# 6. helper classes into the last dex, menu icon resources
+for old in glob.glob(root + "/smali*/com/k4/dressroom"):
+    shutil.rmtree(old)
+dirs = sorted((d for d in glob.glob(root + "/smali_classes*") if re.fullmatch(r"smali_classes\d+", os.path.basename(d))),
+              key=lambda d: int(os.path.basename(d)[len("smali_classes"):]))
+dst = os.path.join(dirs[-1] if dirs else root + "/smali", "com/k4/dressroom")
+shutil.copytree(os.path.join(helpers, "com/k4/dressroom"), dst)
+print("  - %d helper classes -> %s" % (len(os.listdir(dst)), os.path.relpath(dst, root)))
+for name in os.listdir(os.path.join(res, "drawable")):
+    shutil.copyfile(os.path.join(res, "drawable", name), os.path.join(root, "res/drawable", name))
+assert os.path.exists(root + "/res/drawable/preview_selector_icon_frame.xml") and 'name="clock_item_name"' in open(root + "/res/values/strings.xml").read()
+
+# 7. versionCode above the Galaxy Store builds
+if version_code:
+    y = root + "/apktool.yml"
+    t = open(y).read()
+    m = re.search(r"^(\s*versionCode: )'?(\d+)'?$", t, re.M)
+    assert m, "apktool.yml versionCode"
+    if m.group(2) != version_code:
+        assert int(version_code) > int(m.group(2)), "versionCode would go down"
+        open(y, "w").write(t[:m.start()] + m.group(1) + version_code + t[m.end():])
+        print("  - versionCode %s -> %s" % (m.group(2), version_code))
+PYEOF
+unset DRESSROOM DRESSROOM_SRC DRESSROOM_VERSION_CODE
