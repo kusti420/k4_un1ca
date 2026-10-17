@@ -28,11 +28,15 @@ Backported from upstream, adapted to 5.4's synchronous pump and request arrays:
 - e4ce9ed835bc + a15e17acce5a usb: gadget: uvc: ensure the vdev is unset
   (memset of the embedded video_device before (re)registering it)
 - eba2936bbe6b usb: gadget: uvc: fix NULL pointer dereference during unbind race
-  (func_unbound + uvc->lock: no usb_function_deactivate() from release after unbind;
-  unbind waits for the video device release before the uvc_device can be freed).
-  5.4 has no func_connected / b81ac4395bbe timed waits, so only the release
-  completion is used; a warning is logged every 5 s while an application keeps
-  the node open.
+  (func_unbound + uvc->lock: no usb_function_deactivate() from release after unbind).
+  Its unbounded wait_for_completion() for the video device release is NOT used: unbind
+  runs inside init's write to the UDC attribute, and a hung DeviceAsWebcam (seen after
+  a 640x360 stream the camera HAL rejected) then kept USB down for good. Instead, like
+  b81ac4395bbe, unbind waits at most 1 s for the application to close the node, and
+  the uvc_device - which embeds the video_device - is freed by the video_device
+  release callback when it is still open at uvc_free() time (the V4L2 core supports
+  this: the gadget's v4l2_device has no release callback). A rebind of the same
+  function waits up to 1 s for a previous video device and fails with -EBUSY.
 
 Used by MonsterROM target/a52sxq/patches/usb_webcam (on top of 0009).
 ---
@@ -56,23 +60,48 @@ diff --git a/drivers/usb/gadget/function/f_uvc.c b/drivers/usb/gadget/function/f
  }
  
  /* --------------------------------------------------------------------------
-@@ -411,6 +419,15 @@ static ssize_t function_name_show(struct device *dev,
+@@ -411,6 +419,40 @@ static ssize_t function_name_show(struct device *dev,
  
  static DEVICE_ATTR_RO(function_name);
  
++/*
++ * Last reference to the video device is gone (unregistered and closed).
++ * The video_device is embedded in uvc_device: if uvc_free() already ran
++ * while an application kept the node open, the uvc_device is freed here
++ * (v4l2_dev has no release callback, so the core doesn't touch it after
++ * this).
++ */
 +static void uvc_vdev_release(struct video_device *vdev)
 +{
 +	struct uvc_device *uvc = video_get_drvdata(vdev);
++	bool free_uvc;
 +
-+	/* Signal uvc_unbind() that the video device has been released */
-+	if (uvc->vdev_release_done)
-+		complete(uvc->vdev_release_done);
++	mutex_lock(&uvc->lock);
++	uvc->vdev_in_use = false;
++	free_uvc = uvc->func_freed;
++	mutex_unlock(&uvc->lock);
++
++	if (free_uvc) {
++		kfree(uvc);
++		return;
++	}
++	wake_up_interruptible(&uvc->vdev_release_wq);
++}
++
++static bool uvc_vdev_released(struct uvc_device *uvc)
++{
++	bool released;
++
++	mutex_lock(&uvc->lock);
++	released = !uvc->vdev_in_use;
++	mutex_unlock(&uvc->lock);
++	return released;
 +}
 +
  static int
  uvc_register_video(struct uvc_device *uvc)
  {
-@@ -418,10 +435,11 @@ uvc_register_video(struct uvc_device *uvc)
+@@ -418,10 +460,11 @@ uvc_register_video(struct uvc_device *uvc)
  	int ret;
  
  	/* TODO reference counting. */
@@ -85,28 +114,71 @@ diff --git a/drivers/usb/gadget/function/f_uvc.c b/drivers/usb/gadget/function/f
  	uvc->vdev.vfl_dir = VFL_DIR_TX;
  	uvc->vdev.lock = &uvc->video.mutex;
  	uvc->vdev.device_caps = V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_STREAMING;
-@@ -595,6 +613,9 @@ uvc_function_bind(struct usb_configuration *c, struct usb_function *f)
- 	int ret = -EINVAL;
+@@ -429,9 +472,17 @@ uvc_register_video(struct uvc_device *uvc)
+ 
+ 	video_set_drvdata(&uvc->vdev, uvc);
+ 
++	mutex_lock(&uvc->lock);
++	uvc->vdev_in_use = true;
++	mutex_unlock(&uvc->lock);
++
+ 	ret = video_register_device(&uvc->vdev, VFL_TYPE_GRABBER, -1);
+-	if (ret < 0)
++	if (ret < 0) {
++		mutex_lock(&uvc->lock);
++		uvc->vdev_in_use = false;
++		mutex_unlock(&uvc->lock);
+ 		return ret;
++	}
+ 
+ 	ret = device_create_file(&uvc->vdev.dev, &dev_attr_function_name);
+ 	if (ret < 0) {
+@@ -596,6 +647,23 @@ uvc_function_bind(struct usb_configuration *c, struct usb_function *f)
  
  	uvcg_info(f, "%s()\n", __func__);
+ 
++	/*
++	 * The video device of a previous bind of this function may still be
++	 * open; it is re-initialised by uvc_register_video(), so give the
++	 * application a moment to close it and fail the bind otherwise.
++	 */
++	if (!uvc_vdev_released(uvc) &&
++	    wait_event_interruptible_timeout(uvc->vdev_release_wq,
++					     uvc_vdev_released(uvc),
++					     msecs_to_jiffies(1000)) <= 0) {
++		uvcg_err(f, "video device of the previous bind still open\n");
++		return -EBUSY;
++	}
++
 +	mutex_lock(&uvc->lock);
 +	uvc->func_unbound = false;
 +	mutex_unlock(&uvc->lock);
- 
++
  	opts = fi_to_f_uvc_opts(f->fi);
  	/* Sanity check the streaming endpoint module parameters.
-@@ -886,15 +907,32 @@ static void uvc_free(struct usb_function *f)
+ 	 */
+@@ -881,6 +949,15 @@ static void uvc_free(struct usb_function *f)
+ 	struct f_uvc_opts *opts = container_of(f->fi, struct f_uvc_opts,
+ 					       func_inst);
+ 	--opts->refcnt;
++
++	mutex_lock(&uvc->lock);
++	if (uvc->vdev_in_use) {
++		/* Still open: uvc_vdev_release() frees the uvc_device. */
++		uvc->func_freed = true;
++		mutex_unlock(&uvc->lock);
++		return;
++	}
++	mutex_unlock(&uvc->lock);
+ 	kfree(uvc);
+ }
  
- static void uvc_unbind(struct usb_configuration *c, struct usb_function *f)
- {
-+	DECLARE_COMPLETION_ONSTACK(vdev_release_done);
- 	struct usb_composite_dev *cdev = c->cdev;
+@@ -890,11 +967,29 @@ static void uvc_unbind(struct usb_configuration *c, struct usb_function *f)
  	struct uvc_device *uvc = to_uvc(f);
  
  	uvcg_info(f, "%s\n", __func__);
 +	mutex_lock(&uvc->lock);
 +	uvc->func_unbound = true;
-+	uvc->vdev_release_done = &vdev_release_done;
 +	mutex_unlock(&uvc->lock);
  
  	device_remove_file(&uvc->vdev.dev, &dev_attr_function_name);
@@ -114,40 +186,44 @@ diff --git a/drivers/usb/gadget/function/f_uvc.c b/drivers/usb/gadget/function/f
  	v4l2_device_unregister(&uvc->v4l2_dev);
  
 +	/*
-+	 * Wait for the video device to be released: an application may still
-+	 * hold it open (DeviceAsWebcam closes it on UVC_EVENT_DISCONNECT or
-+	 * when the node goes away), and uvc_v4l2_release() still uses the
-+	 * uvc_device that is freed after unbind.
++	 * Allow some time for the application to close the node (DeviceAsWebcam
++	 * closes it on UVC_EVENT_DISCONNECT or when the node goes away). Never
++	 * wait for it indefinitely: unbind runs in init's write to the UDC
++	 * attribute, and a hung application must not take USB down with it.
++	 * If the node is still open, uvc_free() leaves freeing the uvc_device to
++	 * uvc_vdev_release().
 +	 */
-+	while (!wait_for_completion_timeout(&vdev_release_done,
-+					    msecs_to_jiffies(5000)))
-+		uvcg_warn(f, "%s: video device still open, waiting for release\n",
++	if (!uvc_vdev_released(uvc) &&
++	    wait_event_interruptible_timeout(uvc->vdev_release_wq,
++					     uvc_vdev_released(uvc),
++					     msecs_to_jiffies(1000)) <= 0)
++		uvcg_warn(f, "%s: video device still open, freeing it on release\n",
 +			  __func__);
-+	uvc->vdev_release_done = NULL;
 +
  	usb_ep_free_request(cdev->gadget->ep0, uvc->control_req);
  	kfree(uvc->control_buf);
  
-@@ -912,6 +950,8 @@ static struct usb_function *uvc_alloc(struct usb_function_instance *fi)
+@@ -912,6 +1007,9 @@ static struct usb_function *uvc_alloc(struct usb_function_instance *fi)
  		return ERR_PTR(-ENOMEM);
  
  	mutex_init(&uvc->video.mutex);
 +	mutex_init(&uvc->lock);
 +	uvc->func_unbound = true;
++	init_waitqueue_head(&uvc->vdev_release_wq);
  	uvc->state = UVC_STATE_DISCONNECTED;
  	opts = fi_to_f_uvc_opts(fi);
  
 diff --git a/drivers/usb/gadget/function/uvc.h b/drivers/usb/gadget/function/uvc.h
 --- a/drivers/usb/gadget/function/uvc.h
 +++ b/drivers/usb/gadget/function/uvc.h
-@@ -9,6 +9,7 @@
- #ifndef _UVC_GADGET_H_
- #define _UVC_GADGET_H_
- 
-+#include <linux/completion.h>
+@@ -12,6 +12,7 @@
  #include <linux/list.h>
  #include <linux/mutex.h>
  #include <linux/spinlock.h>
++#include <linux/wait.h>
+ #include <linux/usb/composite.h>
+ #include <linux/videodev2.h>
+ 
 @@ -86,6 +87,7 @@ struct uvc_video {
  	struct mutex mutex;	/* protects frame parameters */
  
@@ -156,13 +232,15 @@ diff --git a/drivers/usb/gadget/function/uvc.h b/drivers/usb/gadget/function/uvc
  	unsigned int req_size;
  	struct usb_request *req[UVC_NUM_REQUESTS];
  	__u8 *req_buffer[UVC_NUM_REQUESTS];
-@@ -115,6 +117,9 @@ struct uvc_device {
+@@ -115,6 +117,11 @@ struct uvc_device {
  	enum uvc_state state;
  	struct usb_function func;
  	struct uvc_video video;
-+	struct completion *vdev_release_done;
-+	struct mutex lock;	/* protects func_unbound */
++	struct mutex lock;	/* protects func_unbound, vdev_in_use, func_freed */
 +	bool func_unbound;
++	bool vdev_in_use;	/* vdev registered and not yet released */
++	bool func_freed;	/* uvc_free() ran, uvc_vdev_release() frees us */
++	wait_queue_head_t vdev_release_wq;
  
  	/* Descriptors */
  	struct {
