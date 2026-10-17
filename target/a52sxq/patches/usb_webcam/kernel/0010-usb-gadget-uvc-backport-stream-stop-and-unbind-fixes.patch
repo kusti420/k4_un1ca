@@ -1,0 +1,369 @@
+From: kusti420 <virtuaalnepannkook@gmail.com>
+Subject: [PATCH] usb: gadget: uvc: backport stream-stop, request ownership and unbind fixes
+
+Stopping a DeviceAsWebcam stream on the 5.4 gadget panicked the kernel:
+
+  configfs-gadget gadget: uvc: Failed to queue request (-108).
+  Unable to handle kernel NULL pointer dereference at virtual address 0000000000000003
+  pc : uvcg_video_pump+0x1b4/0x370
+   uvc_v4l2_qbuf+0x30/0x40
+
+The host's SET_INTERFACE(alt 0) disables the streaming endpoint (ep->desc = NULL) while the
+application is still queueing buffers; qbuf pumps, usb_ep_queue() fails with -ESHUTDOWN and
+uvcg_video_ep_queue() reads ep->desc->bmAttributes. The same 5.4 code also frees requests
+that the controller may still own (dequeue + free on STREAMOFF/close), and frees the
+uvc_device on unbind while the application still holds /dev/videoN open.
+
+Backported from upstream, adapted to 5.4's synchronous pump and request arrays:
+
+- 38db3716a5f8 usb: gadget: uvc: test if ep->desc is valid on ep_queue
+- 5fc49d8bee73 usb: gadget: uvc: only schedule stream in streaming state
+  (qbuf only pumps in UVC_STATE_STREAMING)
+- f9897ec0f6d3 usb: gadget: uvc: only pump video data if necessary
+  (pump bails out when the streaming endpoint is not enabled)
+- 96163f835e65 usb: gadget: uvc: fix list double add in uvcg_video_pump
+- da324ffce34c usb: gadget: uvc: Fix use-after-free for inflight usb_requests
+  (video->is_enabled; disabling frees only the requests in req_free, the completion
+  handler frees the ones the controller still owned; no usb_ep_dequeue + free)
+- e4ce9ed835bc + a15e17acce5a usb: gadget: uvc: ensure the vdev is unset
+  (memset of the embedded video_device before (re)registering it)
+- eba2936bbe6b usb: gadget: uvc: fix NULL pointer dereference during unbind race
+  (func_unbound + uvc->lock: no usb_function_deactivate() from release after unbind;
+  unbind waits for the video device release before the uvc_device can be freed).
+  5.4 has no func_connected / b81ac4395bbe timed waits, so only the release
+  completion is used; a warning is logged every 5 s while an application keeps
+  the node open.
+
+Used by MonsterROM target/a52sxq/patches/usb_webcam (on top of 0009).
+---
+diff --git a/drivers/usb/gadget/function/f_uvc.c b/drivers/usb/gadget/function/f_uvc.c
+--- a/drivers/usb/gadget/function/f_uvc.c
++++ b/drivers/usb/gadget/function/f_uvc.c
+@@ -393,8 +393,16 @@ uvc_function_disconnect(struct uvc_device *uvc)
+ {
+ 	int ret;
+ 
++	mutex_lock(&uvc->lock);
++	if (uvc->func_unbound) {
++		dev_dbg(&uvc->vdev.dev, "skipping function deactivate (unbound)\n");
++		mutex_unlock(&uvc->lock);
++		return;
++	}
++
+ 	if ((ret = usb_function_deactivate(&uvc->func)) < 0)
+ 		uvcg_info(&uvc->func, "UVC disconnect failed with %d\n", ret);
++	mutex_unlock(&uvc->lock);
+ }
+ 
+ /* --------------------------------------------------------------------------
+@@ -411,6 +419,15 @@ static ssize_t function_name_show(struct device *dev,
+ 
+ static DEVICE_ATTR_RO(function_name);
+ 
++static void uvc_vdev_release(struct video_device *vdev)
++{
++	struct uvc_device *uvc = video_get_drvdata(vdev);
++
++	/* Signal uvc_unbind() that the video device has been released */
++	if (uvc->vdev_release_done)
++		complete(uvc->vdev_release_done);
++}
++
+ static int
+ uvc_register_video(struct uvc_device *uvc)
+ {
+@@ -418,10 +435,11 @@ uvc_register_video(struct uvc_device *uvc)
+ 	int ret;
+ 
+ 	/* TODO reference counting. */
++	memset(&uvc->vdev, 0, sizeof(uvc->vdev));
+ 	uvc->vdev.v4l2_dev = &uvc->v4l2_dev;
+ 	uvc->vdev.fops = &uvc_v4l2_fops;
+ 	uvc->vdev.ioctl_ops = &uvc_v4l2_ioctl_ops;
+-	uvc->vdev.release = video_device_release_empty;
++	uvc->vdev.release = uvc_vdev_release;
+ 	uvc->vdev.vfl_dir = VFL_DIR_TX;
+ 	uvc->vdev.lock = &uvc->video.mutex;
+ 	uvc->vdev.device_caps = V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_STREAMING;
+@@ -595,6 +613,9 @@ uvc_function_bind(struct usb_configuration *c, struct usb_function *f)
+ 	int ret = -EINVAL;
+ 
+ 	uvcg_info(f, "%s()\n", __func__);
++	mutex_lock(&uvc->lock);
++	uvc->func_unbound = false;
++	mutex_unlock(&uvc->lock);
+ 
+ 	opts = fi_to_f_uvc_opts(f->fi);
+ 	/* Sanity check the streaming endpoint module parameters.
+@@ -886,15 +907,32 @@ static void uvc_free(struct usb_function *f)
+ 
+ static void uvc_unbind(struct usb_configuration *c, struct usb_function *f)
+ {
++	DECLARE_COMPLETION_ONSTACK(vdev_release_done);
+ 	struct usb_composite_dev *cdev = c->cdev;
+ 	struct uvc_device *uvc = to_uvc(f);
+ 
+ 	uvcg_info(f, "%s\n", __func__);
++	mutex_lock(&uvc->lock);
++	uvc->func_unbound = true;
++	uvc->vdev_release_done = &vdev_release_done;
++	mutex_unlock(&uvc->lock);
+ 
+ 	device_remove_file(&uvc->vdev.dev, &dev_attr_function_name);
+ 	video_unregister_device(&uvc->vdev);
+ 	v4l2_device_unregister(&uvc->v4l2_dev);
+ 
++	/*
++	 * Wait for the video device to be released: an application may still
++	 * hold it open (DeviceAsWebcam closes it on UVC_EVENT_DISCONNECT or
++	 * when the node goes away), and uvc_v4l2_release() still uses the
++	 * uvc_device that is freed after unbind.
++	 */
++	while (!wait_for_completion_timeout(&vdev_release_done,
++					    msecs_to_jiffies(5000)))
++		uvcg_warn(f, "%s: video device still open, waiting for release\n",
++			  __func__);
++	uvc->vdev_release_done = NULL;
++
+ 	usb_ep_free_request(cdev->gadget->ep0, uvc->control_req);
+ 	kfree(uvc->control_buf);
+ 
+@@ -912,6 +950,8 @@ static struct usb_function *uvc_alloc(struct usb_function_instance *fi)
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	mutex_init(&uvc->video.mutex);
++	mutex_init(&uvc->lock);
++	uvc->func_unbound = true;
+ 	uvc->state = UVC_STATE_DISCONNECTED;
+ 	opts = fi_to_f_uvc_opts(fi);
+ 
+diff --git a/drivers/usb/gadget/function/uvc.h b/drivers/usb/gadget/function/uvc.h
+--- a/drivers/usb/gadget/function/uvc.h
++++ b/drivers/usb/gadget/function/uvc.h
+@@ -9,6 +9,7 @@
+ #ifndef _UVC_GADGET_H_
+ #define _UVC_GADGET_H_
+ 
++#include <linux/completion.h>
+ #include <linux/list.h>
+ #include <linux/mutex.h>
+ #include <linux/spinlock.h>
+@@ -86,6 +87,7 @@ struct uvc_video {
+ 	struct mutex mutex;	/* protects frame parameters */
+ 
+ 	/* Requests */
++	bool is_enabled; /* tracks whether video stream is enabled */
+ 	unsigned int req_size;
+ 	struct usb_request *req[UVC_NUM_REQUESTS];
+ 	__u8 *req_buffer[UVC_NUM_REQUESTS];
+@@ -115,6 +117,9 @@ struct uvc_device {
+ 	enum uvc_state state;
+ 	struct usb_function func;
+ 	struct uvc_video video;
++	struct completion *vdev_release_done;
++	struct mutex lock;	/* protects func_unbound */
++	bool func_unbound;
+ 
+ 	/* Descriptors */
+ 	struct {
+diff --git a/drivers/usb/gadget/function/uvc_v4l2.c b/drivers/usb/gadget/function/uvc_v4l2.c
+--- a/drivers/usb/gadget/function/uvc_v4l2.c
++++ b/drivers/usb/gadget/function/uvc_v4l2.c
+@@ -170,7 +170,10 @@ uvc_v4l2_qbuf(struct file *file, void *fh, struct v4l2_buffer *b)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	return uvcg_video_pump(video);
++	if (uvc->state == UVC_STATE_STREAMING)
++		return uvcg_video_pump(video);
++
++	return 0;
+ }
+ 
+ static int
+diff --git a/drivers/usb/gadget/function/uvc_video.c b/drivers/usb/gadget/function/uvc_video.c
+--- a/drivers/usb/gadget/function/uvc_video.c
++++ b/drivers/usb/gadget/function/uvc_video.c
+@@ -134,14 +134,28 @@ static int uvcg_video_ep_queue(struct uvc_video *video, struct usb_request *req)
+ 		uvcg_err(&video->uvc->func, "Failed to queue request (%d).\n",
+ 			 ret);
+ 
+-		/* Isochronous endpoints can't be halted. */
+-		if (usb_endpoint_xfer_bulk(video->ep->desc))
+-			usb_ep_set_halt(video->ep);
++		/* If the endpoint is disabled the descriptor may be NULL. */
++		if (video->ep->desc) {
++			/* Isochronous endpoints can't be halted. */
++			if (usb_endpoint_xfer_bulk(video->ep->desc))
++				usb_ep_set_halt(video->ep);
++		}
+ 	}
+ 
+ 	return ret;
+ }
+ 
++/*
++ * Free one usb_request and its buffer. Callers must hold req_lock when this
++ * may be called from multiple threads (i.e. while frames are streaming).
++ */
++static void
++uvc_video_free_request(struct usb_request *req, struct usb_ep *ep)
++{
++	kfree(req->buf);
++	usb_ep_free_request(ep, req);
++}
++
+ /*
+  * I somehow feel that synchronisation won't be easy to achieve here. We have
+  * three events that control USB requests submission:
+@@ -181,6 +195,18 @@ uvc_video_complete(struct usb_ep *ep, struct usb_request *req)
+ 	unsigned long flags;
+ 	int ret;
+ 
++	spin_lock_irqsave(&video->req_lock, flags);
++	if (!video->is_enabled) {
++		/*
++		 * The stream was disabled while this request was owned by the
++		 * controller: uvcg_video_enable(video, 0) left it to us.
++		 */
++		uvc_video_free_request(req, ep);
++		spin_unlock_irqrestore(&video->req_lock, flags);
++		return;
++	}
++	spin_unlock_irqrestore(&video->req_lock, flags);
++
+ 	switch (req->status) {
+ 	case 0:
+ 		break;
+@@ -219,7 +245,15 @@ uvc_video_complete(struct usb_ep *ep, struct usb_request *req)
+ 
+ requeue:
+ 	spin_lock_irqsave(&video->req_lock, flags);
+-	list_add_tail(&req->list, &video->req_free);
++	/*
++	 * The video stream might have been disabled while we were processing
++	 * the current usb_request, so make sure we're still streaming before
++	 * putting it back on req_free.
++	 */
++	if (video->is_enabled)
++		list_add_tail(&req->list, &video->req_free);
++	else
++		uvc_video_free_request(req, ep);
+ 	spin_unlock_irqrestore(&video->req_lock, flags);
+ }
+ 
+@@ -297,21 +331,24 @@ error:
+ int uvcg_video_pump(struct uvc_video *video)
+ {
+ 	struct uvc_video_queue *queue = &video->queue;
+-	struct usb_request *req;
++	struct usb_request *req = NULL;
+ 	struct uvc_buffer *buf;
+ 	unsigned long flags;
+ 	int ret;
+ 
+-	/* FIXME TODO Race between uvcg_video_pump and requests completion
+-	 * handler ???
++	/*
++	 * Callers (qbuf, streamon) are serialised against uvcg_video_enable()
++	 * by video->mutex; the completion handler only touches requests it
++	 * owns, under req_lock / queue->irqlock.
+ 	 */
+ 
+-	while (1) {
+-		/* Retrieve the first available USB request, protected by the
+-		 * request lock.
++	/* Nothing to do if the streaming endpoint is not enabled. */
++	while (video->ep->enabled) {
++		/* Check is_enabled and retrieve the first available USB
++		 * request, protected by the request lock.
+ 		 */
+ 		spin_lock_irqsave(&video->req_lock, flags);
+-		if (list_empty(&video->req_free)) {
++		if (!video->is_enabled || list_empty(&video->req_free)) {
+ 			spin_unlock_irqrestore(&video->req_lock, flags);
+ 			return 0;
+ 		}
+@@ -340,10 +377,19 @@ int uvcg_video_pump(struct uvc_video *video)
+ 			uvcg_queue_cancel(queue, 0);
+ 			break;
+ 		}
++
++		/* Endpoint now owns the request */
++		req = NULL;
+ 	}
+ 
++	if (!req)
++		return 0;
++
+ 	spin_lock_irqsave(&video->req_lock, flags);
+-	list_add_tail(&req->list, &video->req_free);
++	if (video->is_enabled)
++		list_add_tail(&req->list, &video->req_free);
++	else
++		uvc_video_free_request(req, video->ep);
+ 	spin_unlock_irqrestore(&video->req_lock, flags);
+ 	return 0;
+ }
+@@ -353,6 +399,8 @@ int uvcg_video_pump(struct uvc_video *video)
+  */
+ int uvcg_video_enable(struct uvc_video *video, int enable)
+ {
++	struct usb_request *req, *temp;
++	unsigned long flags;
+ 	unsigned int i;
+ 	int ret;
+ 
+@@ -363,15 +411,40 @@ int uvcg_video_enable(struct uvc_video *video, int enable)
+ 	}
+ 
+ 	if (!enable) {
+-		for (i = 0; i < UVC_NUM_REQUESTS; ++i)
+-			if (video->req[i])
+-				usb_ep_dequeue(video->ep, video->req[i]);
++		/*
++		 * Requests still owned by the controller must not be freed
++		 * (or dequeued: they may complete and be freed concurrently)
++		 * here. Once is_enabled is false their completion handler
++		 * frees them; free only the requests we own (req_free).
++		 */
++		spin_lock_irqsave(&video->req_lock, flags);
++		video->is_enabled = false;
++
++		list_for_each_entry_safe(req, temp, &video->req_free, list) {
++			list_del(&req->list);
++			uvc_video_free_request(req, video->ep);
++		}
+ 
+-		uvc_video_free_requests(video);
++		for (i = 0; i < UVC_NUM_REQUESTS; ++i) {
++			video->req[i] = NULL;
++			video->req_buffer[i] = NULL;
++		}
++		INIT_LIST_HEAD(&video->req_free);
++		video->req_size = 0;
++		spin_unlock_irqrestore(&video->req_lock, flags);
++
++		uvcg_queue_cancel(&video->queue, 0);
+ 		uvcg_queue_enable(&video->queue, 0);
+ 		return 0;
+ 	}
+ 
++	/*
++	 * Safe to access request related fields without req_lock because
++	 * this is the only thread currently active, and no other request
++	 * handling thread will become active until this function returns.
++	 */
++	video->is_enabled = true;
++
+ 	if ((ret = uvcg_queue_enable(&video->queue, 1)) < 0)
+ 		return ret;
+ 
+@@ -392,6 +465,7 @@ int uvcg_video_enable(struct uvc_video *video, int enable)
+  */
+ int uvcg_video_init(struct uvc_video *video, struct uvc_device *uvc)
+ {
++	video->is_enabled = false;
+ 	INIT_LIST_HEAD(&video->req_free);
+ 	spin_lock_init(&video->req_lock);
+ 
