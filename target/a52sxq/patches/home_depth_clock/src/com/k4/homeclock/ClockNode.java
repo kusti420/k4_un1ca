@@ -7,12 +7,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
-import android.text.format.DateFormat;
 import android.util.Log;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
 
 /**
  * Plain big clock, drawn between the background layers and the cut-out subject.
@@ -25,21 +21,16 @@ import java.util.Locale;
  * A gated clock ({@code owner} set: the shared home+lock instance) is drawn only while the keyguard is gone and the
  * display is ON; it follows the background's screen on/off zoom so it stays glued to the wallpaper.
  */
-final class ClockNode extends i3.j {
+final class ClockNode extends DepthClock {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
     private final float centerX;
     private final float baseline;
     private final boolean lightBackground;
     private final boolean accent;
     private final Integer fixedColor;
-    private final i3.c scaleRef;
-    private final h3.a owner;
-    volatile String lastDrawn = "";
 
     ClockNode(Context context, int w, int h, float subjectTop, Bitmap background, i3.c scaleRef, h3.a gatedOwner) {
-        super(context, "K4DepthClockNode");
-        this.scaleRef = scaleRef;
-        this.owner = gatedOwner;
+        super(context, "K4DepthClockNode", scaleRef, gatedOwner);
         paint.setTypeface(Typeface.create(Typeface.DEFAULT, 500, false));
         paint.setTextAlign(Paint.Align.CENTER);
         paint.setFontFeatureSettings("tnum");
@@ -81,32 +72,6 @@ final class ClockNode extends i3.j {
                 + (owner != null ? ", gated" : ""));
     }
 
-    String text() {
-        boolean is24 = DateFormat.is24HourFormat(a);
-        return new SimpleDateFormat(is24 ? "HH:mm" : "h:mm", Locale.getDefault()).format(new Date());
-    }
-
-    /** True unless this is the shared instance and the lock screen / AOD / screen-off is what it shows. */
-    boolean showing() {
-        if (owner == null) {
-            return true;
-        }
-        if (KeyguardWatch.locked) {
-            return false;
-        }
-        f3.a e = HomeDepthClock.engineOf(owner);
-        if (e == null) {
-            return false;
-        }
-        Object state = e.getDisplayState();
-        return state instanceof Enum && "ON".equals(((Enum<?>) state).name());
-    }
-
-    /** What a draw now would put on screen ("" = nothing). */
-    String expected() {
-        return showing() ? text() : "";
-    }
-
     @Override
     public void a(Canvas canvas) {
         if (!showing()) {
@@ -118,9 +83,9 @@ final class ClockNode extends i3.j {
                 ? a.getColor(lightBackground ? android.R.color.system_accent1_800 : android.R.color.system_accent1_50)
                 : fixedColor;
         paint.setColor(color);
-        float s = scaleRef != null ? scaleRef.e : 1f;
+        float s = zoom();
         int save = canvas.save();
-        if (s != 1f && s > 0f) {
+        if (s != 1f) {
             canvas.scale(s, s, canvas.getWidth() / 2f, canvas.getHeight() / 2f);
         }
         canvas.drawText(t, centerX, baseline, paint);
@@ -138,27 +103,5 @@ final class ClockNode extends i3.j {
         } catch (NumberFormatException e) {
             return Float.NaN; // "auto"
         }
-    }
-
-    /** Mean relative luminance (0..1) of the wallpaper under the clock, sampled on a 24x8 grid. */
-    private static float luminance(Bitmap bm, int l, int t, int r, int b) {
-        l = Math.max(0, l);
-        t = Math.max(0, t);
-        r = Math.min(bm.getWidth() - 1, r);
-        b = Math.min(bm.getHeight() - 1, b);
-        if (r <= l || b <= t) {
-            return 0f;
-        }
-        float sum = 0;
-        int n = 0;
-        for (int iy = 0; iy < 8; iy++) {
-            int y = t + (b - t) * iy / 7;
-            for (int ix = 0; ix < 24; ix++) {
-                int p = bm.getPixel(l + (r - l) * ix / 23, y);
-                sum += (0.2126f * Color.red(p) + 0.7152f * Color.green(p) + 0.0722f * Color.blue(p)) / 255f;
-                n++;
-            }
-        }
-        return sum / n;
     }
 }

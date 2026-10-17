@@ -176,7 +176,7 @@
     goto :goto_12
 
     :cond_e
-    invoke-static {v1}, Lcom/k4/homeclock/HomeDepthClock;->clockOf(Lf3/a;)Lcom/k4/homeclock/ClockNode;
+    invoke-static {v1}, Lcom/k4/homeclock/HomeDepthClock;->clockOf(Lf3/a;)Lcom/k4/homeclock/DepthClock;
 
     move-result-object v2
 
@@ -194,12 +194,12 @@
 
     .line 114
     :cond_1b
-    invoke-virtual {v2}, Lcom/k4/homeclock/ClockNode;->expected()Ljava/lang/String;
+    invoke-virtual {v2}, Lcom/k4/homeclock/DepthClock;->expected()Ljava/lang/String;
 
     move-result-object p2
 
     .line 115
-    iget-object v3, v2, Lcom/k4/homeclock/ClockNode;->lastDrawn:Ljava/lang/String;
+    iget-object v3, v2, Lcom/k4/homeclock/DepthClock;->lastDrawn:Ljava/lang/String;
 
     invoke-virtual {p2, v3}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
@@ -212,7 +212,7 @@
 
     .line 118
     :cond_28
-    iget-object v2, v2, Lcom/k4/homeclock/ClockNode;->lastDrawn:Ljava/lang/String;
+    iget-object v2, v2, Lcom/k4/homeclock/DepthClock;->lastDrawn:Ljava/lang/String;
 
     new-instance v3, Ljava/lang/StringBuilder;
 
@@ -315,7 +315,7 @@
 
     if-eqz v0, :cond_18
 
-    invoke-static {v0}, Lcom/k4/homeclock/HomeDepthClock;->clockOf(Lf3/a;)Lcom/k4/homeclock/ClockNode;
+    invoke-static {v0}, Lcom/k4/homeclock/HomeDepthClock;->clockOf(Lf3/a;)Lcom/k4/homeclock/DepthClock;
 
     move-result-object p1
 

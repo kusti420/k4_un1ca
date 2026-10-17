@@ -107,7 +107,7 @@ final class EngineState {
     void redrawIfStale(String why, boolean anyVisibility) {
         try {
             f3.a e = engine.get();
-            ClockNode clock = e == null ? null : HomeDepthClock.clockOf(e);
+            DepthClock clock = e == null ? null : HomeDepthClock.clockOf(e);
             if (clock == null || !(visible || anyVisibility)) {
                 return;
             }

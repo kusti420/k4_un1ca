@@ -91,9 +91,46 @@ dirs = sorted((d for d in glob.glob(root + "/smali_classes*") if re.fullmatch(r"
 dst = os.path.join(dirs[-1] if dirs else root + "/smali", "com/k4/homeclock")
 shutil.copytree(os.path.join(helpers, "com/k4/homeclock"), dst)
 print("  - %d helper classes -> %s" % (len(os.listdir(dst)), os.path.relpath(dst, root)))
-PYEOF
-unset SPRITE
 
-# Wallpaper & style editor integration (dressroom.sh) is DISABLED: the phase 3 hook broke the Home editor's layout
-# (menu gone, preview card shifted; it added a view from a global layout listener) and is being redone.
-# source "$SRC_DIR/target/a52sxq/patches/home_depth_clock/dressroom.sh"
+# 5. AodClockNode loads Samsung's AOD lock-screen clock plugin in-process (AodHost). The permissions LockStar holds for
+#    the clockpack data, so the AOD clock code reading lock-screen data from our process is not refused. The app is
+#    re-signed with the ROM platform key, so the signature|privileged ones are also allowlisted (step 6).
+f = os.path.join(root, "AndroidManifest.xml")
+s = open(f).read()
+assert 'package="com.samsung.android.wallpaper.live"' in s, "SpriteWallpaper manifest"
+add = [p for p in ("com.samsung.android.app.clockpack.LOCK_PROVIDER",
+                   "com.samsung.android.app.aodservice.permission.AOD_PROVIDER",
+                   "com.samsung.android.app.aodservice.permission.ACCESS_LOCK_SCREEN_DATA",
+                   "com.samsung.android.clockpack.permission.ACCESS_CLOCK_PROVIDER")
+       if 'android:name="%s"' % p not in s]
+if add:
+    i = s.index("<uses-permission ")
+    s = s[:i] + "".join('<uses-permission android:name="%s"/>\n    ' % p for p in add) + s[i:]
+    open(f, "w").write(s)
+print("  - manifest: %s" % (", ".join(p.rsplit(".", 1)[1] for p in add) if add else "AOD clock permissions already requested"))
+PYEOF
+
+# 6. priv-app allowlist (ro.control_privapp_permissions=enforce) for the signature|privileged AOD clock permissions above
+PRIVAPP="$WORK_DIR/system/system/etc/permissions/privapp-permissions-com.samsung.android.wallpaper.live.xml"
+[ -f "$PRIVAPP" ] || ABORT "File not found: ${PRIVAPP//$WORK_DIR/}"
+python3 - "$PRIVAPP" << 'PYEOF' || ABORT "Failed to patch ${PRIVAPP//$WORK_DIR/}"
+import sys
+f = sys.argv[1]
+s = open(f).read()
+tag = '<privapp-permissions package="com.samsung.android.wallpaper.live">'
+assert s.count(tag) == 1, "privapp-permissions block for com.samsung.android.wallpaper.live"
+add = [p for p in ("com.samsung.android.app.clockpack.LOCK_PROVIDER",
+                   "com.samsung.android.app.aodservice.permission.AOD_PROVIDER",
+                   "com.samsung.android.app.aodservice.permission.ACCESS_LOCK_SCREEN_DATA")
+       if '"%s"' % p not in s]
+if add:
+    i = s.index(tag) + len(tag)
+    s = s[:i] + "".join('\n        <permission name="%s"/>' % p for p in add) + s[i:]
+    open(f, "w").write(s)
+print("  - privapp allowlist: %s" % (", ".join(p.rsplit(".", 1)[1] for p in add) if add else "already there"))
+PYEOF
+unset SPRITE PRIVAPP
+
+# Wallpaper & style (DressRoom): the clock item in the Home "Set as wallpaper" editor (see dressroom.sh)
+# shellcheck source=/dev/null
+source "$SRC_DIR/target/a52sxq/patches/home_depth_clock/dressroom.sh"

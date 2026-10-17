@@ -101,7 +101,7 @@
 
     .line 38
     :goto_28
-    invoke-static {v0}, Lcom/k4/homeclock/HomeDepthClock;->clockOf(Lf3/a;)Lcom/k4/homeclock/ClockNode;
+    invoke-static {v0}, Lcom/k4/homeclock/HomeDepthClock;->clockOf(Lf3/a;)Lcom/k4/homeclock/DepthClock;
 
     move-result-object v4
 

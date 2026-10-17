@@ -44,7 +44,6 @@ public final class HomeClock {
     public static volatile boolean active;
     static boolean on;
     private static WeakReference<p8.a> sMediator = new WeakReference<>(null);
-    private static WeakReference<ImageView> sSubject = new WeakReference<>(null);
 
     private HomeClock() {}
 
@@ -134,7 +133,7 @@ public final class HomeClock {
                 }
             });
         }
-        ImageView s = sSubject.get();
+        SubjectView s = sSubjectView.get();
         if (s != null) {
             s.setVisibility(on ? View.VISIBLE : View.GONE);
         }
@@ -209,6 +208,17 @@ public final class HomeClock {
         return s;
     }
 
+    private static WeakReference<k6.m> sItem = new WeakReference<>(null);
+    private static int sIcon, sIconOn;
+
+    /**
+     * Menu bar (v8.y.a, "scroll the menu"): Samsung scrolls a phone menu with more than 4 entries, 4.5 entries wide.
+     * The Home editor's 5 entries (with Clock) are laid out evenly instead, like the 4-entry bar.
+     */
+    public static boolean menuScrolls() {
+        return !active;
+    }
+
     /** e7.h0.V1(): one more slot in the WALLPAPER menu array of a Home editor (Samsung allocates exactly V1() slots). */
     public static int menuSize(int n) {
         return active && n > 0 ? n + 1 : n;
@@ -241,6 +251,12 @@ public final class HomeClock {
                 }
             }, MENU_TAG);
             item.j = on;
+            sIcon = icon;
+            sIconOn = id(a, "drawable", "preview_menu_icon_clock_activated");
+            if (on && sIconOn != 0) {
+                item.b = sIconOn;
+            }
+            sItem = new WeakReference<>(item);
             items[slot] = item;
         } catch (Throwable t) {
             Log.e(TAG, "addMenu", t);
@@ -256,6 +272,22 @@ public final class HomeClock {
         }
         if (controller.T0 != null) {
             controller.T0.g(MENU_TAG, on);
+        }
+        // on/off look of the menu entry, like Samsung's effect entries (filled icon while active)
+        int icon = on && sIconOn != 0 ? sIconOn : sIcon;
+        k6.m item = sItem.get();
+        if (item != null && icon != 0) {
+            item.b = icon;
+        }
+        try {
+            View entry = controller.M.getWindow().getDecorView().findViewWithTag(MENU_TAG);
+            int iconView = id(controller.M, "id", "menu_icon");
+            View img = entry != null && iconView != 0 ? entry.findViewById(iconView) : null;
+            if (img != null && icon != 0) {
+                img.setBackgroundResource(icon);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "menu icon", t);
         }
     }
 
@@ -304,36 +336,79 @@ public final class HomeClock {
         }
     }
 
-    /** Same size, place and image matrix as the wallpaper CropImageView (an ImageView drawing with its image matrix). */
-    static void layoutSubject(ImageView s, View crop) {
-        if (!(crop instanceof ImageView) || crop.getWidth() == 0) {
-            return;
+    /**
+     * The cut-out subject, drawn exactly like the wallpaper: CropImageView (an ImageView) draws its drawable with its
+     * image matrix and moves/zooms it by changing the drawable's bounds, so the subject (same size as the wallpaper
+     * drawable, as Samsung layers it) is drawn with the same matrix and bounds, re-read every frame while the user
+     * pans or pinches. Never touchable.
+     */
+    static final class SubjectView extends View {
+        final ImageView crop;
+        android.graphics.drawable.BitmapDrawable subject;
+        private final float[] last = new float[13];
+        private final float[] now = new float[13];
+
+        SubjectView(Context c, ImageView crop) {
+            super(c);
+            this.crop = crop;
+            setClickable(false);
+            setFocusable(false);
+            setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         }
-        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) s.getLayoutParams();
-        int l = crop.getLeft(), t = crop.getTop(), w = crop.getWidth(), h = crop.getHeight();
-        if (lp.leftMargin != l || lp.topMargin != t || lp.width != w || lp.height != h) {
-            lp.leftMargin = l;
-            lp.topMargin = t;
-            lp.width = w;
-            lp.height = h;
-            s.setLayoutParams(lp);
+
+        @Override
+        public boolean onTouchEvent(android.view.MotionEvent e) {
+            return false;
         }
-        android.graphics.Matrix m = ((ImageView) crop).getImageMatrix();
-        if (!m.equals(s.getImageMatrix())) {
-            s.setImageMatrix(new android.graphics.Matrix(m));
-            s.invalidate();
+
+        /** True when the wallpaper moved since the last frame drawn. */
+        boolean changed() {
+            android.graphics.drawable.Drawable d = crop.getDrawable();
+            if (d == null) {
+                return false;
+            }
+            crop.getImageMatrix().getValues(now);
+            Rect b = d.getBounds();
+            now[9] = b.left;
+            now[10] = b.top;
+            now[11] = b.right;
+            now[12] = b.bottom;
+            if (java.util.Arrays.equals(now, last)) {
+                return false;
+            }
+            System.arraycopy(now, 0, last, 0, now.length);
+            return true;
+        }
+
+        @Override
+        protected void onDraw(android.graphics.Canvas canvas) {
+            android.graphics.drawable.Drawable d = crop.getDrawable();
+            if (d == null || subject == null) {
+                return;
+            }
+            int save = canvas.save();
+            canvas.translate(crop.getPaddingLeft(), crop.getPaddingTop());
+            canvas.concat(crop.getImageMatrix());
+            subject.setBounds(d.getBounds());
+            subject.draw(canvas);
+            canvas.restoreToCount(save);
         }
     }
 
-    static void placeSubject(ViewGroup lock, final View crop, Bitmap bmp) {
-        ImageView s = sSubject.get();
-        if (s == null || s.getParent() != lock) {
-            s = new ImageView(lock.getContext());
-            s.setScaleType(ImageView.ScaleType.MATRIX);
-            s.setClickable(false);
-            s.setFocusable(false);
-            s.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            // above the clock layer, below the item editor (guide boxes) so it never takes touches meant for them
+    private static WeakReference<SubjectView> sSubjectView = new WeakReference<>(null);
+
+    static void placeSubject(ViewGroup lock, final View cropView, Bitmap bmp) {
+        if (!(cropView instanceof ImageView)) {
+            return;
+        }
+        final ImageView crop = (ImageView) cropView;
+        SubjectView s = sSubjectView.get();
+        if (s == null || s.getParent() != lock || s.crop != crop) {
+            if (s != null && s.getParent() instanceof ViewGroup) {
+                ((ViewGroup) s.getParent()).removeView(s);
+            }
+            s = new SubjectView(lock.getContext(), crop);
+            // above the clock layer, below the item editor (guide boxes)
             int at = lock.getChildCount();
             for (int i = 0; i < lock.getChildCount(); i++) {
                 if (lock.getChildAt(i).getClass().getName().endsWith("ItemEditorContainer")) {
@@ -341,45 +416,173 @@ public final class HomeClock {
                     break;
                 }
             }
-            lock.addView(s, at, new FrameLayout.LayoutParams(0, 0));
-            sSubject = new WeakReference<>(s);
-            final WeakReference<ImageView> ref = sSubject;
+            lock.addView(s, at, new FrameLayout.LayoutParams(crop.getWidth(), crop.getHeight()));
+            sSubjectView = new WeakReference<>(s);
+            final WeakReference<SubjectView> ref = sSubjectView;
             crop.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
                 @Override
                 public boolean onPreDraw() {
-                    ImageView v = ref.get();
+                    SubjectView v = ref.get();
                     if (v == null || v.getParent() == null) {
                         crop.getViewTreeObserver().removeOnPreDrawListener(this);
-                    } else {
-                        layoutSubject(v, crop); // the wallpaper was panned / zoomed
+                        return true;
+                    }
+                    FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) v.getLayoutParams();
+                    if (lp.leftMargin != crop.getLeft() || lp.topMargin != crop.getTop()
+                            || lp.width != crop.getWidth() || lp.height != crop.getHeight()) {
+                        lp.leftMargin = crop.getLeft();
+                        lp.topMargin = crop.getTop();
+                        lp.width = crop.getWidth();
+                        lp.height = crop.getHeight();
+                        v.setLayoutParams(lp);
+                    }
+                    if (v.changed()) {
+                        v.invalidate(); // follows pan / pinch frame by frame
                     }
                     return true;
                 }
             });
         }
-        s.setImageBitmap(bmp);
+        s.subject = new android.graphics.drawable.BitmapDrawable(lock.getResources(), bmp);
+        s.subject.setFilterBitmap(true);
         try { // debug aid: see the clock through the subject (persist.sys.k4.home_depth_clock_debug=1)
             s.setAlpha("1".equals(SemSystemProperties.get(PROP + "_debug")) ? 0.35f : 1f);
         } catch (Throwable ignored) {
         }
-        layoutSubject(s, crop);
         s.setVisibility(on ? View.VISIBLE : View.GONE);
-        Object d = crop instanceof ImageView ? ((ImageView) crop).getDrawable() : null;
-        Log.i(TAG, "subject above clock: " + bmp.getWidth() + "x" + bmp.getHeight() + " over " + drawableBounds(crop)
-                + (d != null ? " (wallpaper drawable " + ((android.graphics.drawable.Drawable) d).getIntrinsicWidth() + "x"
-                + ((android.graphics.drawable.Drawable) d).getIntrinsicHeight() + ")" : ""));
+        s.invalidate();
+        android.graphics.drawable.Drawable d = crop.getDrawable();
+        Log.i(TAG, "subject above clock: " + bmp.getWidth() + "x" + bmp.getHeight()
+                + (d != null ? " (wallpaper drawable " + d.getIntrinsicWidth() + "x" + d.getIntrinsicHeight() + ", bounds " + d.getBounds() + ")" : ""));
     }
 
-    /** dc.p.Y, Home-only apply (lock save skipped): the clock item's final ClockData. */
+    // ---- home clock config: the clock as Samsung's AOD SDK ClockItem JSON (the format the lock clock is stored in) ----
+    static final String KEY_ITEM = "k4_home_clock_item";
+    static final String ITEM_CLASS = "com.samsung.android.sdk.aodservice.entities.item.LockScreenItem";
+    private static WeakReference<Object> sStore = new WeakReference<>(null);
+
+    /** ClockStoreRepositoryImpl.c(String) start: remember the store (its context and its item serializer). */
+    public static void storeSeen(Object store) {
+        sStore = new WeakReference<>(store);
+    }
+
+    /** The lock editor's Gson (ClockStoreRepositoryImpl.c -> LockScreenRemoteItemStoreImpl.b -> .c -> serializer.b). */
+    static Object gson(Object store) throws Exception {
+        Object itemStore = call(field(store, "c"), "get");
+        Object repo = call(field(itemStore, "b"), "get");
+        Object serializer = call(field(repo, "c"), "get");
+        return field(serializer, "b");
+    }
+
+    static Object call(Object o, String name) throws Exception {
+        java.lang.reflect.Method m = o.getClass().getMethod(name);
+        m.setAccessible(true);
+        return m.invoke(o);
+    }
+
+    /**
+     * ClockStoreRepositoryImpl.c(String) result: in a Home editor the clock item the editor starts from is the saved
+     * home clock (Settings.System k4_home_clock_item) instead of the lock clock.
+     */
+    public static Object seedItem(Object lockItem) {
+        if (!active) {
+            return lockItem;
+        }
+        try {
+            Object store = sStore.get();
+            if (store == null) {
+                return lockItem;
+            }
+            Context c = (Context) field(store, "a");
+            String json = android.provider.Settings.System.getString(c.getContentResolver(), KEY_ITEM);
+            Object g = gson(store);
+            Class<?> base = Class.forName(ITEM_CLASS, false, store.getClass().getClassLoader());
+            if ((json == null || json.isEmpty()) && lockItem != null) {
+                // no home clock yet: Samsung's default clock (One UI clock font, regular weight, white, default
+                // place and size), not the lock screen's own style
+                org.json.JSONObject o = new org.json.JSONObject((String) g.getClass()
+                        .getMethod("toJson", Object.class, java.lang.reflect.Type.class).invoke(g, lockItem, base));
+                org.json.JSONObject font = o.optJSONObject("font");
+                if (font != null) {
+                    font.put("presetFontIndex", 814);
+                    font.put("fontWeight", 400);
+                }
+                org.json.JSONObject color = new org.json.JSONObject();
+                color.put("presetIndex", 0);
+                color.put("_type_", "com.samsung.android.sdk.aodservice.factory.ClockPresetColorImpl");
+                o.put("color", color);
+                o.put("isDefaultPosition", true);
+                o.put("scaleX", 1.0);
+                o.put("scaleY", 1.0);
+                json = o.toString();
+                Log.i(TAG, "editor starts from the default home clock");
+            }
+            if (json == null || json.isEmpty()) {
+                return lockItem;
+            }
+            Object item = g.getClass().getMethod("fromJson", String.class, Class.class).invoke(g, json, base);
+            if (item != null && (lockItem == null || item.getClass() == lockItem.getClass())) {
+                Log.i(TAG, "editor starts from the saved home clock");
+                return item;
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "seedItem", t);
+        }
+        return lockItem;
+    }
+
+    /** dc.p.Y, Home-only apply (Samsung skips the lock save): store the clock and the switch, tell the wallpaper. */
     public static void onHomeSave(Object lockComponent) {
         if (!active) {
             return;
         }
         try {
-            Object provider = field(lockComponent, "g0");
-            Object repo = field(provider, "a");
-            Object data = repo.getClass().getMethod("getData").invoke(repo);
-            Log.i(TAG, "home apply: clock " + (on ? "on" : "off") + ", ClockData=" + data);
+            Object data = call(field(field(lockComponent, "g0"), "a"), "getData");
+            Object store = sStore.get();
+            Context c = store != null ? (Context) field(store, "a") : null;
+            if (data == null || store == null || c == null) {
+                Log.w(TAG, "home apply: no clock data/store");
+                return;
+            }
+            java.lang.reflect.Method d = null;
+            for (java.lang.reflect.Method m : store.getClass().getMethods()) {
+                if (m.getName().equals("d") && m.getParameterTypes().length == 3
+                        && m.getParameterTypes()[2] == android.os.Bundle.class) {
+                    d = m;
+                }
+            }
+            // the clock position, the way the lock save passes it (mf.f2: ClockMarginData JSON + movable area)
+            android.os.Bundle extras = new android.os.Bundle();
+            ClassLoader cl = store.getClass().getClassLoader();
+            try {
+                Class<?> cmd = Class.forName("com.samsung.android.lockscreen.editor.item.domain.entity.item.clock.ClockMarginData", true, cl);
+                Object margin = cmd.getConstructor(int.class, float.class, float.class, RectF.class).newInstance(
+                        call(data, "getGravity"), call(data, "getHorizontalMarginRatio"), call(data, "getBottomMarginRatio"),
+                        call(data, "getMovableAreaRatioRect"));
+                Object plainGson = Class.forName("com.google.gson.Gson", true, cl).getConstructor().newInstance();
+                extras.putString("clock_position_data", (String) plainGson.getClass().getMethod("toJson", Object.class).invoke(plainGson, margin));
+                extras.putParcelable("clock_movable_area", (Rect) call(data, "getMovableArea"));
+            } catch (Throwable t) {
+                Log.w(TAG, "home apply: clock position", t);
+            }
+            Object item = d.invoke(store, data, null, extras); // makeLockScreenItem
+            // where the clock is on the screen, for the wallpaper engine (real screen pixels)
+            try {
+                Rect r = (Rect) call(data, "getClockPositionRect");
+                Object sc = call(data, "getScale");
+                android.provider.Settings.System.putString(c.getContentResolver(), KEY_ITEM + "_rect",
+                        r.left + "," + r.top + "," + r.right + "," + r.bottom + "," + sc);
+            } catch (Throwable t) {
+                Log.w(TAG, "home apply: clock rect", t);
+            }
+            Object g = gson(store);
+            Class<?> base = Class.forName(ITEM_CLASS, false, store.getClass().getClassLoader());
+            String json = (String) g.getClass().getMethod("toJson", Object.class, java.lang.reflect.Type.class).invoke(g, item, base);
+            android.provider.Settings.System.putString(c.getContentResolver(), KEY_ITEM, json);
+            android.os.SemSystemProperties.set(PROP, on ? "1" : "0");
+            c.sendBroadcast(new android.content.Intent("com.k4.homeclock.action.RELOAD")
+                    .setPackage("com.samsung.android.wallpaper.live").addFlags(android.content.Intent.FLAG_RECEIVER_FOREGROUND));
+            Log.i(TAG, "home apply: clock " + (on ? "on" : "off") + ", item=" + json);
         } catch (Throwable t) {
             Log.e(TAG, "onHomeSave", t);
         }

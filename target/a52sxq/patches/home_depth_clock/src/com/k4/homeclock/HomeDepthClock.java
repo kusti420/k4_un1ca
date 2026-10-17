@@ -35,7 +35,7 @@ public final class HomeDepthClock {
     static final String RELOAD_PERMISSION = "android.permission.WRITE_SECURE_SETTINGS";
 
     private static final Map<f3.a, EngineState> ENGINES = new WeakHashMap<>();
-    private static final Map<h3.a, ClockNode> CLOCKS = new WeakHashMap<>();
+    private static final Map<h3.a, DepthClock> CLOCKS = new WeakHashMap<>();
 
     private HomeDepthClock() {}
 
@@ -97,11 +97,9 @@ public final class HomeDepthClock {
             }
             i3.c subject = data.d instanceof i3.c ? (i3.c) data.d : null;
             i3.c background = data.c instanceof i3.c ? (i3.c) data.c : null;
-            ClockNode clock = new ClockNode(p.a, p.g, p.h, HomeClockPresenter.subjectTop(subject), null, background, p);
+            DepthClock clock = makeClock(p.a, p.g, p.h, HomeClockPresenter.subjectTop(subject), null, background, p);
             list.add(at, clock);
-            synchronized (CLOCKS) {
-                CLOCKS.put(p, clock);
-            }
+            setClock(p, clock);
             KeyguardWatch.ensure(p.a);
             Log.i(TAG, "shared home+lock wallpaper (which=" + p.c + "): gated clock at layer " + at + "/" + list.size());
         } catch (Throwable t) {
@@ -109,17 +107,43 @@ public final class HomeDepthClock {
         }
     }
 
-    static void setClock(h3.a p, ClockNode clock) {
+    /**
+     * The clock layer for a presenter build: Samsung's AOD lock-screen clock styled and placed as saved by the
+     * Wallpaper & style editor ({@link HomeClockItem}), or the plain {@link ClockNode} when nothing is saved or the AOD
+     * clock cannot be created (logged).
+     */
+    static DepthClock makeClock(Context context, int w, int h, float subjectTop, android.graphics.Bitmap background,
+            i3.c scaleRef, h3.a gatedOwner) {
+        ClockNode plain = new ClockNode(context, w, h, subjectTop, background, scaleRef, gatedOwner);
+        HomeClockItem item = HomeClockItem.read(context);
+        if (item == null) {
+            Log.i(TAG, "no saved home clock item: plain clock");
+            return plain;
+        }
+        try {
+            return AodClockNode.create(context, w, h, item, background, plain, scaleRef, gatedOwner);
+        } catch (Throwable t) {
+            Throwable cause = t instanceof java.lang.reflect.InvocationTargetException && t.getCause() != null ? t.getCause() : t;
+            Log.e(TAG, "AOD clock unavailable, plain clock (" + item + ")", cause);
+            return plain;
+        }
+    }
+
+    static void setClock(h3.a p, DepthClock clock) {
+        DepthClock old;
         synchronized (CLOCKS) {
-            if (clock == null) {
-                CLOCKS.remove(p);
-            } else {
-                CLOCKS.put(p, clock);
+            old = clock == null ? CLOCKS.remove(p) : CLOCKS.put(p, clock);
+        }
+        if (old != null && old != clock) {
+            try {
+                old.release();
+            } catch (Throwable t) {
+                Log.w(TAG, "release", t);
             }
         }
     }
 
-    static ClockNode clockOf(f3.a engine) {
+    static DepthClock clockOf(f3.a engine) {
         synchronized (CLOCKS) {
             return engine.g == null ? null : CLOCKS.get(engine.g);
         }

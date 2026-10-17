@@ -67,17 +67,17 @@ final class HomeClockPresenter extends h3.a {
 
             Rect full = new Rect(0, 0, w, h);
             i3.c backNode = new i3.c(this.a, new i3.b(back, full, full, null), this.c);
-            ClockNode clockNode = new ClockNode(this.a, w, h, subjectTop, back, null, null);
+            DepthClock clockNode = HomeDepthClock.makeClock(this.a, w, h, subjectTop, back, null, null);
+            HomeDepthClock.setClock(this, clockNode); // also releases it if the rest of the build fails
             data.c = backNode;
             group.c.add(backNode);
             group.c.add(clockNode);
             if (front != null) {
                 group.c.add(new i3.c(this.a, new i3.b(front, full, full, null), this.c));
             }
-            HomeDepthClock.setClock(this, clockNode);
             inner.d(); // recycles the source bitmaps, as FlattenLayeredPresenter does
             Log.i(HomeDepthClock.TAG, "build: " + w + "x" + h + ", layers=" + nodes.size() + ", subjectAt=" + split
-                    + ", subjectTop=" + subjectTop + ", " + (SystemClock.elapsedRealtime() - t0) + " ms");
+                    + ", subjectTop=" + subjectTop + ", clock=" + clockNode.getClass().getSimpleName() + ", " + (SystemClock.elapsedRealtime() - t0) + " ms");
         } catch (Throwable t) {
             // keep the stock full layer stack (no clock) rather than a broken wallpaper
             Log.e(HomeDepthClock.TAG, "build failed, showing the layers without a clock", t);

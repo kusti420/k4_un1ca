@@ -1,21 +1,20 @@
 # Home screen depth clock inside Wallpaper & style (DressRoom): the Home "Set as wallpaper" editor shows Samsung's own
 # lock clock item (guide box, drag, resize, tap -> clock panel) behind the cut-out subject, with a "Clock" entry in the
 # editor's menu. See dressroom/src/com/k4/dressroom/HomeClock.java for what each hook does. Sourced from customize.sh.
-# Built on the DressRoom the phone runs from the Galaxy Store (3.0.10.38; dressroom/DressRoom.apk.sha256): a Store copy
+# Built on the DressRoom the phone runs from the Galaxy Store (3.0.10.38, prebuilts/samsung_store_apps): a Store copy
 # in /data/app would shadow a patched system APK, so the patched one ships as the system priv-app with a versionCode
 # above the Store's (DRESSROOM_VERSION_CODE); PackageManager drops the /data update at boot (same version line, no
 # downgrade of its data) and the Store stops offering updates. Classes are found by log text, every member asserted.
 DRESSROOM="system/priv-app/DressRoom/DressRoom.apk"
 DRESSROOM_SRC="$SRC_DIR/target/a52sxq/patches/home_depth_clock/dressroom"
 DRESSROOM_VERSION_CODE="1301038000"
-if [ -f "$DRESSROOM_SRC/DressRoom.apk" ]; then
-    # the Store build we patch (not in git: fetch it with dressroom/fetch_store_apk.sh)
-    sha256sum -c --status <(echo "$(cat "$DRESSROOM_SRC/DressRoom.apk.sha256")  $DRESSROOM_SRC/DressRoom.apk") \
-        || ABORT "home_depth_clock: dressroom/DressRoom.apk is not the expected Store build"
-    EVAL "cp -f \"$DRESSROOM_SRC/DressRoom.apk\" \"$WORK_DIR/system/$DRESSROOM\""
-else
-    ABORT "home_depth_clock: dressroom/DressRoom.apk (Store 3.0.10.38) missing"
-fi
+# The Galaxy Store build the phone runs, Samsung-signed, stored like the other Store APKs we ship
+DRESSROOM_APK="$SRC_DIR/prebuilts/samsung_store_apps/DressRoom_3.0.10.38.apk"
+DRESSROOM_SHA="f493af985544c1f08b6146a0d3d71c40b9e2c7e5161e102f9b8619f712a90600"
+[ -f "$DRESSROOM_APK" ] || ABORT "home_depth_clock: $DRESSROOM_APK not found"
+[ "$(sha256sum "$DRESSROOM_APK" | cut -d " " -f 1)" = "$DRESSROOM_SHA" ] || ABORT "home_depth_clock: sha256 mismatch for $DRESSROOM_APK"
+[ -f "$WORK_DIR/system/$DRESSROOM" ] || ABORT "home_depth_clock: no $DRESSROOM in this base"
+EVAL "cp -f \"$DRESSROOM_APK\" \"$WORK_DIR/system/$DRESSROOM\""
 DECODE_APK "system" "$DRESSROOM" || ABORT "Failed to decode $DRESSROOM"
 LOG "- Clock in the Home screen wallpaper editor (DressRoom)"
 python3 - "$APKTOOL_DIR/system/${DRESSROOM//system\//}" "$DRESSROOM_SRC/smali" "$DRESSROOM_SRC/res" \
@@ -123,6 +122,16 @@ assert cls(by_text('"setMenuItemActivated: null menu"')) == "Lp8/i;" and ".metho
 km = open(glob.glob(root + "/smali*/k6/m.smali")[0]).read()
 assert ".field public j:Z" in km and ".method public constructor <init>(IILjava/lang/Runnable;Ljava/lang/String;)V" in km, "k6.m"
 
+# 3b. Menu bar scroll mode (v8.y.a: phone + more than 4 entries -> scrolling bar): not for the Home editor's 5 entries
+f = [x for x in glob.glob(root + "/smali*/v8/*.smali") if "edit_button_container_width" in open(x).read() and re.search(r"^\.method public a\(\)Z$", open(x).read(), re.M)]
+assert len(f) == 1, "menu bar class: %d" % len(f)
+def hm(body):
+    a_ = "    const/4 v0, 0x4\n\n    if-le p0, v0, :cond_1\n\n    const/4 p0, 0x1\n\n    return p0\n"
+    assert body.count(a_) == 1, "menu bar a(): more-than-4 branch"
+    return body.replace(a_, "    const/4 v0, 0x4\n\n    if-le p0, v0, :cond_1\n\n    invoke-static {}, %s->menuScrolls()Z\n\n    move-result p0\n\n    return p0\n" % HC, 1)
+patch(f[0], "public a()Z", hm, "menu bar a() -> HomeClock.menuScrolls")
+assert ".field public b:I" in km, "k6.m.b (icon)"
+
 # 4. NotifyObjectFinish (y7.d.c): Samsung's subject segmentation result -> subject above the clock
 f = by_text('"intersect result is empty"')
 s = open(f).read()
@@ -153,6 +162,31 @@ def hsave(body):
     return body[:m.end()] + "\n    invoke-static {%s}, %s->onHomeSave(Ljava/lang/Object;)V\n" % (m.group(1), HC) + body[m.end():]
 patch(f, "public final Y(Lk6/s;Lj6/d;)V", hsave, "LockScreenComponent.Y -> HomeClock.onHomeSave")
 
+# 5b. ClockStoreRepositoryImpl.c(String) (the clock item the clock editor starts from): remember the store at the
+#     start (p0 is reused later), and pass every returned item through HomeClock.seedItem (saved home clock)
+f = by_text('"ClockStoreRepositoryImpl"')
+s = open(f).read()
+for fld in (".field public final a:Landroid/content/Context;", ".field public final c:Ljavax/inject/Provider;"):
+    assert fld in s, "ClockStoreRepositoryImpl " + fld
+CI = "Lcom/samsung/android/sdk/aodservice/entities/item/ClockItem;"
+assert re.search(r"^\.method public final d\(Lcom/samsung/android/lockscreen/editor/item/domain/entity/item/common/LockScreenItemData;Ljava/lang/String;Landroid/os/Bundle;\)Lcom/samsung/android/sdk/aodservice/entities/item/LockScreenItem;$", s, re.M), "makeLockScreenItem"
+def hc(body):
+    n = nlocals(body)
+    assert n + 2 <= 16
+    hdr = "    .locals %d\n\n" % n
+    body = body.replace(hdr, hdr + "    invoke-static {p0}, %s->storeSeen(Ljava/lang/Object;)V\n\n" % HC, 1)
+    def ret(m):
+        r = m.group(1)
+        return ("    invoke-static {%s}, %s->seedItem(Ljava/lang/Object;)Ljava/lang/Object;\n\n    move-result-object %s\n\n"
+                "    check-cast %s, %s\n\n    return-object %s\n") % (r, HC, r, r, CI, r)
+    new, k = re.subn(r"    return-object (\w+)\n", ret, body)
+    assert k >= 1
+    return new
+patch(f, "public final c(Ljava/lang/String;)" + CI, hc, "ClockStoreRepositoryImpl.c -> HomeClock.storeSeen/seedItem")
+# the item JSON goes through the lock editor's own serializer: LockScreenRemoteItemStoreImpl.b -> .c -> serializer.b (Gson)
+q = open(by_text('"LockScreenRemoteItemStoreImpl"')).read()
+assert re.search(r"^\.field public final b:Lji/d;$", q, re.M), "LockScreenRemoteItemStoreImpl.b"
+
 # 6. helper classes into the last dex, menu icon resources
 for old in glob.glob(root + "/smali*/com/k4/dressroom"):
     shutil.rmtree(old)
@@ -176,4 +210,4 @@ if version_code:
         open(y, "w").write(t[:m.start()] + m.group(1) + version_code + t[m.end():])
         print("  - versionCode %s -> %s" % (m.group(2), version_code))
 PYEOF
-unset DRESSROOM DRESSROOM_SRC DRESSROOM_VERSION_CODE
+unset DRESSROOM DRESSROOM_SRC DRESSROOM_VERSION_CODE DRESSROOM_APK DRESSROOM_SHA

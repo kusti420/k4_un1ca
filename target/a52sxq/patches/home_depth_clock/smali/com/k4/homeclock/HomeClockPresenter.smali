@@ -218,49 +218,49 @@
     .line 32
     move-object/from16 v1, p0
 
-    move/from16 v4, p2
+    move/from16 v3, p2
 
-    move/from16 v5, p3
+    move/from16 v4, p3
 
-    move-object/from16 v10, p4
+    move-object/from16 v9, p4
 
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
-    move-result-wide v11
+    move-result-wide v10
 
     .line 33
     new-instance v0, Lh3/f;
 
     iget-object v2, v1, Lcom/k4/homeclock/HomeClockPresenter;->a:Landroid/content/Context;
 
-    iget v3, v1, Lcom/k4/homeclock/HomeClockPresenter;->c:I
+    iget v5, v1, Lcom/k4/homeclock/HomeClockPresenter;->c:I
 
     move-object/from16 v6, p1
 
-    invoke-direct {v0, v2, v3, v6}, Lh3/f;-><init>(Landroid/content/Context;ILcom/samsung/android/wallpaper/live/unified/engines/layered/source/b;)V
+    invoke-direct {v0, v2, v5, v6}, Lh3/f;-><init>(Landroid/content/Context;ILcom/samsung/android/wallpaper/live/unified/engines/layered/source/b;)V
 
     .line 34
-    invoke-virtual {v0, v4, v5}, Lh3/f;->e(II)V
+    invoke-virtual {v0, v3, v4}, Lh3/f;->e(II)V
 
     .line 35
-    iget-object v13, v0, Lh3/f;->e:Lg0/a;
+    iget-object v12, v0, Lh3/f;->e:Lg0/a;
 
     .line 36
-    iget-object v2, v10, Lg0/a;->b:Ljava/lang/Object;
+    iget-object v2, v9, Lg0/a;->b:Ljava/lang/Object;
 
-    move-object v14, v2
+    move-object v13, v2
 
-    check-cast v14, Li3/k;
+    check-cast v13, Li3/k;
 
     .line 37
-    const-string v15, "K4HomeClock"
+    const-string v14, "K4HomeClock"
 
-    if-nez v13, :cond_2e
+    if-nez v12, :cond_2e
 
     .line 38
     const-string v1, "build: no presenter data"
 
-    invoke-static {v15, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    invoke-static {v14, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
     .line 39
     invoke-virtual {v0}, Lh3/f;->d()V
@@ -270,95 +270,95 @@
 
     .line 42
     :cond_2e
-    new-instance v2, Ljava/util/ArrayList;
+    new-instance v15, Ljava/util/ArrayList;
 
-    iget-object v3, v0, Lh3/f;->f:Li3/k;
+    iget-object v2, v0, Lh3/f;->f:Li3/k;
 
-    iget-object v3, v3, Li3/k;->c:Ljava/util/ArrayList;
+    iget-object v2, v2, Li3/k;->c:Ljava/util/ArrayList;
 
-    invoke-direct {v2, v3}, Ljava/util/ArrayList;-><init>(Ljava/util/Collection;)V
+    invoke-direct {v15, v2}, Ljava/util/ArrayList;-><init>(Ljava/util/Collection;)V
 
     .line 43
-    iget-boolean v3, v13, Lg0/a;->a:Z
+    iget-boolean v2, v12, Lg0/a;->a:Z
 
-    iput-boolean v3, v10, Lg0/a;->a:Z
+    iput-boolean v2, v9, Lg0/a;->a:Z
 
     .line 44
-    iget-object v3, v13, Lg0/a;->f:Ljava/lang/Object;
+    iget-object v2, v12, Lg0/a;->f:Ljava/lang/Object;
 
-    iput-object v3, v10, Lg0/a;->f:Ljava/lang/Object;
+    iput-object v2, v9, Lg0/a;->f:Ljava/lang/Object;
 
     .line 45
-    iget-object v3, v13, Lg0/a;->g:Ljava/io/Serializable;
+    iget-object v2, v12, Lg0/a;->g:Ljava/io/Serializable;
 
-    iput-object v3, v10, Lg0/a;->g:Ljava/io/Serializable;
+    iput-object v2, v9, Lg0/a;->g:Ljava/io/Serializable;
 
     .line 47
     :try_start_43
-    iget-object v6, v13, Lg0/a;->d:Ljava/lang/Object;
+    iget-object v5, v12, Lg0/a;->d:Ljava/lang/Object;
 
-    if-nez v6, :cond_49
+    if-nez v5, :cond_49
 
-    const/4 v6, -0x1
+    const/4 v5, -0x1
 
     goto :goto_4f
 
     :cond_49
-    iget-object v6, v13, Lg0/a;->d:Ljava/lang/Object;
+    iget-object v5, v12, Lg0/a;->d:Ljava/lang/Object;
 
-    invoke-virtual {v2, v6}, Ljava/util/ArrayList;->indexOf(Ljava/lang/Object;)I
+    invoke-virtual {v15, v5}, Ljava/util/ArrayList;->indexOf(Ljava/lang/Object;)I
 
-    move-result v6
+    move-result v5
 
     .line 48
     :goto_4f
-    iget-object v7, v13, Lg0/a;->g:Ljava/io/Serializable;
+    iget-object v6, v12, Lg0/a;->g:Ljava/io/Serializable;
 
-    instance-of v7, v7, Landroid/graphics/Bitmap$Config;
+    instance-of v6, v6, Landroid/graphics/Bitmap$Config;
 
-    if-eqz v7, :cond_5a
+    if-eqz v6, :cond_5a
 
-    iget-object v7, v13, Lg0/a;->g:Ljava/io/Serializable;
+    iget-object v6, v12, Lg0/a;->g:Ljava/io/Serializable;
 
-    check-cast v7, Landroid/graphics/Bitmap$Config;
+    check-cast v6, Landroid/graphics/Bitmap$Config;
 
     goto :goto_5c
 
     :cond_5a
-    sget-object v7, Landroid/graphics/Bitmap$Config;->ARGB_8888:Landroid/graphics/Bitmap$Config;
+    sget-object v6, Landroid/graphics/Bitmap$Config;->ARGB_8888:Landroid/graphics/Bitmap$Config;
 
     .line 49
     :goto_5c
-    iget-object v8, v13, Lg0/a;->f:Ljava/lang/Object;
+    iget-object v7, v12, Lg0/a;->f:Ljava/lang/Object;
 
-    instance-of v8, v8, Landroid/graphics/ColorSpace;
+    instance-of v7, v7, Landroid/graphics/ColorSpace;
 
-    if-eqz v8, :cond_67
+    if-eqz v7, :cond_67
 
-    iget-object v8, v13, Lg0/a;->f:Ljava/lang/Object;
+    iget-object v7, v12, Lg0/a;->f:Ljava/lang/Object;
 
-    check-cast v8, Landroid/graphics/ColorSpace;
+    check-cast v7, Landroid/graphics/ColorSpace;
 
     goto :goto_68
 
     :cond_67
-    const/4 v8, 0x0
+    const/4 v7, 0x0
 
     .line 50
     :goto_68
-    const/4 v9, 0x0
+    const/4 v8, 0x0
 
-    invoke-static {v4, v5, v7, v8, v9}, Lcom/k4/homeclock/HomeClockPresenter;->create(IILandroid/graphics/Bitmap$Config;Landroid/graphics/ColorSpace;Z)Landroid/graphics/Bitmap;
+    invoke-static {v3, v4, v6, v7, v8}, Lcom/k4/homeclock/HomeClockPresenter;->create(IILandroid/graphics/Bitmap$Config;Landroid/graphics/ColorSpace;Z)Landroid/graphics/Bitmap;
 
-    move-result-object v3
+    move-result-object v2
 
     .line 51
     nop
 
     .line 52
-    new-instance v9, Landroid/graphics/Canvas;
+    new-instance v8, Landroid/graphics/Canvas;
 
-    invoke-direct {v9, v3}, Landroid/graphics/Canvas;-><init>(Landroid/graphics/Bitmap;)V
+    invoke-direct {v8, v2}, Landroid/graphics/Canvas;-><init>(Landroid/graphics/Bitmap;)V
 
     .line 53
     nop
@@ -366,51 +366,51 @@
     .line 54
     move-object/from16 v17, v0
 
-    move-wide/from16 v18, v11
+    move-wide/from16 v18, v10
 
     const/4 v0, 0x0
 
+    const/4 v10, 0x0
+
     const/4 v11, 0x0
 
-    const/4 v12, 0x0
-
     :goto_7b
-    move-object/from16 v20, v12
+    move-object/from16 v20, v11
 
-    invoke-virtual {v2}, Ljava/util/ArrayList;->size()I
+    invoke-virtual {v15}, Ljava/util/ArrayList;->size()I
 
-    move-result v12
+    move-result v11
 
-    if-ge v0, v12, :cond_af
+    if-ge v0, v11, :cond_af
 
     .line 55
-    invoke-virtual {v2, v0}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
-
-    move-result-object v12
-
-    check-cast v12, Li3/j;
-
-    .line 56
-    if-ltz v6, :cond_a5
-
-    if-lt v0, v6, :cond_a5
-
-    .line 57
-    if-nez v11, :cond_9c
-
-    .line 58
-    const/4 v11, 0x1
-
-    invoke-static {v4, v5, v7, v8, v11}, Lcom/k4/homeclock/HomeClockPresenter;->create(IILandroid/graphics/Bitmap$Config;Landroid/graphics/ColorSpace;Z)Landroid/graphics/Bitmap;
+    invoke-virtual {v15, v0}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
 
     move-result-object v11
+
+    check-cast v11, Li3/j;
+
+    .line 56
+    if-ltz v5, :cond_a5
+
+    if-lt v0, v5, :cond_a5
+
+    .line 57
+    if-nez v10, :cond_9c
+
+    .line 58
+    const/4 v10, 0x1
+
+    invoke-static {v3, v4, v6, v7, v10}, Lcom/k4/homeclock/HomeClockPresenter;->create(IILandroid/graphics/Bitmap$Config;Landroid/graphics/ColorSpace;Z)Landroid/graphics/Bitmap;
+
+    move-result-object v10
 
     .line 59
     move/from16 v21, v0
 
     new-instance v0, Landroid/graphics/Canvas;
 
-    invoke-direct {v0, v11}, Landroid/graphics/Canvas;-><init>(Landroid/graphics/Bitmap;)V
+    invoke-direct {v0, v10}, Landroid/graphics/Canvas;-><init>(Landroid/graphics/Bitmap;)V
 
     goto :goto_a0
 
@@ -422,9 +422,9 @@
 
     .line 61
     :goto_a0
-    invoke-virtual {v12, v0}, Li3/j;->a(Landroid/graphics/Canvas;)V
+    invoke-virtual {v11, v0}, Li3/j;->a(Landroid/graphics/Canvas;)V
 
-    move-object v12, v0
+    move-object v11, v0
 
     goto :goto_ac
 
@@ -433,9 +433,9 @@
     move/from16 v21, v0
 
     .line 63
-    invoke-virtual {v12, v9}, Li3/j;->a(Landroid/graphics/Canvas;)V
+    invoke-virtual {v11, v8}, Li3/j;->a(Landroid/graphics/Canvas;)V
 
-    move-object/from16 v12, v20
+    move-object/from16 v11, v20
 
     .line 54
     :goto_ac
@@ -445,13 +445,13 @@
 
     .line 66
     :cond_af
-    iget-object v0, v13, Lg0/a;->d:Ljava/lang/Object;
+    iget-object v0, v12, Lg0/a;->d:Ljava/lang/Object;
 
     instance-of v0, v0, Li3/c;
 
     if-eqz v0, :cond_ba
 
-    iget-object v0, v13, Lg0/a;->d:Ljava/lang/Object;
+    iget-object v0, v12, Lg0/a;->d:Ljava/lang/Object;
 
     check-cast v0, Li3/c;
 
@@ -466,146 +466,148 @@
     move-result v0
 
     .line 68
-    new-instance v12, Landroid/graphics/Rect;
+    new-instance v11, Landroid/graphics/Rect;
+
+    const/4 v6, 0x0
+
+    invoke-direct {v11, v6, v6, v3, v4}, Landroid/graphics/Rect;-><init>(IIII)V
+
+    .line 69
+    new-instance v6, Li3/c;
+
+    iget-object v7, v1, Lcom/k4/homeclock/HomeClockPresenter;->a:Landroid/content/Context;
+
+    new-instance v8, Li3/b;
+    :try_end_cb
+    .catchall {:try_start_43 .. :try_end_cb} :catchall_186
+
+    const/4 v3, 0x0
+
+    :try_start_cc
+    invoke-direct {v8, v2, v11, v11, v3}, Li3/b;-><init>(Landroid/graphics/Bitmap;Landroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/Point;)V
+    :try_end_cf
+    .catchall {:try_start_cc .. :try_end_cf} :catchall_17f
+
+    :try_start_cf
+    iget v3, v1, Lcom/k4/homeclock/HomeClockPresenter;->c:I
+
+    invoke-direct {v6, v7, v8, v3}, Li3/c;-><init>(Landroid/content/Context;Li3/b;I)V
+
+    .line 70
+    move-object v3, v6
+
+    move-object v6, v2
+
+    iget-object v2, v1, Lcom/k4/homeclock/HomeClockPresenter;->a:Landroid/content/Context;
+    :try_end_d8
+    .catchall {:try_start_cf .. :try_end_d8} :catchall_186
 
     const/4 v7, 0x0
 
-    invoke-direct {v12, v7, v7, v4, v5}, Landroid/graphics/Rect;-><init>(IIII)V
-
-    .line 69
-    new-instance v7, Li3/c;
-
-    iget-object v8, v1, Lcom/k4/homeclock/HomeClockPresenter;->a:Landroid/content/Context;
-
-    new-instance v9, Li3/b;
-    :try_end_cb
-    .catchall {:try_start_43 .. :try_end_cb} :catchall_185
-
-    move-object/from16 v16, v2
-
-    const/4 v2, 0x0
-
-    :try_start_ce
-    invoke-direct {v9, v3, v12, v12, v2}, Li3/b;-><init>(Landroid/graphics/Bitmap;Landroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/Point;)V
-    :try_end_d1
-    .catchall {:try_start_ce .. :try_end_d1} :catchall_17c
-
-    :try_start_d1
-    iget v2, v1, Lcom/k4/homeclock/HomeClockPresenter;->c:I
-
-    invoke-direct {v7, v8, v9, v2}, Li3/c;-><init>(Landroid/content/Context;Li3/b;I)V
-
-    .line 70
-    new-instance v2, Lcom/k4/homeclock/ClockNode;
-
-    move-object v8, v7
-
-    move-object v7, v3
-
-    iget-object v3, v1, Lcom/k4/homeclock/HomeClockPresenter;->a:Landroid/content/Context;
-    :try_end_dc
-    .catchall {:try_start_d1 .. :try_end_dc} :catchall_17a
-
-    move-object v9, v8
-
     const/4 v8, 0x0
 
-    move-object/from16 v20, v9
+    move/from16 p1, v5
 
-    const/4 v9, 0x0
-
-    move/from16 p1, v6
-
-    move v6, v0
+    move v5, v0
 
     move/from16 v0, p1
 
-    move-object/from16 p1, v20
-
-    move-object/from16 v20, v13
-
-    move-object/from16 v13, p1
+    move-object/from16 v16, v12
 
     move-object/from16 p1, v15
 
-    const/4 v15, 0x0
+    const/4 v12, 0x0
 
-    :try_start_ef
-    invoke-direct/range {v2 .. v9}, Lcom/k4/homeclock/ClockNode;-><init>(Landroid/content/Context;IIFLandroid/graphics/Bitmap;Li3/c;Lh3/a;)V
+    move-object v15, v3
+
+    move/from16 v3, p2
+
+    :try_start_e7
+    invoke-static/range {v2 .. v8}, Lcom/k4/homeclock/HomeDepthClock;->makeClock(Landroid/content/Context;IIFLandroid/graphics/Bitmap;Li3/c;Lh3/a;)Lcom/k4/homeclock/DepthClock;
+
+    move-result-object v2
 
     .line 71
-    iput-object v13, v10, Lg0/a;->c:Ljava/lang/Object;
+    invoke-static {v1, v2}, Lcom/k4/homeclock/HomeDepthClock;->setClock(Lh3/a;Lcom/k4/homeclock/DepthClock;)V
 
     .line 72
-    iget-object v3, v14, Li3/k;->c:Ljava/util/ArrayList;
-
-    invoke-virtual {v3, v13}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    iput-object v15, v9, Lg0/a;->c:Ljava/lang/Object;
 
     .line 73
-    iget-object v3, v14, Li3/k;->c:Ljava/util/ArrayList;
+    iget-object v6, v13, Li3/k;->c:Ljava/util/ArrayList;
 
-    invoke-virtual {v3, v2}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
+    invoke-virtual {v6, v15}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
     .line 74
-    if-eqz v11, :cond_113
+    iget-object v6, v13, Li3/k;->c:Ljava/util/ArrayList;
+
+    invoke-virtual {v6, v2}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
     .line 75
-    iget-object v3, v14, Li3/k;->c:Ljava/util/ArrayList;
+    if-eqz v10, :cond_10f
+
+    .line 76
+    iget-object v6, v13, Li3/k;->c:Ljava/util/ArrayList;
 
     new-instance v7, Li3/c;
 
     iget-object v8, v1, Lcom/k4/homeclock/HomeClockPresenter;->a:Landroid/content/Context;
 
-    new-instance v9, Li3/b;
+    new-instance v15, Li3/b;
 
-    invoke-direct {v9, v11, v12, v12, v15}, Li3/b;-><init>(Landroid/graphics/Bitmap;Landroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/Point;)V
+    invoke-direct {v15, v10, v11, v11, v12}, Li3/b;-><init>(Landroid/graphics/Bitmap;Landroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/Point;)V
 
-    iget v11, v1, Lcom/k4/homeclock/HomeClockPresenter;->c:I
+    iget v10, v1, Lcom/k4/homeclock/HomeClockPresenter;->c:I
 
-    invoke-direct {v7, v8, v9, v11}, Li3/c;-><init>(Landroid/content/Context;Li3/b;I)V
+    invoke-direct {v7, v8, v15, v10}, Li3/c;-><init>(Landroid/content/Context;Li3/b;I)V
 
-    invoke-virtual {v3, v7}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
-
-    .line 77
-    :cond_113
-    invoke-static {v1, v2}, Lcom/k4/homeclock/HomeDepthClock;->setClock(Lh3/a;Lcom/k4/homeclock/ClockNode;)V
+    invoke-virtual {v6, v7}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
     .line 78
+    :cond_10f
     invoke-virtual/range {v17 .. v17}, Lh3/f;->d()V
 
     .line 79
-    invoke-virtual/range {v16 .. v16}, Ljava/util/ArrayList;->size()I
+    invoke-virtual/range {p1 .. p1}, Ljava/util/ArrayList;->size()I
 
-    move-result v2
+    move-result v6
 
     .line 80
+    invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v2
+
+    invoke-virtual {v2}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+
+    move-result-object v2
+
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
     move-result-wide v7
 
     sub-long v7, v7, v18
 
-    new-instance v3, Ljava/lang/StringBuilder;
+    new-instance v10, Ljava/lang/StringBuilder;
 
-    invoke-direct {v3}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-direct {v10}, Ljava/lang/StringBuilder;-><init>()V
 
-    const-string v9, "build: "
+    const-string v11, "build: "
 
-    invoke-virtual {v3, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v10, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v10
+
+    invoke-virtual {v10, v3}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object v3
+
+    const-string v10, "x"
+
+    invoke-virtual {v3, v10}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v3
 
     invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
-
-    move-result-object v3
-
-    const-string v4, "x"
-
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v3
-
-    invoke-virtual {v3, v5}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     move-result-object v3
 
@@ -615,27 +617,37 @@
 
     move-result-object v3
 
-    invoke-virtual {v3, v2}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v6}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    move-result-object v2
+    move-result-object v3
 
-    const-string v3, ", subjectAt="
+    const-string v4, ", subjectAt="
 
-    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object v2
+    move-result-object v3
 
-    invoke-virtual {v2, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v3, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
-    const-string v2, ", subjectTop="
+    const-string v3, ", subjectTop="
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v5}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v3, ", clock="
+
+    invoke-virtual {v0, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
 
     invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
-
-    move-result-object v0
-
-    invoke-virtual {v0, v6}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
@@ -658,79 +670,57 @@
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v0
-    :try_end_16e
-    .catchall {:try_start_ef .. :try_end_16e} :catchall_176
 
     .line 79
-    move-object/from16 v2, p1
-
-    :try_start_170
-    invoke-static {v2, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-    :try_end_173
-    .catchall {:try_start_170 .. :try_end_173} :catchall_174
+    invoke-static {v14, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_17c
+    .catchall {:try_start_e7 .. :try_end_17c} :catchall_17d
 
     .line 92
     goto :goto_1bb
 
     .line 81
-    :catchall_174
+    :catchall_17d
     move-exception v0
 
     goto :goto_18c
 
-    :catchall_176
+    :catchall_17f
     move-exception v0
 
-    move-object/from16 v2, p1
+    move-object/from16 v16, v12
+
+    move-object/from16 p1, v15
+
+    move-object v12, v3
 
     goto :goto_18c
 
-    :catchall_17a
+    :catchall_186
     move-exception v0
 
-    goto :goto_188
+    move-object/from16 v16, v12
 
-    :catchall_17c
-    move-exception v0
+    move-object/from16 p1, v15
 
-    move-object/from16 v20, v15
-
-    move-object v15, v2
-
-    move-object/from16 v2, v20
-
-    move-object/from16 v20, v13
-
-    goto :goto_18c
-
-    :catchall_185
-    move-exception v0
-
-    move-object/from16 v16, v2
-
-    :goto_188
-    move-object/from16 v20, v13
-
-    move-object v2, v15
-
-    const/4 v15, 0x0
+    const/4 v12, 0x0
 
     .line 83
     :goto_18c
-    const-string v3, "build failed, showing the layers without a clock"
+    const-string v2, "build failed, showing the layers without a clock"
 
-    invoke-static {v2, v3, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+    invoke-static {v14, v2, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
     .line 84
-    invoke-static {v1, v15}, Lcom/k4/homeclock/HomeDepthClock;->setClock(Lh3/a;Lcom/k4/homeclock/ClockNode;)V
+    invoke-static {v1, v12}, Lcom/k4/homeclock/HomeDepthClock;->setClock(Lh3/a;Lcom/k4/homeclock/DepthClock;)V
 
     .line 85
-    iget-object v0, v14, Li3/k;->c:Ljava/util/ArrayList;
+    iget-object v0, v13, Li3/k;->c:Ljava/util/ArrayList;
 
     invoke-virtual {v0}, Ljava/util/ArrayList;->clear()V
 
     .line 86
-    invoke-virtual/range {v16 .. v16}, Ljava/util/ArrayList;->iterator()Ljava/util/Iterator;
+    invoke-virtual/range {p1 .. p1}, Ljava/util/ArrayList;->iterator()Ljava/util/Iterator;
 
     move-result-object v0
 
@@ -746,7 +736,7 @@
     move-result-object v1
 
     .line 87
-    iget-object v2, v14, Li3/k;->c:Ljava/util/ArrayList;
+    iget-object v2, v13, Li3/k;->c:Ljava/util/ArrayList;
 
     invoke-virtual {v2, v1}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
@@ -755,21 +745,21 @@
 
     .line 89
     :cond_1ad
-    move-object/from16 v1, v20
+    move-object/from16 v1, v16
 
     iget-object v0, v1, Lg0/a;->c:Ljava/lang/Object;
 
-    iput-object v0, v10, Lg0/a;->c:Ljava/lang/Object;
+    iput-object v0, v9, Lg0/a;->c:Ljava/lang/Object;
 
     .line 90
     iget-object v0, v1, Lg0/a;->d:Ljava/lang/Object;
 
-    iput-object v0, v10, Lg0/a;->d:Ljava/lang/Object;
+    iput-object v0, v9, Lg0/a;->d:Ljava/lang/Object;
 
     .line 91
     iget-object v0, v1, Lg0/a;->e:Ljava/io/Serializable;
 
-    iput-object v0, v10, Lg0/a;->e:Ljava/io/Serializable;
+    iput-object v0, v9, Lg0/a;->e:Ljava/io/Serializable;
 
     .line 93
     :goto_1bb
@@ -782,7 +772,7 @@
     .line 97
     const/4 v0, 0x0
 
-    invoke-static {p0, v0}, Lcom/k4/homeclock/HomeDepthClock;->setClock(Lh3/a;Lcom/k4/homeclock/ClockNode;)V
+    invoke-static {p0, v0}, Lcom/k4/homeclock/HomeDepthClock;->setClock(Lh3/a;Lcom/k4/homeclock/DepthClock;)V
 
     .line 98
     iget-object v0, p0, Lcom/k4/homeclock/HomeClockPresenter;->f:Li3/k;

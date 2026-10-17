@@ -18,13 +18,13 @@
 
 
 # instance fields
-.field final synthetic val$crop:Landroid/view/View;
+.field final synthetic val$crop:Landroid/widget/ImageView;
 
 .field final synthetic val$ref:Ljava/lang/ref/WeakReference;
 
 
 # direct methods
-.method constructor <init>(Ljava/lang/ref/WeakReference;Landroid/view/View;)V
+.method constructor <init>(Ljava/lang/ref/WeakReference;Landroid/widget/ImageView;)V
     .locals 0
     .annotation system Ldalvik/annotation/Signature;
         value = {
@@ -34,7 +34,7 @@
 
     iput-object p1, p0, Lcom/k4/dressroom/HomeClock$4;->val$ref:Ljava/lang/ref/WeakReference;
 
-    iput-object p2, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/view/View;
+    iput-object p2, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/widget/ImageView;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
@@ -44,7 +44,7 @@
 
 # virtual methods
 .method public onPreDraw()Z
-    .locals 2
+    .locals 5
 
     iget-object v0, p0, Lcom/k4/dressroom/HomeClock$4;->val$ref:Ljava/lang/ref/WeakReference;
 
@@ -52,37 +52,123 @@
 
     move-result-object v0
 
-    check-cast v0, Landroid/widget/ImageView;
+    check-cast v0, Lcom/k4/dressroom/HomeClock$SubjectView;
 
-    if-eqz v0, :cond_1
+    const/4 v1, 0x1
 
-    invoke-virtual {v0}, Landroid/widget/ImageView;->getParent()Landroid/view/ViewParent;
+    if-eqz v0, :cond_4
 
-    move-result-object v1
+    invoke-virtual {v0}, Lcom/k4/dressroom/HomeClock$SubjectView;->getParent()Landroid/view/ViewParent;
 
-    if-nez v1, :cond_0
+    move-result-object v2
+
+    if-nez v2, :cond_0
 
     goto :goto_0
 
     :cond_0
-    iget-object p0, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/view/View;
+    invoke-virtual {v0}, Lcom/k4/dressroom/HomeClock$SubjectView;->getLayoutParams()Landroid/view/ViewGroup$LayoutParams;
 
-    invoke-static {v0, p0}, Lcom/k4/dressroom/HomeClock;->layoutSubject(Landroid/widget/ImageView;Landroid/view/View;)V
+    move-result-object v2
 
-    goto :goto_1
+    check-cast v2, Landroid/widget/FrameLayout$LayoutParams;
+
+    iget v3, v2, Landroid/widget/FrameLayout$LayoutParams;->leftMargin:I
+
+    iget-object v4, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/widget/ImageView;
+
+    invoke-virtual {v4}, Landroid/widget/ImageView;->getLeft()I
+
+    move-result v4
+
+    if-ne v3, v4, :cond_1
+
+    iget v3, v2, Landroid/widget/FrameLayout$LayoutParams;->topMargin:I
+
+    iget-object v4, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/widget/ImageView;
+
+    invoke-virtual {v4}, Landroid/widget/ImageView;->getTop()I
+
+    move-result v4
+
+    if-ne v3, v4, :cond_1
+
+    iget v3, v2, Landroid/widget/FrameLayout$LayoutParams;->width:I
+
+    iget-object v4, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/widget/ImageView;
+
+    invoke-virtual {v4}, Landroid/widget/ImageView;->getWidth()I
+
+    move-result v4
+
+    if-ne v3, v4, :cond_1
+
+    iget v3, v2, Landroid/widget/FrameLayout$LayoutParams;->height:I
+
+    iget-object v4, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/widget/ImageView;
+
+    invoke-virtual {v4}, Landroid/widget/ImageView;->getHeight()I
+
+    move-result v4
+
+    if-eq v3, v4, :cond_2
 
     :cond_1
-    :goto_0
-    iget-object v0, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/view/View;
+    iget-object v3, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/widget/ImageView;
 
-    invoke-virtual {v0}, Landroid/view/View;->getViewTreeObserver()Landroid/view/ViewTreeObserver;
+    invoke-virtual {v3}, Landroid/widget/ImageView;->getLeft()I
+
+    move-result v3
+
+    iput v3, v2, Landroid/widget/FrameLayout$LayoutParams;->leftMargin:I
+
+    iget-object v3, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/widget/ImageView;
+
+    invoke-virtual {v3}, Landroid/widget/ImageView;->getTop()I
+
+    move-result v3
+
+    iput v3, v2, Landroid/widget/FrameLayout$LayoutParams;->topMargin:I
+
+    iget-object v3, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/widget/ImageView;
+
+    invoke-virtual {v3}, Landroid/widget/ImageView;->getWidth()I
+
+    move-result v3
+
+    iput v3, v2, Landroid/widget/FrameLayout$LayoutParams;->width:I
+
+    iget-object p0, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/widget/ImageView;
+
+    invoke-virtual {p0}, Landroid/widget/ImageView;->getHeight()I
+
+    move-result p0
+
+    iput p0, v2, Landroid/widget/FrameLayout$LayoutParams;->height:I
+
+    invoke-virtual {v0, v2}, Lcom/k4/dressroom/HomeClock$SubjectView;->setLayoutParams(Landroid/view/ViewGroup$LayoutParams;)V
+
+    :cond_2
+    invoke-virtual {v0}, Lcom/k4/dressroom/HomeClock$SubjectView;->changed()Z
+
+    move-result p0
+
+    if-eqz p0, :cond_3
+
+    invoke-virtual {v0}, Lcom/k4/dressroom/HomeClock$SubjectView;->invalidate()V
+
+    :cond_3
+    return v1
+
+    :cond_4
+    :goto_0
+    iget-object v0, p0, Lcom/k4/dressroom/HomeClock$4;->val$crop:Landroid/widget/ImageView;
+
+    invoke-virtual {v0}, Landroid/widget/ImageView;->getViewTreeObserver()Landroid/view/ViewTreeObserver;
 
     move-result-object v0
 
     invoke-virtual {v0, p0}, Landroid/view/ViewTreeObserver;->removeOnPreDrawListener(Landroid/view/ViewTreeObserver$OnPreDrawListener;)V
 
-    :goto_1
-    const/4 p0, 0x1
-
-    return p0
+    return v1
 .end method
