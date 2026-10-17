@@ -38,6 +38,29 @@ else
     EVAL "cp -f \"$SRC/k4_usb_webcam.rc\" \"$WORK_DIR/vendor/etc/init/k4_usb_webcam.rc\"" || ABORT "usb_webcam: rc copy failed"
     SET_METADATA "vendor" "etc/init/k4_usb_webcam.rc" 0 0 644 "u:object_r:vendor_configs_file:s0"
 
+    # The UVC gadget node gets the first free /dev/videoN: video0/1 are cam-req-mgr/cam_sync, video32/33 msm_vidc,
+    # so it is video2 (video3.. only while an old node is still held). The vendor rule "/dev/video* 0660 system
+    # camera" makes ueventd mknod it as root:camera and chown it to system right after. DeviceAsWebcam runs as
+    # uid/gid system without the camera gid, and its V4L2NodeWatcher scans /dev/video* on the inotify CREATE event:
+    # when that scan runs between mknod and chown, open() fails with EACCES, no further CREATE comes, the service
+    # is never started and UsbDeviceManager falls back to charging 3 s later (1 in ~10 first tries on 9.3.52).
+    # ueventd sets the group atomically (setegid before mknod), so give the gadget node numbers group system.
+    # Later rules win (ueventd searches its rules in reverse), and /vendor/ueventd.rc is the last file read.
+    UEV="$WORK_DIR/vendor/etc/ueventd.rc"
+    [ -f "$UEV" ] || UEV="$WORK_DIR/vendor/ueventd.rc"
+    [ -f "$UEV" ] || ABORT "usb_webcam: vendor ueventd.rc not found"
+    grep -q "^/dev/video\*  *0660  *system  *camera" "$UEV" || ABORT "usb_webcam: no /dev/video* system camera rule in ${UEV//$WORK_DIR/}, review the gadget node rule"
+    if ! grep -q "^# k4 usb_webcam" "$UEV"; then
+        LOG "- Creating the UVC gadget node /dev/video2-9 with group system (${UEV//$WORK_DIR/})"
+        {
+            echo
+            echo "# k4 usb_webcam: UVC gadget node, group system so DeviceAsWebcam can open it before ueventd's chown"
+            for N in 2 3 4 5 6 7 8 9; do echo "/dev/video$N               0660   system     system"; done
+        } >> "$UEV"
+        unset N
+    fi
+    unset UEV
+
     # Read by UsbManager.isUvcSupportEnabled() (SecSettings shows "Webcam" in the USB options) and DeviceAsWebcam.
     # usb_uvc_enabled_prop is a vendor config prop: it belongs in vendor/build.prop.
     SET_PROP "vendor" "ro.usb.uvc.enabled" "true"

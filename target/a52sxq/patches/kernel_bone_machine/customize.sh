@@ -7,8 +7,8 @@
 #   stale 5.4.233 copies in /vendor/lib/modules are never needed (their symbol CRCs do not match this kernel).
 # - dtbo.img: used as is (target/a52sxq/installer/customize.sh skips the A528N dtbo while this patch is enabled).
 # AVB footers are added later by the normal packaging step (images are unsigned here).
-KZIP="$SRC_DIR/prebuilts/kernel/bone-machine/bone-machine_k4btf_ringbuf_su_pt_uvc6_test_a52sxq.zip"
-KSHA="f11857589f173f4700b31a9f5b8db498c7b3f8916f703d02d8e061edc544764a"
+KZIP="$SRC_DIR/prebuilts/kernel/bone-machine/bone-machine_k4btf_ringbuf_su_pt_uvc7_test_a52sxq.zip"
+KSHA="8a4e01d109bc500cb21484dc59f27a434aa4c5dd8725fac2d7b10bb479c6693c"
 KVER="5.4.302-bone-machine-qgki"
 [ -f "$KZIP" ] || ABORT "kernel_bone_machine: $KZIP not found"
 [ "$(sha256sum "$KZIP" | cut -d " " -f 1)" = "$KSHA" ] || ABORT "kernel_bone_machine: sha256 mismatch for $KZIP"

@@ -1,0 +1,232 @@
+From: kusti420 <virtuaalnepannkook@gmail.com>
+Subject: [PATCH] usb: gadget: uvc: let the application close the node before unbind unregisters it
+
+Switching USB from webcam to MTP while the host streams (svc usb setFunctions mtp) left
+DeviceAsWebcam deadlocked, and re-enabling the webcam within ~13 s failed: the new video
+node was never opened, the gadget stayed deactivated and UsbDeviceManager fell back to
+sec_charging,adb after its 3 s debounce.
+
+0010 backported the bounded unbind wait of b81ac4395bbe ("usb: gadget: uvc: allow for
+application to cleanly shutdown") only after video_unregister_device(). Upstream first waits
+up to 500 ms with the node still registered, so the application can handle the
+UVC_EVENT_DISCONNECT that uvc_function_disable() queued just before. Without that, by the time
+DeviceAsWebcam looks at the node it is unregistered: v4l2_poll() returns EPOLLERR | EPOLLHUP
+(no EPOLLPRI, so the event is never dequeued; the UVC thread spins on "Which event fd is N ?
+event 24"), and the node removal is noticed through inotify instead. Its STREAMOFF then fails
+with -ENODEV, processStreamOffEvent() returns before dropping the SdkFrameProvider, and the
+provider is destroyed from the UVC thread (UVCProvider::stopService -> ~UVCDevice ->
+~SdkFrameProvider -> DeviceAsWebcamServiceManager::stopStreaming -> Java stopStreaming) while
+the main thread is in DeviceAsWebcamFgService.onDestroy() -> nativeOnDestroy(). The two threads
+wait on each other (Java mServiceLock vs. the native mSerializationLock, or the native lock vs.
+the join of the UVC thread); the app is killed as ANR on the next USB_STATE broadcast ~13 s
+later, which is when the old node was finally released. ANR traces of both variants are in the
+k4 test notes (2026-10-17 21:20 and 21:23).
+
+With the node still registered DeviceAsWebcam takes its normal path (DQEVENT DISCONNECT,
+STREAMOFF, frame provider and buffers released, node closed) in ~80 ms; this was measured on
+the current kernel with a host-side USB bus reset, which disables the function without
+unbinding it.
+
+- Count the open file handles of the video node (vdev_open). Unbind marks the function
+  unbound, then waits up to 500 ms for the last handle to be closed before unregistering the
+  node, and logs how long the application took. The wait after unregistering (for
+  applications that only react to the node removal) is cut from 1 s to 300 ms, so a hung
+  application still holds init's UDC write for at most 0.8 s (UsbDeviceManager gives the
+  "none" state about 1 s); the uvc_device is still freed on the video device release.
+- uvc_function_connect() does not activate the function once it is unbound (a node opened
+  during the wait, e.g. by DeviceAsWebcam's /dev/video* scan), matching the existing
+  func_unbound check in uvc_function_disconnect().
+- The wait conditions (uvc_vdev_released() from 0010 and the new uvc_vdev_closed()) read
+  their flag with READ_ONCE() instead of taking uvc->lock: wait_event*() evaluates them with
+  the task state already set, where they must not sleep.
+
+Used by MonsterROM target/a52sxq/patches/usb_webcam (on top of 0009-0013).
+---
+diff --git a/drivers/usb/gadget/function/f_uvc.c b/drivers/usb/gadget/function/f_uvc.c
+--- a/drivers/usb/gadget/function/f_uvc.c
++++ b/drivers/usb/gadget/function/f_uvc.c
+@@ -10,6 +10,7 @@
+ #include <linux/errno.h>
+ #include <linux/fs.h>
+ #include <linux/kernel.h>
++#include <linux/ktime.h>
+ #include <linux/list.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+@@ -30,6 +31,10 @@
+ #include "uvc_v4l2.h"
+ #include "uvc_video.h"
+ 
++/* Bounded unbind waits for the application (see uvc_unbind()). */
++#define UVC_UNBIND_CLOSE_WAIT_MS	500U
++#define UVC_UNBIND_RELEASE_WAIT_MS	300U
++
+ unsigned int uvc_gadget_trace_param;
+ module_param_named(trace, uvc_gadget_trace_param, uint, 0644);
+ MODULE_PARM_DESC(trace, "Trace level bitmask");
+@@ -384,8 +389,21 @@
+ {
+ 	int ret;
+ 
++	mutex_lock(&uvc->lock);
++	if (uvc->func_unbound) {
++		/*
++		 * Opened while the function is being unbound (unbind waits for
++		 * the application with the node still registered): there is
++		 * nothing to activate, and uvc_function_disconnect() skips the
++		 * matching deactivate.
++		 */
++		mutex_unlock(&uvc->lock);
++		return;
++	}
++
+ 	if ((ret = usb_function_activate(&uvc->func)) < 0)
+ 		uvcg_info(&uvc->func, "UVC connect failed with %d\n", ret);
++	mutex_unlock(&uvc->lock);
+ }
+ 
+ void
+@@ -443,14 +461,19 @@
+ 	wake_up_interruptible(&uvc->vdev_release_wq);
+ }
+ 
++/*
++ * Wait conditions for vdev_release_wq. They are evaluated by wait_event*()
++ * after the task state is set, so they must not sleep (no uvc->lock): the
++ * flags are written under uvc->lock and wake_up() follows the write.
++ */
+ static bool uvc_vdev_released(struct uvc_device *uvc)
+ {
+-	bool released;
++	return !READ_ONCE(uvc->vdev_in_use);
++}
+ 
+-	mutex_lock(&uvc->lock);
+-	released = !uvc->vdev_in_use;
+-	mutex_unlock(&uvc->lock);
+-	return released;
++static bool uvc_vdev_closed(struct uvc_device *uvc)
++{
++	return !READ_ONCE(uvc->vdev_open);
+ }
+ 
+ static int
+@@ -965,28 +988,57 @@
+ {
+ 	struct usb_composite_dev *cdev = c->cdev;
+ 	struct uvc_device *uvc = to_uvc(f);
++	ktime_t start;
++	long wait_ret;
+ 
+ 	uvcg_info(f, "%s\n", __func__);
+ 	mutex_lock(&uvc->lock);
+ 	uvc->func_unbound = true;
+ 	mutex_unlock(&uvc->lock);
+ 
++	/*
++	 * b81ac4395bbe: let the application shut down cleanly before the node
++	 * goes away. uvc_function_disable() queued UVC_EVENT_DISCONNECT; while
++	 * the video device is still registered the application can dequeue it,
++	 * STREAMOFF, unmap its buffers and close the node. Once it is
++	 * unregistered, poll() only reports EPOLLERR | EPOLLHUP and every ioctl
++	 * fails with -ENODEV: DeviceAsWebcam then never sees the event, its
++	 * STREAMOFF fails, and its inotify fallback tears the camera stream
++	 * down from the UVC thread while the service is being destroyed, which
++	 * deadlocks the app (main thread vs UVC thread) until it is killed as
++	 * ANR ~13 s later; a webcam re-enabled in that window is never opened
++	 * and UsbDeviceManager falls back to charging.
++	 * The application normally closes the node within ~100 ms. Both waits
++	 * are bounded (0.8 s in total): unbind runs in init's write to the UDC
++	 * attribute, and UsbDeviceManager gives the "none" state about 1 s.
++	 */
++	if (!uvc_vdev_closed(uvc)) {
++		start = ktime_get();
++		wait_ret = wait_event_interruptible_timeout(uvc->vdev_release_wq,
++							    uvc_vdev_closed(uvc),
++							    msecs_to_jiffies(UVC_UNBIND_CLOSE_WAIT_MS));
++		if (wait_ret > 0)
++			uvcg_info(f, "%s: video device closed by the application after %lld ms\n",
++				  __func__, ktime_ms_delta(ktime_get(), start));
++		else
++			uvcg_warn(f, "%s: video device not closed within %u ms (%ld)\n",
++				  __func__, UVC_UNBIND_CLOSE_WAIT_MS, wait_ret);
++	}
++
+ 	device_remove_file(&uvc->vdev.dev, &dev_attr_function_name);
+ 	video_unregister_device(&uvc->vdev);
+ 	v4l2_device_unregister(&uvc->v4l2_dev);
+ 
+ 	/*
+-	 * Allow some time for the application to close the node (DeviceAsWebcam
+-	 * closes it on UVC_EVENT_DISCONNECT or when the node goes away). Never
+-	 * wait for it indefinitely: unbind runs in init's write to the UDC
+-	 * attribute, and a hung application must not take USB down with it.
+-	 * If the node is still open, uvc_free() leaves freeing the uvc_device to
+-	 * uvc_vdev_release().
++	 * Still open: give an application that only reacts to the node
++	 * removal a moment to close it. Never wait for it indefinitely: a hung
++	 * application must not take USB down with it. If the node is still
++	 * open, uvc_free() leaves freeing the uvc_device to uvc_vdev_release().
+ 	 */
+ 	if (!uvc_vdev_released(uvc) &&
+ 	    wait_event_interruptible_timeout(uvc->vdev_release_wq,
+ 					     uvc_vdev_released(uvc),
+-					     msecs_to_jiffies(1000)) <= 0)
++					     msecs_to_jiffies(UVC_UNBIND_RELEASE_WAIT_MS)) <= 0)
+ 		uvcg_warn(f, "%s: video device still open, freeing it on release\n",
+ 			  __func__);
+ 
+diff --git a/drivers/usb/gadget/function/uvc.h b/drivers/usb/gadget/function/uvc.h
+--- a/drivers/usb/gadget/function/uvc.h
++++ b/drivers/usb/gadget/function/uvc.h
+@@ -146,11 +146,12 @@
+ 	enum uvc_state state;
+ 	struct usb_function func;
+ 	struct uvc_video video;
+-	struct mutex lock;	/* protects func_unbound, vdev_in_use, func_freed */
++	struct mutex lock;	/* protects func_unbound, vdev_in_use, func_freed, vdev_open */
+ 	bool func_unbound;
+ 	bool vdev_in_use;	/* vdev registered and not yet released */
+ 	bool func_freed;	/* uvc_free() ran, uvc_vdev_release() frees us */
+-	wait_queue_head_t vdev_release_wq;
++	unsigned int vdev_open;	/* open file handles of the video node */
++	wait_queue_head_t vdev_release_wq;	/* vdev released or last handle closed */
+ 
+ 	/* Descriptors */
+ 	struct {
+diff --git a/drivers/usb/gadget/function/uvc_v4l2.c b/drivers/usb/gadget/function/uvc_v4l2.c
+--- a/drivers/usb/gadget/function/uvc_v4l2.c
++++ b/drivers/usb/gadget/function/uvc_v4l2.c
+@@ -494,6 +494,10 @@
+ 	handle->device = &uvc->video;
+ 	file->private_data = &handle->vfh;
+ 
++	mutex_lock(&uvc->lock);
++	uvc->vdev_open++;
++	mutex_unlock(&uvc->lock);
++
+ 	uvc_function_connect(uvc);
+ 	return 0;
+ }
+@@ -505,6 +509,7 @@
+ 	struct uvc_device *uvc = video_get_drvdata(vdev);
+ 	struct uvc_file_handle *handle = to_uvc_file_handle(file->private_data);
+ 	struct uvc_video *video = handle->device;
++	bool closed;
+ 
+ 	uvc_function_disconnect(uvc);
+ 
+@@ -518,6 +523,13 @@
+ 	v4l2_fh_exit(&handle->vfh);
+ 	kfree(handle);
+ 
++	/* uvc_unbind() waits for the last handle to go away. */
++	mutex_lock(&uvc->lock);
++	closed = --uvc->vdev_open == 0;
++	mutex_unlock(&uvc->lock);
++	if (closed)
++		wake_up_interruptible(&uvc->vdev_release_wq);
++
+ 	return 0;
+ }
+ 
