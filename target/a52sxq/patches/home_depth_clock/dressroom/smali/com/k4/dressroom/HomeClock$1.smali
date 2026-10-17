@@ -85,6 +85,8 @@
 
     invoke-static {v2, v0, p0}, Lcom/k4/dressroom/HomeClock;->clockOnly(Landroid/view/ViewGroup;II)V
 
+    invoke-static {}, Lcom/k4/dressroom/EditXf;->keepSwitch()V
+
     invoke-static {}, Lcom/k4/dressroom/HomeClock;->-$$Nest$sfgetsMediator()Ljava/lang/ref/WeakReference;
 
     move-result-object p0

@@ -47,6 +47,15 @@ public final class HomeClock {
 
     private HomeClock() {}
 
+    static String debug() {
+        try {
+            String v = SemSystemProperties.get(PROP + "_debug");
+            return v == null ? "" : v;
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
     static boolean propOn() {
         try {
             String v = SemSystemProperties.get(PROP);
@@ -62,6 +71,13 @@ public final class HomeClock {
             active = (m.h & 3) == 1 && !m.j;
             on = active && propOn();
             sMediator = new WeakReference<>(m);
+            sBundle = null;
+            sBundleRead = false;
+            sRestored = false;
+            sDepth = true;
+            synchronized (sPut) {
+                sPut.clear();
+            }
             EditXf.reset();
             Log.i(TAG, "editor which=" + m.h + " cover=" + m.j + " -> home clock " + (active ? (on ? "on" : "off") : "not offered"));
         } catch (Throwable t) {
@@ -131,6 +147,7 @@ public final class HomeClock {
                         return true;
                     }
                     clockOnly(g, star, clock);
+                    EditXf.keepSwitch();
                     p8.a med = sMediator.get();
                     if (med != null) {
                         hideLauncher(med);
@@ -141,7 +158,7 @@ public final class HomeClock {
         }
         SubjectView s = sSubjectView.get();
         if (s != null) {
-            s.setVisibility(on ? View.VISIBLE : View.GONE);
+            s.setVisibility(on && sDepth ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -324,9 +341,27 @@ public final class HomeClock {
         }
         try {
             Bitmap obj = null;
+            Object res = null;
             try {
-                obj = (Bitmap) field(field(result, "a"), "k");
+                res = field(result, "a");
+                obj = (Bitmap) field(res, "k");
             } catch (Throwable ignored) {
+            }
+            // Samsung saves the cut-out (masked.jpg, the layer the home engine puts in front of the clock) only when
+            // ImagePreviewController.b3() says so: d7.m.a(null), true for people and animals, false for an "Unknown"
+            // object. The preview shows the subject in front of the clock only when the saved wallpaper will have it.
+            boolean depth = true;
+            try {
+                if (res != null) {
+                    java.lang.reflect.Method a = res.getClass().getMethod("a", Boolean.class);
+                    depth = (Boolean) a.invoke(res, new Object[] {null});
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "subject: save check", t);
+            }
+            sDepth = depth;
+            if (!depth) {
+                Log.i(TAG, "subject not saved by Samsung for this picture: clock drawn over the whole picture");
             }
             if (obj == null) {
                 obj = fallback;
@@ -419,6 +454,8 @@ public final class HomeClock {
     }
 
     static WeakReference<SubjectView> sSubjectView = new WeakReference<>(null);
+    /** The saved wallpaper will have the cut-out layer (see onObject). */
+    static volatile boolean sDepth = true;
 
     static void placeSubject(ViewGroup lock, final View cropView, Bitmap bmp) {
         if (!(cropView instanceof ImageView)) {
@@ -468,11 +505,17 @@ public final class HomeClock {
         }
         s.subject = new android.graphics.drawable.BitmapDrawable(lock.getResources(), bmp);
         s.subject.setFilterBitmap(true);
-        try { // debug aid: see the clock through the subject (persist.sys.k4.home_depth_clock_debug=1)
-            s.setAlpha("1".equals(SemSystemProperties.get(PROP + "_debug")) ? 0.35f : 1f);
+        try { // debug aids (persist.sys.k4.home_depth_clock_debug): 1 = see the clock through the subject,
+            // "tint" = the subject drawn magenta, so any offset against the picture under it shows as the picture's own
+            // subject colour next to the magenta (alignment tests)
+            String dbg = debug();
+            s.setAlpha("1".equals(dbg) ? 0.35f : 1f);
+            if (dbg.contains("tint")) {
+                s.subject.setColorFilter(new android.graphics.PorterDuffColorFilter(0xffff00ff, android.graphics.PorterDuff.Mode.SRC_IN));
+            }
         } catch (Throwable ignored) {
         }
-        s.setVisibility(on ? View.VISIBLE : View.GONE);
+        s.setVisibility(on && sDepth ? View.VISIBLE : View.GONE);
         s.invalidate();
         android.graphics.drawable.Drawable d = crop.getDrawable();
         Log.i(TAG, "subject above clock: " + bmp.getWidth() + "x" + bmp.getHeight()
@@ -554,6 +597,91 @@ public final class HomeClock {
         return lockItem;
     }
 
+    static final String KEY_BUNDLE = "k4_home_clock_bundle";
+    static final String BUNDLE_CLASS = "com.samsung.android.lockscreen.editor.item.domain.entity.item.clock.wallpaperbundle.WallpaperClockBundle";
+    static final String BUNDLE_CONVERT = "yc.b0"; // WallpaperClockBundleConvertRepositoryImpl: a(ClockData, bundle) / b(ClockData)
+    private static Object sBundle;
+    private static boolean sBundleRead, sRestored;
+
+    private static final java.util.Map<Object, Set<String>> sPut = new java.util.WeakHashMap<>();
+
+    /**
+     * WallpaperClockBundleRepository.get(sceneId) (cd.c.o) result. The lock editor keeps the clock's place (gravity,
+     * margins, scale) and its stretch heights per wallpaper in such a bundle, not in the ClockItem (whose x/y stay
+     * NO_VALUE). For a picture opened from Gallery the scene id is null, and the repository loaded from the lock screen
+     * holds the LOCK clock's bundle under that key, so a Home editor would start from the lock clock's place and then
+     * reset its stretch. In a Home editor the bundle saved with the home clock (Settings.System k4_home_clock_bundle)
+     * is returned instead, for every repository and id, until Samsung itself stores a bundle for that id in that
+     * repository during this editor (bundlePut: the user moved or resized the clock); Samsung applies it itself
+     * (ManageLifeCycleClockData / ApplyWallpaperClockBundleData / GetWallpaperClockBundle).
+     */
+    public static Object bundle(Object repo, String id, Object samsung) {
+        if (!active) {
+            return samsung;
+        }
+        try {
+            synchronized (sPut) {
+                Set<String> put = sPut.get(repo);
+                if (put != null && put.contains(String.valueOf(id))) {
+                    return samsung;
+                }
+            }
+            if (!sBundleRead) {
+                sBundleRead = true;
+                Context c = null;
+                Object store = sStore.get();
+                if (store != null) {
+                    c = (Context) field(store, "a");
+                } else if (sMediator.get() != null && sMediator.get().g != null) {
+                    c = sMediator.get().g.getContext();
+                }
+                String json = c == null ? null : android.provider.Settings.System.getString(c.getContentResolver(), KEY_BUNDLE);
+                if (json != null && !json.isEmpty()) {
+                    ClassLoader cl = HomeClock.class.getClassLoader();
+                    Object g = Class.forName("com.google.gson.Gson", true, cl).getConstructor().newInstance();
+                    sBundle = g.getClass().getMethod("fromJson", String.class, Class.class)
+                            .invoke(g, json, Class.forName(BUNDLE_CLASS, true, cl));
+                    Log.i(TAG, "editor starts from the saved home clock place: " + sBundle);
+                } else if (c == null) {
+                    sBundleRead = false; // too early, try again on the next lookup
+                }
+            }
+            if (sBundle != null) {
+                sRestored = true;
+                return sBundle;
+            }
+            return samsung;
+        } catch (Throwable t) {
+            Log.e(TAG, "bundle", t);
+            return samsung;
+        }
+    }
+
+    /** WallpaperClockBundleRepository.put(sceneId, bundle) (cd.c.l): from now on Samsung's own bundle for that id wins. */
+    public static void bundlePut(Object repo, String id) {
+        if (!active) {
+            return;
+        }
+        synchronized (sPut) {
+            Set<String> put = sPut.get(repo);
+            if (put == null) {
+                put = new HashSet<>();
+                sPut.put(repo, put);
+            }
+            put.add(String.valueOf(id));
+        }
+    }
+
+    /**
+     * EntryInfo.isReeditCase() where a new picture's clock is re-laid out: ManageLifeCycleClockDataUseCase (mf.t1, resets
+     * the stretch heights) and ClockPositionSuggestion (qp.e, moves and stretches the clock to suit the detected
+     * subject). A Home editor that restored the saved home clock (bundle()) counts as re-editing it: the saved place and
+     * heights stay as they were left.
+     */
+    public static boolean reedit(boolean reedit) {
+        return reedit || (active && sRestored);
+    }
+
     /** dc.p.Y, Home-only apply (Samsung skips the lock save): store the clock and the switch, tell the wallpaper. */
     public static void onHomeSave(Object lockComponent) {
         if (!active) {
@@ -606,6 +734,28 @@ public final class HomeClock {
                         r.left + "," + r.top + "," + r.right + "," + r.bottom + "," + sc + "," + colorType);
             } catch (Throwable t) {
                 Log.w(TAG, "home apply: clock rect", t);
+            }
+            // where the clock sits and its stretch heights, the way the lock editor keeps them per wallpaper
+            // (WallpaperClockBundle from WallpaperClockBundleConvertRepositoryImpl.b): restored by bundle() next time
+            try {
+                Object b = null;
+                for (java.lang.reflect.Method m : Class.forName(BUNDLE_CONVERT, true, cl).getMethods()) {
+                    if (m.getName().equals("b") && java.lang.reflect.Modifier.isStatic(m.getModifiers())
+                            && m.getParameterTypes().length == 1 && m.getParameterTypes()[0].isInstance(data)
+                            && m.getReturnType().getName().equals(BUNDLE_CLASS)) {
+                        b = m.invoke(null, data);
+                    }
+                }
+                if (b != null) {
+                    Object plainGson = Class.forName("com.google.gson.Gson", true, cl).getConstructor().newInstance();
+                    String bj = (String) plainGson.getClass().getMethod("toJson", Object.class).invoke(plainGson, b);
+                    android.provider.Settings.System.putString(c.getContentResolver(), KEY_BUNDLE, bj);
+                    Log.i(TAG, "home apply: clock bundle " + bj);
+                } else {
+                    Log.w(TAG, "home apply: no clock bundle converter");
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "home apply: clock bundle", t);
             }
             Object g = gson(store);
             Class<?> base = Class.forName(ITEM_CLASS, false, store.getClass().getClassLoader());

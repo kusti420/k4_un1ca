@@ -1,4 +1,5 @@
-# Settings > UN1CA > UI settings: "Home screen depth clock" switch + "Clock position" / "Clock colour" (see module.prop).
+# Settings > UN1CA > UI settings: "Home screen depth clock" switch + "Clock position" / "Clock colour" (see module.prop),
+# replaced by "Clock style" (opens Wallpaper & style) once the editor saved a home clock (HomeDepthClockChoiceController).
 # Sourced from target/a52sxq/post_mods.sh: unica_ui_settings.xml only exists once unica/mods/settings has run, and the
 # target patches run before the mods. Controllers: settings/smali (generated from settings/src by settings/build.sh).
 SECSETTINGS="system/priv-app/SecSettings/SecSettings.apk"
@@ -18,6 +19,8 @@ STRINGS = (
     ("k4_home_depth_clock_summary", "Big clock behind the person or object of a wallpaper made with the Gallery wallpaper editor"),
     ("k4_home_depth_clock_position_title", "Clock position"),
     ("k4_home_depth_clock_color_title", "Clock colour"),
+    ("k4_home_depth_clock_style_title", "Clock style"),
+    ("k4_home_depth_clock_style_summary", "Edit in Wallpaper and style: Gallery, a picture, Set as wallpaper, Home screen"),
 )
 # values are what the property gets; the first one is the default (property unset)
 ARRAYS = (
@@ -136,5 +139,15 @@ else:
     ) % (sw, ch, ch)
     open(xf, "w").write(x.replace("</PreferenceScreen>", rows + "</PreferenceScreen>"))
     print("  - 3 rows at the end of unica_ui_settings.xml")
+# "Clock style" (shown instead of Clock position / Clock colour once Wallpaper & style saved a home clock)
+x = open(xf).read()
+if 'android:key="k4_home_depth_clock_style"' not in x:
+    ch = CHOICE[1:-1].replace("/", ".")
+    anchor = re.search(r'    <SecPreference android:title="@string/k4_home_depth_clock_position_title"[^\n]*\n', x)
+    assert anchor, "Clock position row"
+    row = ('    <SecPreference android:title="@string/k4_home_depth_clock_style_title" android:key="k4_home_depth_clock_style" '
+           'android:summary="@string/k4_home_depth_clock_style_summary" settings:controller="%s" />\n' % ch)
+    open(xf, "w").write(x[:anchor.start()] + row + x[anchor.start():])
+    print("  - Clock style row")
 PYEOF
 unset SECSETTINGS

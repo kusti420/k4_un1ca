@@ -145,6 +145,7 @@ def ho(body):
     assert body.count(hdr) == 1
     return body.replace(hdr, hdr + "    invoke-static {p0, p1, p2}, %s->onObject(Landroid/view/View;Ljava/lang/Object;Landroid/graphics/Bitmap;)V\n\n" % HC, 1)
 patch(f, "public static " + sig[0], ho, "NotifyObjectFinish.c -> HomeClock.onObject")
+assert re.search(r"^\.method public final a\(Ljava/lang/Boolean;\)Z$", open(glob.glob(root + "/smali*/d7/m.smali")[0]).read(), re.M), "d7.m.a(Boolean) (object saved?)"
 m8 = open(glob.glob(root + "/smali*/m8/c.smali")[0]).read()
 for fld in (".field public h:Landroid/graphics/RectF;", ".field public i:Landroid/graphics/Bitmap;", ".field public j:Landroid/graphics/Rect;"):
     assert fld in m8, "m8.c " + fld
@@ -187,6 +188,43 @@ patch(f, "public final c(Ljava/lang/String;)" + CI, hc, "ClockStoreRepositoryImp
 q = open(by_text('"LockScreenRemoteItemStoreImpl"')).read()
 assert re.search(r"^\.field public final b:Lji/d;$", q, re.M), "LockScreenRemoteItemStoreImpl.b"
 
+# 5d. the saved home clock's place and stretch heights (Samsung keeps them per wallpaper in a WallpaperClockBundle):
+#     WallpaperClockBundleRepository get/put (cd.c.o / cd.c.l) -> HomeClock.bundle / bundlePut, and the not-reedit stretch
+#     reset of ManageLifeCycleClockDataUseCase (mf.t1, r = !isReeditCase()) -> HomeClock.reedit
+WCB = "Lcom/samsung/android/lockscreen/editor/item/domain/entity/item/clock/wallpaperbundle/WallpaperClockBundle;"
+f = by_text('"] get: id="')
+def hb(body):
+    n = nlocals(body)
+    hdr = "    .locals %d\n\n" % n
+    a = "    invoke-static {p0, p1}, Loc/d;->b(Loc/c;Ljava/lang/String;)V\n\n    return-object v0\n"
+    assert n + 1 + 2 <= 16 and body.count(hdr) == 1 and body.count(a) == 1 and body.count("return-object") == 1, "bundle get"
+    # the id (p1 is reused for the log text): kept in one extra local from the start
+    body = body.replace(hdr, "    .locals %d\n\n    move-object v%d, p1\n\n" % (n + 1, n), 1)
+    return body.replace(a, a.replace("    return-object v0\n", "    invoke-static {p0, v%d, v0}, %s->bundle(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;\n\n"
+                                     "    move-result-object v0\n\n    check-cast v0, %s\n\n    return-object v0\n" % (n, HC, WCB)), 1)
+patch(f, "public final o(Ljava/lang/String;)" + WCB, hb, "WallpaperClockBundleRepository.o -> HomeClock.bundle")
+def hp(body):
+    hdr = "    .locals %d\n\n" % nlocals(body)
+    assert body.count(hdr) == 1
+    return body.replace(hdr, hdr + "    invoke-static {p0, p1}, %s->bundlePut(Ljava/lang/Object;Ljava/lang/String;)V\n\n" % HC, 1)
+patch(f, "public final l(Ljava/lang/String;%s)V" % WCB, hp, "WallpaperClockBundleRepository.l -> HomeClock.bundlePut")
+f = by_text('"ManageLifeCycleClockDataUseCase"')
+def hr(body):
+    a = ("    invoke-virtual {v1}, Lcom/samsung/android/lockscreen/editor/item/domain/entity/preview/EntryInfo;->isReeditCase()Z\n\n"
+         "    move-result v1\n\n    xor-int/lit8 v1, v1, 0x1\n\n    iput-boolean v1, v0, Lmf/t1;->r:Z\n")
+    assert body.count(a) == 1, "ManageLifeCycleClockData: r = !isReeditCase()"
+    return body.replace(a, a.replace("    move-result v1\n\n", "    move-result v1\n\n    invoke-static {v1}, %s->reedit(Z)Z\n\n    move-result v1\n\n" % HC), 1)
+patch(f, "public final c(Lgf/c;)V", hr, "ManageLifeCycleClockDataUseCase.c -> HomeClock.reedit")
+# ... and the automatic clock place / stretch suggestion for a new picture (ClockPositionSuggestion, "not reedit case")
+f = by_text('"not reedit case"')
+def hq(body):
+    a = "    invoke-virtual {v7}, Lcom/samsung/android/lockscreen/editor/item/domain/entity/preview/EntryInfo;->isReeditCase()Z\n\n    move-result v7\n"
+    assert body.count(a) == 1, "suggestion policy: isReeditCase"
+    return body.replace(a, a + "\n    invoke-static {v7}, %s->reedit(Z)Z\n\n    move-result v7\n" % HC, 1)
+patch(f, "public final a(Lke/e;)V", hq, "ClockPositionSuggestion reedit check -> HomeClock.reedit")
+yb = open(glob.glob(root + "/smali*/yc/b0.smali")[0]).read()
+assert re.search(r"^\.method public static b\(Lcom/samsung/android/lockscreen/editor/item/domain/entity/item/clock/ClockData;\)%s$" % re.escape(WCB), yb, re.M), "yc.b0.b (bundle from ClockData)"
+
 # 5c. Home editor zoom-out + rotation (EditXf): CropImageView touch / pinch, MaskImageView draw, SaveImageMaker save
 XF = "Lcom/k4/dressroom/EditXf;"
 W = "com/samsung/android/app/dressroom/presentation/preview/widget/"
@@ -214,7 +252,7 @@ def at_start(call, regs_max):
     return fn
 f = one(W + "CropImageView.smali")
 s = open(f).read()
-for fld in (".field public C:Z", ".field public D:Z", ".field public E:Z", ".field public x:F"):
+for fld in (".field public C:Z", ".field public D:Z", ".field public E:Z", ".field public x:F", ".field public R:Lv9/i;"):
     assert fld in s, "CropImageView " + fld
 for m in ("public final getDrawableInner()Landroid/graphics/drawable/Drawable;", "public final getDrawableBounds()Landroid/graphics/RectF;",
           "public final getDrawableOriginScaledBounds()Landroid/graphics/RectF;"):
@@ -236,7 +274,10 @@ s = open(f).read()
 for fld in (".field public final f:Landroid/util/Size;", ".field public h:Landroid/graphics/Bitmap;", ".field public o:F", ".field public p:F"):
     assert fld in s, "SaveImageMaker " + fld
 assert re.search(r"^\.field private a:Ljava/util/ArrayList;$", open(one("c7/c0.smali")).read(), re.M), "c7.c0.a (expand offsets)"
-assert glob.glob(root + "/smali*/fj/j.smali") and ".method public constructor <init>(Landroid/graphics/drawable/Drawable;)V" in open(one("fj/j.smali")).read(), "fj.j (ExpandableDrawable)"
+for name, typ in (("preview_switch_title_layout", "id"), ("set_wallpaper_btn_bg", "drawable"), ("preview_selector_text_set", "drawable"),
+                  ("edit_switch_preview_title_text_size", "dimen"), ("tab_color", "string"), ("style_item_blur", "string"),
+                  ("align_assist_line", "drawable"), ("guide_box_white", "color"), ("align_assist_line_width", "dimen")):
+    assert re.search(r'<public type="%s" name="%s" ' % (typ, name), open(root + "/res/values/public.xml").read()), "resource %s/%s" % (typ, name)
 xpatch(f, "public final f(Landroid/graphics/RectF;Landroid/graphics/RectF;Landroid/graphics/RectF;Ljava/lang/String;)V", at_start(
     "    invoke-static {p0, p1, p2, p3}, %s->bakeBackground(Ljava/lang/Object;Landroid/graphics/RectF;Landroid/graphics/RectF;Landroid/graphics/RectF;)V\n\n" % XF, 0),
     "SaveImageMaker.f -> EditXf.bakeBackground")

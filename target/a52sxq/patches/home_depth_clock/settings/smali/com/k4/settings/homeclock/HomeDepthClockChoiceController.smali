@@ -6,6 +6,12 @@
 .implements Landroid/content/DialogInterface$OnClickListener;
 
 
+# static fields
+.field static final KEY_ITEM:Ljava/lang/String; = "k4_home_clock_item"
+
+.field static final WALLPAPER_SETTING:Ljava/lang/String; = "com.samsung.intent.action.WALLPAPER_SETTING"
+
+
 # instance fields
 .field private mDialog:Landroidx/appcompat/app/AlertDialog;
 
@@ -138,6 +144,38 @@
     return p0
 .end method
 
+.method private editorClock()Z
+    .locals 1
+
+    :try_start_0
+    iget-object p0, p0, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->mContext:Landroid/content/Context;
+
+    invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+
+    move-result-object p0
+
+    const-string v0, "k4_home_clock_item"
+
+    invoke-static {p0, v0}, Landroid/provider/Settings$System;->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object p0
+
+    invoke-static {p0}, Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z
+
+    move-result p0
+    :try_end_0
+    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
+
+    xor-int/lit8 p0, p0, 0x1
+
+    return p0
+
+    :catch_0
+    const/4 p0, 0x0
+
+    return p0
+.end method
+
 .method private kind()Ljava/lang/String;
     .locals 1
 
@@ -151,15 +189,30 @@
 
     invoke-virtual {p0, v0}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
 
-    move-result p0
+    move-result v0
 
-    if-eqz p0, :cond_0
+    if-eqz v0, :cond_0
 
     const-string p0, "color"
 
     return-object p0
 
     :cond_0
+    if-eqz p0, :cond_1
+
+    const-string v0, "_style"
+
+    invoke-virtual {p0, v0}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+
+    move-result p0
+
+    if-eqz p0, :cond_1
+
+    const-string p0, "style"
+
+    return-object p0
+
+    :cond_1
     const-string p0, "position"
 
     return-object p0
@@ -197,6 +250,30 @@
     return-object p0
 .end method
 
+.method private string(Ljava/lang/String;)I
+    .locals 2
+
+    iget-object v0, p0, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->mContext:Landroid/content/Context;
+
+    invoke-virtual {v0}, Landroid/content/Context;->getResources()Landroid/content/res/Resources;
+
+    move-result-object v0
+
+    iget-object p0, p0, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->mContext:Landroid/content/Context;
+
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+
+    move-result-object p0
+
+    const-string v1, "string"
+
+    invoke-virtual {v0, p1, v1, p0}, Landroid/content/res/Resources;->getIdentifier(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I
+
+    move-result p0
+
+    return p0
+.end method
+
 
 # virtual methods
 .method public displayPreference(Landroidx/preference/PreferenceScreen;)V
@@ -218,26 +295,61 @@
 .end method
 
 .method public getAvailabilityStatus()I
-    .locals 1
+    .locals 3
 
+    const-string v0, "style"
+
+    invoke-direct {p0}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->kind()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    const/4 v1, 0x0
+
+    const/4 v2, 0x2
+
+    if-eqz v0, :cond_1
+
+    invoke-direct {p0}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->editorClock()Z
+
+    move-result p0
+
+    if-eqz p0, :cond_0
+
+    return v1
+
+    :cond_0
+    return v2
+
+    :cond_1
     const-string v0, "_values"
 
     invoke-direct {p0, v0}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->array(Ljava/lang/String;)[Ljava/lang/String;
 
-    move-result-object p0
+    move-result-object v0
 
-    array-length p0, p0
+    array-length v0, v0
 
-    if-lez p0, :cond_0
+    if-nez v0, :cond_2
 
-    const/4 p0, 0x0
-
-    return p0
-
-    :cond_0
     const/4 p0, 0x3
 
     return p0
+
+    :cond_2
+    invoke-direct {p0}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->editorClock()Z
+
+    move-result p0
+
+    if-eqz p0, :cond_3
+
+    return v2
+
+    :cond_3
+    return v1
 .end method
 
 .method public getLaunchIntent()Landroid/content/Intent;
@@ -267,6 +379,40 @@
 .method public getSummary()Ljava/lang/CharSequence;
     .locals 3
 
+    const-string v0, "style"
+
+    invoke-direct {p0}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->kind()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_1
+
+    const-string v0, "k4_home_depth_clock_style_summary"
+
+    invoke-direct {p0, v0}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->string(Ljava/lang/String;)I
+
+    move-result v0
+
+    if-eqz v0, :cond_0
+
+    iget-object p0, p0, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->mContext:Landroid/content/Context;
+
+    invoke-virtual {p0, v0}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+
+    move-result-object p0
+
+    return-object p0
+
+    :cond_0
+    const/4 p0, 0x0
+
+    return-object p0
+
+    :cond_1
     const-string v0, "_values"
 
     invoke-direct {p0, v0}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->array(Ljava/lang/String;)[Ljava/lang/String;
@@ -283,17 +429,17 @@
 
     move-result v0
 
-    if-ltz v0, :cond_0
+    if-ltz v0, :cond_2
 
     array-length v2, v1
 
-    if-ge v0, v2, :cond_0
+    if-ge v0, v2, :cond_2
 
     aget-object p0, v1, v0
 
     return-object p0
 
-    :cond_0
+    :cond_2
     invoke-direct {p0}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->prop()Ljava/lang/String;
 
     move-result-object p0
@@ -316,7 +462,7 @@
 .method public handlePreferenceTreeClick(Landroidx/preference/Preference;)Z
     .locals 6
 
-    if-eqz p1, :cond_3
+    if-eqz p1, :cond_4
 
     invoke-virtual {p1}, Landroidx/preference/Preference;->getKey()Ljava/lang/String;
 
@@ -332,29 +478,81 @@
 
     if-nez p1, :cond_0
 
-    goto :goto_0
+    goto/16 :goto_1
 
     :cond_0
+    const-string p1, "style"
+
+    invoke-direct {p0}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->kind()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-virtual {p1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result p1
+
+    const/4 v0, 0x1
+
+    if-eqz p1, :cond_1
+
+    :try_start_0
+    iget-object p0, p0, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->mContext:Landroid/content/Context;
+
+    new-instance p1, Landroid/content/Intent;
+
+    const-string v1, "com.samsung.intent.action.WALLPAPER_SETTING"
+
+    invoke-direct {p1, v1}, Landroid/content/Intent;-><init>(Ljava/lang/String;)V
+
+    const-string v1, "com.samsung.android.app.dressroom"
+
+    invoke-virtual {p1, v1}, Landroid/content/Intent;->setPackage(Ljava/lang/String;)Landroid/content/Intent;
+
+    move-result-object p1
+
+    const/high16 v1, 0x10000000
+
+    invoke-virtual {p1, v1}, Landroid/content/Intent;->addFlags(I)Landroid/content/Intent;
+
+    move-result-object p1
+
+    invoke-virtual {p0, p1}, Landroid/content/Context;->startActivity(Landroid/content/Intent;)V
+    :try_end_0
+    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
+
+    goto :goto_0
+
+    :catch_0
+    move-exception p0
+
+    const-string p1, "K4HomeClockSettings"
+
+    const-string v1, "Wallpaper and style"
+
+    invoke-static {p1, v1, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    :goto_0
+    return v0
+
+    :cond_1
     const-string p1, "_entries"
 
     invoke-direct {p0, p1}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->array(Ljava/lang/String;)[Ljava/lang/String;
 
     move-result-object p1
 
-    array-length v0, p1
+    array-length v1, p1
 
-    const/4 v1, 0x1
+    if-nez v1, :cond_2
 
-    if-nez v0, :cond_1
+    return v0
 
-    return v1
-
-    :cond_1
-    new-instance v0, Landroidx/appcompat/app/AlertDialog$Builder;
+    :cond_2
+    new-instance v1, Landroidx/appcompat/app/AlertDialog$Builder;
 
     iget-object v2, p0, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->mContext:Landroid/content/Context;
 
-    invoke-direct {v0, v2}, Landroidx/appcompat/app/AlertDialog$Builder;-><init>(Landroid/content/Context;)V
+    invoke-direct {v1, v2}, Landroidx/appcompat/app/AlertDialog$Builder;-><init>(Landroid/content/Context;)V
 
     iget-object v2, p0, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->mContext:Landroid/content/Context;
 
@@ -394,11 +592,11 @@
 
     move-result v2
 
-    if-eqz v2, :cond_2
+    if-eqz v2, :cond_3
 
-    invoke-virtual {v0, v2}, Landroidx/appcompat/app/AlertDialog$Builder;->setTitle(I)V
+    invoke-virtual {v1, v2}, Landroidx/appcompat/app/AlertDialog$Builder;->setTitle(I)V
 
-    :cond_2
+    :cond_3
     const-string v2, "_values"
 
     invoke-direct {p0, v2}, Lcom/k4/settings/homeclock/HomeDepthClockChoiceController;->array(Ljava/lang/String;)[Ljava/lang/String;
@@ -409,15 +607,15 @@
 
     move-result v2
 
-    invoke-virtual {v0, p1, v2, p0}, Landroidx/appcompat/app/AlertDialog$Builder;->setSingleChoiceItems([Ljava/lang/CharSequence;ILandroid/content/DialogInterface$OnClickListener;)V
+    invoke-virtual {v1, p1, v2, p0}, Landroidx/appcompat/app/AlertDialog$Builder;->setSingleChoiceItems([Ljava/lang/CharSequence;ILandroid/content/DialogInterface$OnClickListener;)V
 
     const/high16 p1, 0x1040000
 
     const/4 v2, 0x0
 
-    invoke-virtual {v0, p1, v2}, Landroidx/appcompat/app/AlertDialog$Builder;->setNegativeButton(ILandroid/content/DialogInterface$OnClickListener;)V
+    invoke-virtual {v1, p1, v2}, Landroidx/appcompat/app/AlertDialog$Builder;->setNegativeButton(ILandroid/content/DialogInterface$OnClickListener;)V
 
-    invoke-virtual {v0}, Landroidx/appcompat/app/AlertDialog$Builder;->create()Landroidx/appcompat/app/AlertDialog;
+    invoke-virtual {v1}, Landroidx/appcompat/app/AlertDialog$Builder;->create()Landroidx/appcompat/app/AlertDialog;
 
     move-result-object p1
 
@@ -425,10 +623,10 @@
 
     invoke-virtual {p1}, Landroidx/appcompat/app/AlertDialog;->show()V
 
-    return v1
+    return v0
 
-    :cond_3
-    :goto_0
+    :cond_4
+    :goto_1
     const/4 p0, 0x0
 
     return p0

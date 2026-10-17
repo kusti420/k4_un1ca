@@ -403,10 +403,6 @@
 
     div-float/2addr v11, v12
 
-    sget v13, Lcom/k4/dressroom/EditXf;->tx:F
-
-    add-float/2addr v11, v13
-
     mul-float/2addr v11, v5
 
     add-float/2addr v11, v7
@@ -418,10 +414,6 @@
     int-to-float v2, v2
 
     div-float/2addr v2, v12
-
-    sget v13, Lcom/k4/dressroom/EditXf;->ty:F
-
-    add-float/2addr v2, v13
 
     mul-float/2addr v2, v5
 
