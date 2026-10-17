@@ -37,9 +37,13 @@ final class HomeClockItem {
     float shadowDx;
     float shadowDy;
     boolean showDateFirst = true;
+    /** isShowWeather: weather icon + temperature on the date line (which then uses the short date). */
+    boolean showWeather = true;
     boolean blur;
     /** x.locatedAt: Start / Center / End (how the clock sits in its rect if the widths differ). */
     String gravityX = "Start";
+    /** The editor's clock gravity (k4_home_clock_bundle "gravity", e.g. Gravity.END), null when not saved. */
+    Integer gravity;
     final Rect rect = new Rect();
     float scale = 1f;
     String raw = "";
@@ -60,9 +64,29 @@ final class HomeClockItem {
             return null;
         }
         try {
-            return parse(json, rect);
+            HomeClockItem it = parse(json, rect);
+            it.gravity = bundleGravity(context);
+            return it;
         } catch (Throwable t) {
             Log.w(HomeDepthClock.TAG, "clock item: unreadable, using the plain clock (" + t + ")");
+            return null;
+        }
+    }
+
+    /**
+     * The clock gravity the editor gave its own preview (ClockView.setClockGravity), from the WallpaperClockBundle it
+     * saves as Settings.System k4_home_clock_bundle; null if missing.
+     */
+    static Integer bundleGravity(Context context) {
+        try {
+            String b = Settings.System.getString(context.getContentResolver(), "k4_home_clock_bundle");
+            if (b == null || b.trim().isEmpty()) {
+                return null;
+            }
+            JSONObject o = new JSONObject(b);
+            return o.has("gravity") && !o.isNull("gravity") ? Integer.valueOf(o.getInt("gravity")) : null;
+        } catch (Throwable t) {
+            Log.w(HomeDepthClock.TAG, "clock bundle: no gravity (" + t + ")");
             return null;
         }
     }
@@ -113,6 +137,7 @@ final class HomeClockItem {
             }
         }
         it.showDateFirst = o.optBoolean("isShowDateFirst", true);
+        it.showWeather = o.optBoolean("isShowWeather", true);
         it.blur = o.optBoolean("isBlurEffectEnabled", false);
         JSONObject x = o.optJSONObject("x");
         if (x != null) {
@@ -142,6 +167,7 @@ final class HomeClockItem {
         return "clockType=" + clockType + ", font=" + fontIndex + "/" + fontWeight + "/" + fontRounded
                 + (fontPath.isEmpty() ? "" : "/" + fontPath) + ", color=" + colorType + "(" + presetIndex + ", "
                 + (color == null ? "-" : Integer.toHexString(color)) + (hasShadow ? ", shadow" : "") + "), dateFirst="
-                + showDateFirst + ", blur=" + blur + ", x=" + gravityX + ", rect=" + rect.toShortString() + " x" + scale;
+                + showDateFirst + ", weather=" + showWeather + ", blur=" + blur + ", x=" + gravityX
+                + (gravity == null ? "" : "/0x" + Integer.toHexString(gravity)) + ", rect=" + rect.toShortString() + " x" + scale;
     }
 }

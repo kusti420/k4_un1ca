@@ -20,6 +20,8 @@ import java.util.ArrayList;
  * flattens them into screen-sized bitmaps and releases the originals. The difference: the layers are split at the
  * cut-out subject node, giving
  *   [everything below the subject] -> clock -> [subject and everything above it (frame bottom, AI watermark)].
+ * The engine draws its dark mode dim (DarkModeNode) over this presenter's node group; the clock and the subject are drawn
+ * after it by HomeDepthClock.PostDim (see {@link #drawAbove}), the group itself holds only the background.
  * Memory: two screen-sized bitmaps instead of one.
  */
 final class HomeClockPresenter extends h3.a {
@@ -71,10 +73,11 @@ final class HomeClockPresenter extends h3.a {
             HomeDepthClock.setClock(this, clockNode); // also releases it if the rest of the build fails
             data.c = backNode;
             group.c.add(backNode);
-            group.c.add(clockNode);
-            if (front != null) {
-                group.c.add(new i3.c(this.a, new i3.b(front, full, full, null), this.c));
-            }
+            // the clock and the subject are drawn after the engine's dark mode dim (see drawAbove); this node only
+            // draws them in place when that post-dim node is missing
+            this.clock = clockNode;
+            this.frontNode = front != null ? new i3.c(this.a, new i3.b(front, full, full, null), this.c) : null;
+            group.c.add(new InPlace(this.a));
             inner.d(); // recycles the source bitmaps, as FlattenLayeredPresenter does
             Log.i(HomeDepthClock.TAG, "build: " + w + "x" + h + ", layers=" + nodes.size() + ", subjectAt=" + split
                     + ", subjectTop=" + subjectTop + ", clock=" + clockNode.getClass().getSimpleName() + ", " + (SystemClock.elapsedRealtime() - t0) + " ms");
@@ -96,6 +99,54 @@ final class HomeClockPresenter extends h3.a {
     public void d() {
         HomeDepthClock.setClock(this, null);
         this.f.b();
+        clock = null;
+        frontNode = null;
+    }
+
+    private DepthClock clock;
+    private i3.c frontNode;
+
+    /**
+     * The clock, then the cut-out subject in front of it. Samsung's "Dim wallpaper when Dark mode is on" is a node
+     * (DarkModeNode, f3.a.j) that draws black at alpha a over the whole layer stack; drawn from after that node, the clock
+     * stays as bright as the lock screen's and the editor's clock (they are never dimmed), and the subject gets the very
+     * same dim through a colour filter (rgb x (1 - a), alpha kept) so it matches the dimmed background around it.
+     * dim = 0: stock look.
+     */
+    void drawAbove(Canvas canvas, float dim) {
+        DepthClock c = clock;
+        if (c != null) {
+            c.a(canvas);
+        }
+        i3.c f = frontNode;
+        if (f == null || f.c == null) {
+            return;
+        }
+        if (dim > 0f) {
+            int k = Math.round(255f * (1f - dim));
+            f.c.setColorFilter(new android.graphics.LightingColorFilter(0xff000000 | k << 16 | k << 8 | k, 0));
+        }
+        try {
+            f.a(canvas);
+        } finally {
+            if (dim > 0f) {
+                f.c.setColorFilter(null);
+            }
+        }
+    }
+
+    /** Group member: draws the clock and the subject in place (under the dim) only when no post-dim node is installed. */
+    private final class InPlace extends i3.j {
+        InPlace(Context context) {
+            super(context, "K4ClockInPlace");
+        }
+
+        @Override
+        public void a(Canvas canvas) {
+            if (!HomeDepthClock.postDimInstalled(HomeClockPresenter.this)) {
+                drawAbove(canvas, 0f);
+            }
+        }
     }
 
     private static Bitmap create(int w, int h, Bitmap.Config config, ColorSpace cs, boolean alpha) {

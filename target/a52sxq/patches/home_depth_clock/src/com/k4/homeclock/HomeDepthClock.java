@@ -21,6 +21,8 @@ import java.util.WeakHashMap;
  *    (which & 3 == 3). That presenter keeps its separate layers for the lock screen's own screen on/off animation, so it
  *    is not replaced; the clock is drawn only while the keyguard is gone and the display is ON.
  *  - f3.a (LayeredEngine) onCreate / onVisibilityChanged / onDestroy: {@link EngineState} (reload receiver, minute ticker).
+ *    onCreate also appends {@link PostDim} to the engine's root node list, after its DarkModeNode, for a
+ *    HomeClockPresenter: the clock is drawn above the dark mode wallpaper dim, like the editor's and the lock screen's.
  *
  * Switch: persist.sys.k4.home_depth_clock (1 = on). Settings writes it and sends {@link #ACTION_RELOAD}; the engine
  * then rebuilds its own sub engine in-process (switchable.d.stopSelf -> UnifiedEngine.onSubEngineDestroyRequested ->
@@ -166,10 +168,73 @@ public final class HomeDepthClock {
         }
     }
 
+    private static final Map<f3.a, Boolean> POST_DIM = new WeakHashMap<>();
+
+    /**
+     * Appended to the engine's root list after its DarkModeNode (f3.a.j), so what it draws is not darkened by the dark
+     * mode wallpaper dim: a HomeClockPresenter's clock and subject (HomeClockPresenter.drawAbove), the subject dimmed
+     * with the alpha DarkModeNode itself uses right now.
+     */
+    static final class PostDim extends i3.j {
+        private final java.lang.ref.WeakReference<f3.a> engine;
+
+        PostDim(f3.a e) {
+            super(e.getAppContext(), "K4ClockAboveDim");
+            engine = new java.lang.ref.WeakReference<>(e);
+        }
+
+        @Override
+        public void a(android.graphics.Canvas canvas) {
+            f3.a e = engine.get();
+            if (e != null && e.g instanceof HomeClockPresenter) {
+                ((HomeClockPresenter) e.g).drawAbove(canvas, dimOf(e));
+            }
+        }
+    }
+
+    /** DarkModeNode's current dim: it draws black at alpha(d) over everything while c is set (0 = no dim). */
+    static float dimOf(f3.a e) {
+        i3.e dark = e.j;
+        return dark != null && dark.c && dark.d != 0 ? android.graphics.Color.alpha(dark.d) / 255f : 0f;
+    }
+
+    /** True when the engine showing {@code p} has a {@link PostDim} node, which then draws p's clock and subject. */
+    static boolean postDimInstalled(h3.a p) {
+        synchronized (POST_DIM) {
+            for (f3.a e : POST_DIM.keySet()) {
+                if (e != null && e.g == p) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Redraw every visible home clock whose shown picture is stale (weather update); hidden ones redraw when shown. */
+    static void redrawStale(String why) {
+        for (EngineState st : states()) {
+            st.redrawIfStale(why);
+        }
+    }
+
     public static void onCreate(f3.a engine) {
         try {
             if (!homeCapable(engine.getWhich())) {
                 return;
+            }
+            if (engine.g instanceof HomeClockPresenter) {
+                try {
+                    if (engine.h != null && engine.h.c != null && engine.j != null && engine.h.c.contains(engine.j)) {
+                        engine.h.c.add(new PostDim(engine));
+                        synchronized (POST_DIM) {
+                            POST_DIM.put(engine, Boolean.TRUE);
+                        }
+                    } else {
+                        Log.w(TAG, "no DarkModeNode in the engine's node list: clock drawn under the dark mode dim");
+                    }
+                } catch (Throwable t) {
+                    Log.w(TAG, "post-dim node", t);
+                }
             }
             EngineState st = new EngineState(engine);
             synchronized (ENGINES) {
@@ -200,6 +265,9 @@ public final class HomeDepthClock {
             EngineState st;
             synchronized (ENGINES) {
                 st = ENGINES.remove(engine);
+            }
+            synchronized (POST_DIM) {
+                POST_DIM.remove(engine);
             }
             if (st != null) {
                 st.stop();

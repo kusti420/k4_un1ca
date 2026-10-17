@@ -25,6 +25,10 @@ import java.util.TimeZone;
  * layout and View.draw into the wallpaper canvas. EngineState redraws once a minute while visible (text() changes); a
  * locale / time zone / 12-24 h change also changes text(), and the next draw inflates a fresh view.
  *
+ * Weather on the date line (item.showWeather and a clock type with a weather slot): the view is told to show it, as
+ * the editor does, and gets each WeatherInfo the plugin's own weather manager delivers ({@link AodHost#startWeather});
+ * a new one is part of text(), so EngineState redraws a visible clock (a hidden one when it is shown again).
+ *
  * Any failure (here or while drawing) is logged and the plain {@link ClockNode} given at construction takes over.
  */
 final class AodClockNode extends DepthClock {
@@ -39,6 +43,10 @@ final class AodClockNode extends DepthClock {
     private String builtFor = "";
     private volatile boolean failed;
     private boolean loggedPlacement;
+    /** The date line shows the weather (saved setting, and this clock type supports it). */
+    private boolean weather;
+    /** host.weatherKey last given to the view (null: none yet). */
+    private String weatherApplied;
 
     private AodClockNode(Context context, int w, int h, HomeClockItem item, Bitmap background, ClockNode fallback,
             i3.c scaleRef, h3.a gatedOwner) {
@@ -65,6 +73,10 @@ final class AodClockNode extends DepthClock {
         AodClockNode n = new AodClockNode(context, w, h, item, background, fallback, scaleRef, gatedOwner);
         try {
             n.host = AodHost.acquire(context);
+            n.weather = item.showWeather && n.host.supportsWeather(item.clockType);
+            if (n.weather) {
+                n.host.startWeather();
+            }
             n.inflate();
             n.place(true); // measure + layout once now, so a broken view fails here and not on screen
         } catch (Throwable t) {
@@ -79,7 +91,8 @@ final class AodClockNode extends DepthClock {
 
     @Override
     String text() {
-        return super.text() + "|" + config();
+        AodHost h = host;
+        return super.text() + "|" + config() + (weather && h != null ? "|" + h.weatherKey : "");
     }
 
     @Override
@@ -113,7 +126,9 @@ final class AodClockNode extends DepthClock {
         opt(v, "setDozing", new Class<?>[] {boolean.class}, false);
         opt(v, "setDozeAmount", new Class<?>[] {float.class}, 0f);
         opt(v, "setAnimationAllowed", new Class<?>[] {boolean.class}, false);
-        opt(v, "setShowWeatherInformation", new Class<?>[] {boolean.class}, false);
+        opt(v, "setShowWeatherInformation", new Class<?>[] {boolean.class}, weather);
+        weatherApplied = null;
+        applyWeather(v);
         if (item.fontIndex != null) {
             Class<?> fe = host.cls(AodHost.CP + "extension.FontExtension");
             if (fe.isInstance(v)) {
@@ -138,6 +153,11 @@ final class AodClockNode extends DepthClock {
             call(v, "setClockMaxWidth", new Class<?>[] {int.class}, maxW);
         }
         opt(v, "setShowDateInfoFirst", new Class<?>[] {boolean.class}, item.showDateFirst);
+        if (item.gravity != null) {
+            // as the editor does for its preview: where the time sits under a date line that is wider than it
+            // (the date line with weather), e.g. right-aligned for an End clock
+            opt(v, "setClockGravity", new Class<?>[] {int.class}, item.gravity);
+        }
         if (areaColor != 0) {
             opt(v, "setClockAreaWallpaperColor", new Class<?>[] {int.class}, areaColor);
         }
@@ -160,6 +180,23 @@ final class AodClockNode extends DepthClock {
             call(v, "setCustomColor", new Class<?>[] {int.class}, item.color);
         } else {
             call(v, "setPaletteIndex", new Class<?>[] {int.class}, c.equals("ClockPresetColorImpl") ? item.presetIndex : 0);
+        }
+    }
+
+    /** Gives the view the latest WeatherInfo from the plugin's weather manager, if it is newer than what it has. */
+    private void applyWeather(View v) {
+        AodHost h = host;
+        if (!weather || h == null || h.weatherInfo == null || h.weatherKey.equals(weatherApplied)) {
+            return;
+        }
+        try {
+            v.getClass().getMethod("updateWeatherInfo", h.cls(AodHost.CP + "WeatherInfo")).invoke(v, h.weatherInfo);
+            weatherApplied = h.weatherKey;
+        } catch (Throwable t) {
+            Throwable c = t instanceof java.lang.reflect.InvocationTargetException && t.getCause() != null ? t.getCause() : t;
+            Log.w(HomeDepthClock.TAG, "AOD clock: updateWeatherInfo failed, date line without weather: " + c);
+            weather = false;
+            opt(v, "setShowWeatherInformation", new Class<?>[] {boolean.class}, false);
         }
     }
 
@@ -220,6 +257,7 @@ final class AodClockNode extends DepthClock {
                 Log.i(HomeDepthClock.TAG, "AOD clock: locale/time zone/12-24 h changed, new view");
                 inflate();
             }
+            applyWeather(clock);
             place(false);
             int save = canvas.save();
             float z = zoom();

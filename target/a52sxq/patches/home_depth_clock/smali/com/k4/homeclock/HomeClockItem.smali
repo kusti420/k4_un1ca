@@ -36,6 +36,8 @@
 
 .field fontWeight:Ljava/lang/Integer;
 
+.field gravity:Ljava/lang/Integer;
+
 .field gravityX:Ljava/lang/String;
 
 .field hasShadow:Z
@@ -58,12 +60,14 @@
 
 .field showDateFirst:Z
 
+.field showWeather:Z
+
 
 # direct methods
 .method private constructor <init>()V
     .registers 3
 
-    .line 47
+    .line 51
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     .line 23
@@ -79,28 +83,143 @@
 
     iput-boolean v1, p0, Lcom/k4/homeclock/HomeClockItem;->showDateFirst:Z
 
-    .line 42
+    .line 41
+    iput-boolean v1, p0, Lcom/k4/homeclock/HomeClockItem;->showWeather:Z
+
+    .line 44
     const-string v1, "Start"
 
     iput-object v1, p0, Lcom/k4/homeclock/HomeClockItem;->gravityX:Ljava/lang/String;
 
-    .line 43
+    .line 47
     new-instance v1, Landroid/graphics/Rect;
 
     invoke-direct {v1}, Landroid/graphics/Rect;-><init>()V
 
     iput-object v1, p0, Lcom/k4/homeclock/HomeClockItem;->rect:Landroid/graphics/Rect;
 
-    .line 44
+    .line 48
     const/high16 v1, 0x3f800000    # 1.0f
 
     iput v1, p0, Lcom/k4/homeclock/HomeClockItem;->scale:F
 
-    .line 45
+    .line 49
     iput-object v0, p0, Lcom/k4/homeclock/HomeClockItem;->raw:Ljava/lang/String;
 
-    .line 47
+    .line 51
     return-void
+.end method
+
+.method static bundleGravity(Landroid/content/Context;)Ljava/lang/Integer;
+    .registers 4
+
+    .line 82
+    const-string v0, "gravity"
+
+    const/4 v1, 0x0
+
+    :try_start_3
+    invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+
+    move-result-object p0
+
+    const-string v2, "k4_home_clock_bundle"
+
+    invoke-static {p0, v2}, Landroid/provider/Settings$System;->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object p0
+
+    .line 83
+    if-eqz p0, :cond_34
+
+    invoke-virtual {p0}, Ljava/lang/String;->trim()Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v2
+
+    if-eqz v2, :cond_1a
+
+    goto :goto_34
+
+    .line 86
+    :cond_1a
+    new-instance v2, Lorg/json/JSONObject;
+
+    invoke-direct {v2, p0}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+
+    .line 87
+    invoke-virtual {v2, v0}, Lorg/json/JSONObject;->has(Ljava/lang/String;)Z
+
+    move-result p0
+
+    if-eqz p0, :cond_33
+
+    invoke-virtual {v2, v0}, Lorg/json/JSONObject;->isNull(Ljava/lang/String;)Z
+
+    move-result p0
+
+    if-nez p0, :cond_33
+
+    invoke-virtual {v2, v0}, Lorg/json/JSONObject;->getInt(Ljava/lang/String;)I
+
+    move-result p0
+
+    invoke-static {p0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+
+    move-result-object v1
+    :try_end_33
+    .catchall {:try_start_3 .. :try_end_33} :catchall_35
+
+    :cond_33
+    return-object v1
+
+    .line 84
+    :cond_34
+    :goto_34
+    return-object v1
+
+    .line 88
+    :catchall_35
+    move-exception p0
+
+    .line 89
+    invoke-static {p0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object p0
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v2, "clock bundle: no gravity ("
+
+    invoke-virtual {v0, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p0
+
+    const-string v0, ")"
+
+    invoke-virtual {p0, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p0
+
+    invoke-virtual {p0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p0
+
+    const-string v0, "K4HomeClock"
+
+    invoke-static {v0, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+
+    .line 90
+    return-object v1
 .end method
 
 .method static parse(Ljava/lang/String;Ljava/lang/String;)Lcom/k4/homeclock/HomeClockItem;
@@ -111,20 +230,20 @@
         }
     .end annotation
 
-    .line 71
+    .line 95
     new-instance v0, Lcom/k4/homeclock/HomeClockItem;
 
     invoke-direct {v0}, Lcom/k4/homeclock/HomeClockItem;-><init>()V
 
-    .line 72
+    .line 96
     iput-object p0, v0, Lcom/k4/homeclock/HomeClockItem;->raw:Ljava/lang/String;
 
-    .line 73
+    .line 97
     new-instance v1, Lorg/json/JSONObject;
 
     invoke-direct {v1, p0}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
 
-    .line 74
+    .line 98
     const-string p0, "isEnabled"
 
     const/4 v2, 0x1
@@ -133,9 +252,9 @@
 
     move-result p0
 
-    if-eqz p0, :cond_1d6
+    if-eqz p0, :cond_1de
 
-    .line 77
+    .line 101
     const-string p0, "clockType"
 
     invoke-virtual {v1, p0}, Lorg/json/JSONObject;->getInt(Ljava/lang/String;)I
@@ -144,21 +263,21 @@
 
     iput p0, v0, Lcom/k4/homeclock/HomeClockItem;->clockType:I
 
-    .line 78
+    .line 102
     const-string p0, "font"
 
     invoke-virtual {v1, p0}, Lorg/json/JSONObject;->optJSONObject(Ljava/lang/String;)Lorg/json/JSONObject;
 
     move-result-object p0
 
-    .line 79
+    .line 103
     const-string v3, ""
 
     const/4 v4, 0x0
 
     if-eqz p0, :cond_a5
 
-    .line 80
+    .line 104
     const-string v5, "presetFontIndex"
 
     invoke-virtual {p0, v5}, Lorg/json/JSONObject;->has(Ljava/lang/String;)Z
@@ -173,7 +292,7 @@
 
     if-nez v6, :cond_40
 
-    .line 81
+    .line 105
     invoke-virtual {p0, v5}, Lorg/json/JSONObject;->getInt(Ljava/lang/String;)I
 
     move-result v5
@@ -184,7 +303,7 @@
 
     iput-object v5, v0, Lcom/k4/homeclock/HomeClockItem;->fontIndex:Ljava/lang/Integer;
 
-    .line 83
+    .line 107
     :cond_40
     const-string v5, "fontPath"
 
@@ -194,7 +313,7 @@
 
     iput-object v5, v0, Lcom/k4/homeclock/HomeClockItem;->fontPath:Ljava/lang/String;
 
-    .line 84
+    .line 108
     const-string v5, "fontWeight"
 
     invoke-virtual {p0, v5}, Lorg/json/JSONObject;->has(Ljava/lang/String;)Z
@@ -209,7 +328,7 @@
 
     if-nez v6, :cond_60
 
-    .line 85
+    .line 109
     invoke-virtual {p0, v5}, Lorg/json/JSONObject;->getInt(Ljava/lang/String;)I
 
     move-result v5
@@ -220,7 +339,7 @@
 
     iput-object v5, v0, Lcom/k4/homeclock/HomeClockItem;->fontWeight:Ljava/lang/Integer;
 
-    .line 87
+    .line 111
     :cond_60
     const-string v5, "fontRoundedCorners"
 
@@ -236,7 +355,7 @@
 
     if-nez v6, :cond_78
 
-    .line 88
+    .line 112
     invoke-virtual {p0, v5}, Lorg/json/JSONObject;->getInt(Ljava/lang/String;)I
 
     move-result v5
@@ -247,7 +366,7 @@
 
     iput-object v5, v0, Lcom/k4/homeclock/HomeClockItem;->fontRounded:Ljava/lang/Integer;
 
-    .line 91
+    .line 115
     :cond_78
     const-string v5, "fontHeights"
 
@@ -255,7 +374,7 @@
 
     move-result-object p0
 
-    .line 92
+    .line 116
     if-eqz p0, :cond_a5
 
     invoke-virtual {p0}, Lorg/json/JSONArray;->length()I
@@ -264,14 +383,14 @@
 
     if-lez v5, :cond_a5
 
-    .line 93
+    .line 117
     new-instance v5, Ljava/util/ArrayList;
 
     invoke-direct {v5}, Ljava/util/ArrayList;-><init>()V
 
     iput-object v5, v0, Lcom/k4/homeclock/HomeClockItem;->fontHeights:Ljava/util/List;
 
-    .line 94
+    .line 118
     move v5, v4
 
     :goto_8e
@@ -281,7 +400,7 @@
 
     if-ge v5, v6, :cond_a5
 
-    .line 95
+    .line 119
     iget-object v6, v0, Lcom/k4/homeclock/HomeClockItem;->fontHeights:Ljava/util/List;
 
     invoke-virtual {p0, v5}, Lorg/json/JSONArray;->getDouble(I)D
@@ -296,12 +415,12 @@
 
     invoke-interface {v6, v7}, Ljava/util/List;->add(Ljava/lang/Object;)Z
 
-    .line 94
+    .line 118
     add-int/lit8 v5, v5, 0x1
 
     goto :goto_8e
 
-    .line 99
+    .line 123
     :cond_a5
     const-string p0, "color"
 
@@ -309,17 +428,17 @@
 
     move-result-object v5
 
-    .line 100
+    .line 124
     if-eqz v5, :cond_105
 
-    .line 101
+    .line 125
     const-string v6, "_type_"
 
     invoke-virtual {v5, v6, v3}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
 
     move-result-object v3
 
-    .line 102
+    .line 126
     const/16 v6, 0x2e
 
     invoke-virtual {v3, v6}, Ljava/lang/String;->lastIndexOf(I)I
@@ -334,7 +453,7 @@
 
     iput-object v3, v0, Lcom/k4/homeclock/HomeClockItem;->colorType:Ljava/lang/String;
 
-    .line 103
+    .line 127
     const-string v3, "presetIndex"
 
     invoke-virtual {v5, v3, v4}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;I)I
@@ -343,14 +462,14 @@
 
     iput v3, v0, Lcom/k4/homeclock/HomeClockItem;->presetIndex:I
 
-    .line 104
+    .line 128
     invoke-virtual {v5, p0}, Lorg/json/JSONObject;->has(Ljava/lang/String;)Z
 
     move-result v3
 
     if-eqz v3, :cond_d8
 
-    .line 105
+    .line 129
     invoke-virtual {v5, p0}, Lorg/json/JSONObject;->getInt(Ljava/lang/String;)I
 
     move-result p0
@@ -361,7 +480,7 @@
 
     iput-object p0, v0, Lcom/k4/homeclock/HomeClockItem;->color:Ljava/lang/Integer;
 
-    .line 107
+    .line 131
     :cond_d8
     const-string p0, "shadowColor"
 
@@ -371,17 +490,17 @@
 
     if-eqz v3, :cond_105
 
-    .line 108
+    .line 132
     iput-boolean v2, v0, Lcom/k4/homeclock/HomeClockItem;->hasShadow:Z
 
-    .line 109
+    .line 133
     invoke-virtual {v5, p0}, Lorg/json/JSONObject;->getInt(Ljava/lang/String;)I
 
     move-result p0
 
     iput p0, v0, Lcom/k4/homeclock/HomeClockItem;->shadowColor:I
 
-    .line 110
+    .line 134
     const-string p0, "shadowRadius"
 
     const-wide/16 v6, 0x0
@@ -394,7 +513,7 @@
 
     iput p0, v0, Lcom/k4/homeclock/HomeClockItem;->shadowRadius:F
 
-    .line 111
+    .line 135
     const-string p0, "shadowDx"
 
     invoke-virtual {v5, p0, v6, v7}, Lorg/json/JSONObject;->optDouble(Ljava/lang/String;D)D
@@ -405,7 +524,7 @@
 
     iput p0, v0, Lcom/k4/homeclock/HomeClockItem;->shadowDx:F
 
-    .line 112
+    .line 136
     const-string p0, "shadowDy"
 
     invoke-virtual {v5, p0, v6, v7}, Lorg/json/JSONObject;->optDouble(Ljava/lang/String;D)D
@@ -416,7 +535,7 @@
 
     iput p0, v0, Lcom/k4/homeclock/HomeClockItem;->shadowDy:F
 
-    .line 115
+    .line 139
     :cond_105
     const-string p0, "isShowDateFirst"
 
@@ -426,7 +545,16 @@
 
     iput-boolean p0, v0, Lcom/k4/homeclock/HomeClockItem;->showDateFirst:Z
 
-    .line 116
+    .line 140
+    const-string p0, "isShowWeather"
+
+    invoke-virtual {v1, p0, v2}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
+
+    move-result p0
+
+    iput-boolean p0, v0, Lcom/k4/homeclock/HomeClockItem;->showWeather:Z
+
+    .line 141
     const-string p0, "isBlurEffectEnabled"
 
     invoke-virtual {v1, p0, v4}, Lorg/json/JSONObject;->optBoolean(Ljava/lang/String;Z)Z
@@ -435,17 +563,17 @@
 
     iput-boolean p0, v0, Lcom/k4/homeclock/HomeClockItem;->blur:Z
 
-    .line 117
+    .line 142
     const-string p0, "x"
 
     invoke-virtual {v1, p0}, Lorg/json/JSONObject;->optJSONObject(Ljava/lang/String;)Lorg/json/JSONObject;
 
     move-result-object p0
 
-    .line 118
-    if-eqz p0, :cond_127
+    .line 143
+    if-eqz p0, :cond_12f
 
-    .line 119
+    .line 144
     const-string v1, "locatedAt"
 
     const-string v3, "Start"
@@ -456,8 +584,8 @@
 
     iput-object p0, v0, Lcom/k4/homeclock/HomeClockItem;->gravityX:Ljava/lang/String;
 
-    .line 121
-    :cond_127
+    .line 146
+    :cond_12f
     invoke-virtual {p1}, Ljava/lang/String;->trim()Ljava/lang/String;
 
     move-result-object p0
@@ -468,14 +596,14 @@
 
     move-result-object p0
 
-    .line 122
+    .line 147
     array-length v1, p0
 
     const/4 v3, 0x4
 
-    if-lt v1, v3, :cond_1bd
+    if-lt v1, v3, :cond_1c5
 
-    .line 125
+    .line 150
     iget-object v1, v0, Lcom/k4/homeclock/HomeClockItem;->rect:Landroid/graphics/Rect;
 
     aget-object v4, p0, v4
@@ -502,7 +630,7 @@
 
     aget-object v5, p0, v5
 
-    .line 126
+    .line 151
     invoke-static {v5}, Ljava/lang/Float;->parseFloat(Ljava/lang/String;)F
 
     move-result v5
@@ -523,58 +651,58 @@
 
     move-result v6
 
-    .line 125
+    .line 150
     invoke-virtual {v1, v4, v2, v5, v6}, Landroid/graphics/Rect;->set(IIII)V
 
-    .line 127
+    .line 152
     iget-object v1, v0, Lcom/k4/homeclock/HomeClockItem;->rect:Landroid/graphics/Rect;
 
     invoke-virtual {v1}, Landroid/graphics/Rect;->isEmpty()Z
 
     move-result v1
 
-    if-nez v1, :cond_1a4
+    if-nez v1, :cond_1ac
 
-    .line 130
+    .line 155
     array-length p1, p0
 
-    if-le p1, v3, :cond_187
+    if-le p1, v3, :cond_18f
 
-    .line 131
+    .line 156
     aget-object p1, p0, v3
 
     invoke-static {p1}, Ljava/lang/Float;->parseFloat(Ljava/lang/String;)F
 
     move-result p1
 
-    .line 132
+    .line 157
     const v1, 0x3d4ccccd    # 0.05f
 
     cmpl-float v1, p1, v1
 
-    if-lez v1, :cond_183
+    if-lez v1, :cond_18b
 
     const/high16 v1, 0x41a00000    # 20.0f
 
     cmpg-float v1, p1, v1
 
-    if-gez v1, :cond_183
+    if-gez v1, :cond_18b
 
-    goto :goto_185
+    goto :goto_18d
 
-    :cond_183
+    :cond_18b
     const/high16 p1, 0x3f800000    # 1.0f
 
-    :goto_185
+    :goto_18d
     iput p1, v0, Lcom/k4/homeclock/HomeClockItem;->scale:F
 
-    .line 134
-    :cond_187
+    .line 159
+    :cond_18f
     array-length p1, p0
 
     const/4 v1, 0x5
 
-    if-le p1, v1, :cond_1a3
+    if-le p1, v1, :cond_1ab
 
     aget-object p1, p0, v1
 
@@ -582,9 +710,9 @@
 
     move-result p1
 
-    if-nez p1, :cond_1a3
+    if-nez p1, :cond_1ab
 
-    .line 135
+    .line 160
     aget-object p0, p0, v1
 
     invoke-virtual {p0}, Ljava/lang/String;->trim()Ljava/lang/String;
@@ -601,12 +729,12 @@
 
     iput-object p0, v0, Lcom/k4/homeclock/HomeClockItem;->fontColorType:Ljava/lang/Integer;
 
-    .line 137
-    :cond_1a3
+    .line 162
+    :cond_1ab
     return-object v0
 
-    .line 128
-    :cond_1a4
+    .line 153
+    :cond_1ac
     new-instance p0, Ljava/lang/IllegalArgumentException;
 
     new-instance v0, Ljava/lang/StringBuilder;
@@ -631,8 +759,8 @@
 
     throw p0
 
-    .line 123
-    :cond_1bd
+    .line 148
+    :cond_1c5
     new-instance p0, Ljava/lang/IllegalArgumentException;
 
     new-instance v0, Ljava/lang/StringBuilder;
@@ -657,8 +785,8 @@
 
     throw p0
 
-    .line 75
-    :cond_1d6
+    .line 99
+    :cond_1de
     new-instance p0, Ljava/lang/IllegalArgumentException;
 
     const-string p1, "clock item disabled"
@@ -669,9 +797,9 @@
 .end method
 
 .method static read(Landroid/content/Context;)Lcom/k4/homeclock/HomeClockItem;
-    .registers 5
+    .registers 6
 
-    .line 53
+    .line 57
     const-string v0, "K4HomeClock"
 
     const/4 v1, 0x0
@@ -687,65 +815,73 @@
 
     move-result-object v2
 
-    .line 54
+    .line 58
     invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
 
-    move-result-object p0
+    move-result-object v3
 
-    const-string v3, "k4_home_clock_item_rect"
+    const-string v4, "k4_home_clock_item_rect"
 
-    invoke-static {p0, v3}, Landroid/provider/Settings$System;->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {v3, v4}, Landroid/provider/Settings$System;->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;
 
-    move-result-object p0
+    move-result-object v3
     :try_end_17
-    .catchall {:try_start_3 .. :try_end_17} :catchall_59
+    .catchall {:try_start_3 .. :try_end_17} :catchall_5f
 
-    .line 58
+    .line 62
     nop
 
-    .line 59
-    if-eqz v2, :cond_58
+    .line 63
+    if-eqz v2, :cond_5e
 
     invoke-virtual {v2}, Ljava/lang/String;->trim()Ljava/lang/String;
 
-    move-result-object v3
+    move-result-object v4
 
-    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
+    invoke-virtual {v4}, Ljava/lang/String;->isEmpty()Z
 
-    move-result v3
+    move-result v4
 
-    if-nez v3, :cond_58
+    if-nez v4, :cond_5e
 
-    if-eqz p0, :cond_58
+    if-eqz v3, :cond_5e
 
-    invoke-virtual {p0}, Ljava/lang/String;->trim()Ljava/lang/String;
+    invoke-virtual {v3}, Ljava/lang/String;->trim()Ljava/lang/String;
 
-    move-result-object v3
+    move-result-object v4
 
-    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
+    invoke-virtual {v4}, Ljava/lang/String;->isEmpty()Z
 
-    move-result v3
+    move-result v4
 
-    if-eqz v3, :cond_31
+    if-eqz v4, :cond_31
 
-    goto :goto_58
+    goto :goto_5e
 
-    .line 63
+    .line 67
     :cond_31
     :try_start_31
-    invoke-static {v2, p0}, Lcom/k4/homeclock/HomeClockItem;->parse(Ljava/lang/String;Ljava/lang/String;)Lcom/k4/homeclock/HomeClockItem;
+    invoke-static {v2, v3}, Lcom/k4/homeclock/HomeClockItem;->parse(Ljava/lang/String;Ljava/lang/String;)Lcom/k4/homeclock/HomeClockItem;
+
+    move-result-object v2
+
+    .line 68
+    invoke-static {p0}, Lcom/k4/homeclock/HomeClockItem;->bundleGravity(Landroid/content/Context;)Ljava/lang/Integer;
 
     move-result-object p0
-    :try_end_35
-    .catchall {:try_start_31 .. :try_end_35} :catchall_36
 
-    return-object p0
+    iput-object p0, v2, Lcom/k4/homeclock/HomeClockItem;->gravity:Ljava/lang/Integer;
+    :try_end_3b
+    .catchall {:try_start_31 .. :try_end_3b} :catchall_3c
 
-    .line 64
-    :catchall_36
+    .line 69
+    return-object v2
+
+    .line 70
+    :catchall_3c
     move-exception p0
 
-    .line 65
+    .line 71
     invoke-static {p0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
     move-result-object p0
@@ -776,33 +912,33 @@
 
     invoke-static {v0, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 66
+    .line 72
     return-object v1
 
-    .line 60
-    :cond_58
-    :goto_58
+    .line 64
+    :cond_5e
+    :goto_5e
     return-object v1
 
-    .line 55
-    :catchall_59
+    .line 59
+    :catchall_5f
     move-exception p0
 
-    .line 56
+    .line 60
     const-string v2, "clock item: settings not readable"
 
     invoke-static {v0, v2, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    .line 57
+    .line 61
     return-object v1
 .end method
 
 
 # virtual methods
 .method public toString()Ljava/lang/String;
-    .registers 17
+    .registers 19
 
-    .line 142
+    .line 167
     move-object/from16 v0, p0
 
     iget v1, v0, Lcom/k4/homeclock/HomeClockItem;->clockType:I
@@ -813,7 +949,7 @@
 
     iget-object v4, v0, Lcom/k4/homeclock/HomeClockItem;->fontRounded:Ljava/lang/Integer;
 
-    .line 143
+    .line 168
     iget-object v5, v0, Lcom/k4/homeclock/HomeClockItem;->fontPath:Ljava/lang/String;
 
     invoke-virtual {v5}, Ljava/lang/String;->isEmpty()Z
@@ -854,7 +990,7 @@
 
     iget v9, v0, Lcom/k4/homeclock/HomeClockItem;->presetIndex:I
 
-    .line 144
+    .line 169
     iget-object v10, v0, Lcom/k4/homeclock/HomeClockItem;->color:Ljava/lang/Integer;
 
     if-nez v10, :cond_36
@@ -877,20 +1013,75 @@
     :goto_40
     iget-boolean v11, v0, Lcom/k4/homeclock/HomeClockItem;->hasShadow:Z
 
-    if-eqz v11, :cond_46
+    if-eqz v11, :cond_47
 
-    const-string v6, ", shadow"
+    const-string v11, ", shadow"
 
-    :cond_46
-    iget-boolean v11, v0, Lcom/k4/homeclock/HomeClockItem;->showDateFirst:Z
+    goto :goto_48
 
-    iget-boolean v12, v0, Lcom/k4/homeclock/HomeClockItem;->blur:Z
+    :cond_47
+    move-object v11, v6
 
-    iget-object v13, v0, Lcom/k4/homeclock/HomeClockItem;->gravityX:Ljava/lang/String;
+    :goto_48
+    iget-boolean v12, v0, Lcom/k4/homeclock/HomeClockItem;->showDateFirst:Z
 
+    iget-boolean v13, v0, Lcom/k4/homeclock/HomeClockItem;->showWeather:Z
+
+    iget-boolean v14, v0, Lcom/k4/homeclock/HomeClockItem;->blur:Z
+
+    iget-object v15, v0, Lcom/k4/homeclock/HomeClockItem;->gravityX:Ljava/lang/String;
+
+    .line 171
+    move-object/from16 v16, v6
+
+    iget-object v6, v0, Lcom/k4/homeclock/HomeClockItem;->gravity:Ljava/lang/Integer;
+
+    if-nez v6, :cond_5d
+
+    move/from16 v17, v14
+
+    move-object/from16 v6, v16
+
+    move-object/from16 v16, v15
+
+    goto :goto_7e
+
+    :cond_5d
+    iget-object v6, v0, Lcom/k4/homeclock/HomeClockItem;->gravity:Ljava/lang/Integer;
+
+    invoke-virtual {v6}, Ljava/lang/Integer;->intValue()I
+
+    move-result v6
+
+    invoke-static {v6}, Ljava/lang/Integer;->toHexString(I)Ljava/lang/String;
+
+    move-result-object v6
+
+    move-object/from16 v16, v15
+
+    new-instance v15, Ljava/lang/StringBuilder;
+
+    invoke-direct {v15}, Ljava/lang/StringBuilder;-><init>()V
+
+    move/from16 v17, v14
+
+    const-string v14, "/0x"
+
+    invoke-virtual {v15, v14}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v14
+
+    invoke-virtual {v14, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v6
+
+    invoke-virtual {v6}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v6
+
+    :goto_7e
     iget-object v14, v0, Lcom/k4/homeclock/HomeClockItem;->rect:Landroid/graphics/Rect;
 
-    .line 145
     invoke-virtual {v14}, Landroid/graphics/Rect;->toShortString()Ljava/lang/String;
 
     move-result-object v14
@@ -973,7 +1164,7 @@
 
     move-result-object v0
 
-    invoke-virtual {v0, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
@@ -983,7 +1174,17 @@
 
     move-result-object v0
 
-    invoke-virtual {v0, v11}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+    invoke-virtual {v0, v12}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    const-string v1, ", weather="
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v13}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
@@ -993,7 +1194,9 @@
 
     move-result-object v0
 
-    invoke-virtual {v0, v12}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+    move/from16 v1, v17
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
@@ -1003,7 +1206,13 @@
 
     move-result-object v0
 
-    invoke-virtual {v0, v13}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-object/from16 v1, v16
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
@@ -1033,6 +1242,6 @@
 
     move-result-object v0
 
-    .line 142
+    .line 167
     return-object v0
 .end method
