@@ -54,7 +54,7 @@
 
     const/4 v1, 0x1
 
-    if-eqz v0, :cond_1
+    if-eqz v0, :cond_2
 
     iget-object v0, p0, Lcom/k4/dressroom/HomeClock$1;->val$g:Landroid/view/ViewGroup;
 
@@ -62,7 +62,7 @@
 
     move-result-object v0
 
-    if-eqz v0, :cond_1
+    if-eqz v0, :cond_2
 
     invoke-static {}, Lcom/k4/dressroom/HomeClock;->-$$Nest$sfgetsEnforced()Ljava/lang/ref/WeakReference;
 
@@ -85,9 +85,24 @@
 
     invoke-static {v2, v0, p0}, Lcom/k4/dressroom/HomeClock;->clockOnly(Landroid/view/ViewGroup;II)V
 
-    return v1
+    invoke-static {}, Lcom/k4/dressroom/HomeClock;->-$$Nest$sfgetsMediator()Ljava/lang/ref/WeakReference;
+
+    move-result-object p0
+
+    invoke-virtual {p0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object p0
+
+    check-cast p0, Lp8/a;
+
+    if-eqz p0, :cond_1
+
+    invoke-static {p0}, Lcom/k4/dressroom/HomeClock;->hideLauncher(Lp8/a;)V
 
     :cond_1
+    return v1
+
+    :cond_2
     :goto_0
     iget-object v0, p0, Lcom/k4/dressroom/HomeClock$1;->val$g:Landroid/view/ViewGroup;
 

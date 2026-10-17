@@ -62,6 +62,7 @@ public final class HomeClock {
             active = (m.h & 3) == 1 && !m.j;
             on = active && propOn();
             sMediator = new WeakReference<>(m);
+            EditXf.reset();
             Log.i(TAG, "editor which=" + m.h + " cover=" + m.j + " -> home clock " + (active ? (on ? "on" : "off") : "not offered"));
         } catch (Throwable t) {
             active = false;
@@ -116,6 +117,7 @@ public final class HomeClock {
         }
         lock.setAlpha(1f);
         lock.setVisibility(on ? View.VISIBLE : View.GONE);
+        hideLauncher(m);
         if (sEnforced.get() != lock && lock instanceof ViewGroup) {
             sEnforced = new WeakReference<>(lock);
             final ViewGroup g = (ViewGroup) lock;
@@ -129,6 +131,10 @@ public final class HomeClock {
                         return true;
                     }
                     clockOnly(g, star, clock);
+                    p8.a med = sMediator.get();
+                    if (med != null) {
+                        hideLauncher(med);
+                    }
                     return true;
                 }
             });
@@ -140,6 +146,21 @@ public final class HomeClock {
     }
 
     private static WeakReference<View> sEnforced = new WeakReference<>(null);
+
+    /**
+     * The Home editor shows only the wallpaper, the subject and the clock: home_preview (p8.a.f, the launcher's home
+     * screenshot with icons, widgets, folders, dock, search bar and page dots, a non-clickable ImageView above
+     * lock_preview) stays invisible. INVISIBLE keeps its layout and passes touches on; enforced every frame because
+     * Samsung fades it back in when it reloads the screenshot.
+     */
+    static void hideLauncher(p8.a m) {
+        View home = m.f;
+        if (active && home != null && home.getVisibility() != View.INVISIBLE) {
+            home.animate().cancel();
+            home.setVisibility(View.INVISIBLE);
+            Log.i(TAG, "launcher preview hidden");
+        }
+    }
 
     static void hide(View v) {
         if (v != null && v.getVisibility() != View.GONE) {
@@ -345,8 +366,8 @@ public final class HomeClock {
     static final class SubjectView extends View {
         final ImageView crop;
         android.graphics.drawable.BitmapDrawable subject;
-        private final float[] last = new float[13];
-        private final float[] now = new float[13];
+        private final float[] last = new float[17];
+        private final float[] now = new float[17];
 
         SubjectView(Context c, ImageView crop) {
             super(c);
@@ -373,6 +394,7 @@ public final class HomeClock {
             now[10] = b.top;
             now[11] = b.right;
             now[12] = b.bottom;
+            EditXf.state(now, 13); // zoom-out / rotation of the Home editor (EditXf)
             if (java.util.Arrays.equals(now, last)) {
                 return false;
             }
@@ -387,6 +409,7 @@ public final class HomeClock {
                 return;
             }
             int save = canvas.save();
+            EditXf.apply(crop, canvas); // follows the Home editor's zoom-out / rotation
             canvas.translate(crop.getPaddingLeft(), crop.getPaddingTop());
             canvas.concat(crop.getImageMatrix());
             subject.setBounds(d.getBounds());
@@ -395,7 +418,7 @@ public final class HomeClock {
         }
     }
 
-    private static WeakReference<SubjectView> sSubjectView = new WeakReference<>(null);
+    static WeakReference<SubjectView> sSubjectView = new WeakReference<>(null);
 
     static void placeSubject(ViewGroup lock, final View cropView, Bitmap bmp) {
         if (!(cropView instanceof ImageView)) {
@@ -498,13 +521,13 @@ public final class HomeClock {
             Object g = gson(store);
             Class<?> base = Class.forName(ITEM_CLASS, false, store.getClass().getClassLoader());
             if ((json == null || json.isEmpty()) && lockItem != null) {
-                // no home clock yet: Samsung's default clock (One UI clock font, regular weight, white, default
+                // no home clock yet: Samsung's default clock (One UI stretch clock font, regular weight, white, default
                 // place and size), not the lock screen's own style
                 org.json.JSONObject o = new org.json.JSONObject((String) g.getClass()
                         .getMethod("toJson", Object.class, java.lang.reflect.Type.class).invoke(g, lockItem, base));
                 org.json.JSONObject font = o.optJSONObject("font");
                 if (font != null) {
-                    font.put("presetFontIndex", 814);
+                    font.put("presetFontIndex", 800); // One UI clock font, a stretch font like Samsung's default
                     font.put("fontWeight", 400);
                 }
                 org.json.JSONObject color = new org.json.JSONObject();
@@ -570,8 +593,17 @@ public final class HomeClock {
             try {
                 Rect r = (Rect) call(data, "getClockPositionRect");
                 Object sc = call(data, "getScale");
+                // the editor's text colour type from Samsung's wallpaper colour analysis (ColorType WHITE / BLACK)
+                String colorType = "";
+                try {
+                    Object ct = call(data, "getFontColorType");
+                    if (ct instanceof Enum) {
+                        colorType = "BLACK".equals(((Enum<?>) ct).name()) ? "1" : "WHITE".equals(((Enum<?>) ct).name()) ? "0" : "";
+                    }
+                } catch (Throwable ignored) {
+                }
                 android.provider.Settings.System.putString(c.getContentResolver(), KEY_ITEM + "_rect",
-                        r.left + "," + r.top + "," + r.right + "," + r.bottom + "," + sc);
+                        r.left + "," + r.top + "," + r.right + "," + r.bottom + "," + sc + "," + colorType);
             } catch (Throwable t) {
                 Log.w(TAG, "home apply: clock rect", t);
             }

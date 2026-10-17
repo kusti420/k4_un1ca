@@ -30,7 +30,7 @@
 
     invoke-direct {p0, p1}, Landroid/view/View;-><init>(Landroid/content/Context;)V
 
-    const/16 p1, 0xd
+    const/16 p1, 0x11
 
     new-array v0, p1, [F
 
@@ -129,6 +129,12 @@
 
     iget-object v0, p0, Lcom/k4/dressroom/HomeClock$SubjectView;->now:[F
 
+    const/16 v2, 0xd
+
+    invoke-static {v0, v2}, Lcom/k4/dressroom/EditXf;->state([FI)V
+
+    iget-object v0, p0, Lcom/k4/dressroom/HomeClock$SubjectView;->now:[F
+
     iget-object v2, p0, Lcom/k4/dressroom/HomeClock$SubjectView;->last:[F
 
     invoke-static {v0, v2}, Ljava/util/Arrays;->equals([F[F)Z
@@ -174,6 +180,10 @@
     invoke-virtual {p1}, Landroid/graphics/Canvas;->save()I
 
     move-result v1
+
+    iget-object v2, p0, Lcom/k4/dressroom/HomeClock$SubjectView;->crop:Landroid/widget/ImageView;
+
+    invoke-static {v2, p1}, Lcom/k4/dressroom/EditXf;->apply(Landroid/view/View;Landroid/graphics/Canvas;)V
 
     iget-object v2, p0, Lcom/k4/dressroom/HomeClock$SubjectView;->crop:Landroid/widget/ImageView;
 

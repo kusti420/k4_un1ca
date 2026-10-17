@@ -72,7 +72,7 @@
     .end annotation
 .end field
 
-.field private static sSubjectView:Ljava/lang/ref/WeakReference;
+.field static sSubjectView:Ljava/lang/ref/WeakReference;
     .annotation system Ldalvik/annotation/Signature;
         value = {
             "Ljava/lang/ref/WeakReference<",
@@ -88,6 +88,14 @@
     .locals 1
 
     sget-object v0, Lcom/k4/dressroom/HomeClock;->sEnforced:Ljava/lang/ref/WeakReference;
+
+    return-object v0
+.end method
+
+.method static bridge synthetic -$$Nest$sfgetsMediator()Ljava/lang/ref/WeakReference;
+    .locals 1
+
+    sget-object v0, Lcom/k4/dressroom/HomeClock;->sMediator:Ljava/lang/ref/WeakReference;
 
     return-object v0
 .end method
@@ -313,70 +321,72 @@
 .method static applyVisibility(Lp8/a;)V
     .locals 7
 
-    iget-object p0, p0, Lp8/a;->g:Landroid/view/View;
+    iget-object v0, p0, Lp8/a;->g:Landroid/view/View;
 
-    if-nez p0, :cond_0
+    if-nez v0, :cond_0
 
     goto :goto_2
 
     :cond_0
-    const/high16 v0, 0x3f800000    # 1.0f
+    const/high16 v1, 0x3f800000    # 1.0f
 
-    invoke-virtual {p0, v0}, Landroid/view/View;->setAlpha(F)V
+    invoke-virtual {v0, v1}, Landroid/view/View;->setAlpha(F)V
 
-    sget-boolean v0, Lcom/k4/dressroom/HomeClock;->on:Z
+    sget-boolean v1, Lcom/k4/dressroom/HomeClock;->on:Z
 
-    const/4 v1, 0x0
+    const/4 v2, 0x0
 
-    const/16 v2, 0x8
+    const/16 v3, 0x8
 
-    if-eqz v0, :cond_1
+    if-eqz v1, :cond_1
 
-    move v0, v1
+    move v1, v2
 
     goto :goto_0
 
     :cond_1
-    move v0, v2
+    move v1, v3
 
     :goto_0
-    invoke-virtual {p0, v0}, Landroid/view/View;->setVisibility(I)V
+    invoke-virtual {v0, v1}, Landroid/view/View;->setVisibility(I)V
 
-    sget-object v0, Lcom/k4/dressroom/HomeClock;->sEnforced:Ljava/lang/ref/WeakReference;
+    invoke-static {p0}, Lcom/k4/dressroom/HomeClock;->hideLauncher(Lp8/a;)V
 
-    invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+    sget-object p0, Lcom/k4/dressroom/HomeClock;->sEnforced:Ljava/lang/ref/WeakReference;
 
-    move-result-object v0
+    invoke-virtual {p0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
 
-    if-eq v0, p0, :cond_2
+    move-result-object p0
 
-    instance-of v0, p0, Landroid/view/ViewGroup;
+    if-eq p0, v0, :cond_2
 
-    if-eqz v0, :cond_2
+    instance-of p0, v0, Landroid/view/ViewGroup;
 
-    new-instance v0, Ljava/lang/ref/WeakReference;
+    if-eqz p0, :cond_2
 
-    invoke-direct {v0, p0}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
+    new-instance p0, Ljava/lang/ref/WeakReference;
 
-    sput-object v0, Lcom/k4/dressroom/HomeClock;->sEnforced:Ljava/lang/ref/WeakReference;
+    invoke-direct {p0, v0}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
 
-    move-object v0, p0
+    sput-object p0, Lcom/k4/dressroom/HomeClock;->sEnforced:Ljava/lang/ref/WeakReference;
 
-    check-cast v0, Landroid/view/ViewGroup;
+    move-object p0, v0
 
-    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
+    check-cast p0, Landroid/view/ViewGroup;
 
-    move-result-object v3
+    invoke-virtual {v0}, Landroid/view/View;->getContext()Landroid/content/Context;
+
+    move-result-object v1
 
     const-string v4, "lockstar_preview_container"
 
     const-string v5, "id"
 
-    invoke-static {v3, v5, v4}, Lcom/k4/dressroom/HomeClock;->id(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)I
+    invoke-static {v1, v5, v4}, Lcom/k4/dressroom/HomeClock;->id(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)I
 
-    move-result v3
+    move-result v1
 
-    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
+    invoke-virtual {v0}, Landroid/view/View;->getContext()Landroid/content/Context;
 
     move-result-object v4
 
@@ -386,15 +396,15 @@
 
     move-result v4
 
-    invoke-virtual {p0}, Landroid/view/View;->getViewTreeObserver()Landroid/view/ViewTreeObserver;
+    invoke-virtual {v0}, Landroid/view/View;->getViewTreeObserver()Landroid/view/ViewTreeObserver;
 
-    move-result-object p0
+    move-result-object v0
 
     new-instance v5, Lcom/k4/dressroom/HomeClock$1;
 
-    invoke-direct {v5, v0, v3, v4}, Lcom/k4/dressroom/HomeClock$1;-><init>(Landroid/view/ViewGroup;II)V
+    invoke-direct {v5, p0, v1, v4}, Lcom/k4/dressroom/HomeClock$1;-><init>(Landroid/view/ViewGroup;II)V
 
-    invoke-virtual {p0, v5}, Landroid/view/ViewTreeObserver;->addOnPreDrawListener(Landroid/view/ViewTreeObserver$OnPreDrawListener;)V
+    invoke-virtual {v0, v5}, Landroid/view/ViewTreeObserver;->addOnPreDrawListener(Landroid/view/ViewTreeObserver$OnPreDrawListener;)V
 
     :cond_2
     sget-object p0, Lcom/k4/dressroom/HomeClock;->sSubjectView:Ljava/lang/ref/WeakReference;
@@ -414,10 +424,10 @@
     goto :goto_1
 
     :cond_3
-    move v1, v2
+    move v2, v3
 
     :goto_1
-    invoke-virtual {p0, v1}, Lcom/k4/dressroom/HomeClock$SubjectView;->setVisibility(I)V
+    invoke-virtual {p0, v2}, Lcom/k4/dressroom/HomeClock$SubjectView;->setVisibility(I)V
 
     :cond_4
     :goto_2
@@ -479,6 +489,8 @@
     invoke-direct {v3, p0}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
 
     sput-object v3, Lcom/k4/dressroom/HomeClock;->sMediator:Ljava/lang/ref/WeakReference;
+
+    invoke-static {}, Lcom/k4/dressroom/EditXf;->reset()V
 
     iget v3, p0, Lp8/a;->h:I
 
@@ -1155,6 +1167,43 @@
     return-void
 .end method
 
+.method static hideLauncher(Lp8/a;)V
+    .locals 2
+
+    iget-object p0, p0, Lp8/a;->f:Landroid/view/View;
+
+    sget-boolean v0, Lcom/k4/dressroom/HomeClock;->active:Z
+
+    if-eqz v0, :cond_0
+
+    if-eqz p0, :cond_0
+
+    invoke-virtual {p0}, Landroid/view/View;->getVisibility()I
+
+    move-result v0
+
+    const/4 v1, 0x4
+
+    if-eq v0, v1, :cond_0
+
+    invoke-virtual {p0}, Landroid/view/View;->animate()Landroid/view/ViewPropertyAnimator;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Landroid/view/ViewPropertyAnimator;->cancel()V
+
+    invoke-virtual {p0, v1}, Landroid/view/View;->setVisibility(I)V
+
+    const-string p0, "K4HomeClock"
+
+    const-string v0, "launcher preview hidden"
+
+    invoke-static {p0, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    :cond_0
+    return-void
+.end method
+
 .method static id(Landroid/content/Context;Ljava/lang/String;Ljava/lang/String;)I
     .locals 1
 
@@ -1199,76 +1248,80 @@
 .end method
 
 .method public static onHomeSave(Ljava/lang/Object;)V
-    .locals 16
+    .locals 17
 
-    const-string v1, "toJson"
+    const-string v1, "0"
+
+    const-string v2, "1"
+
+    const-string v3, "toJson"
+
+    const-string v4, ""
 
     const-string v0, "a"
 
-    const-string v2, ","
+    const-string v5, ","
 
-    const-string v3, "K4HomeClock"
+    const-string v6, "K4HomeClock"
 
-    sget-boolean v4, Lcom/k4/dressroom/HomeClock;->active:Z
+    sget-boolean v7, Lcom/k4/dressroom/HomeClock;->active:Z
 
-    if-nez v4, :cond_0
+    if-nez v7, :cond_0
 
-    goto/16 :goto_7
+    goto/16 :goto_9
 
     :cond_0
     :try_start_0
-    const-string v4, "g0"
+    const-string v7, "g0"
 
-    move-object/from16 v5, p0
+    move-object/from16 v8, p0
 
-    invoke-static {v5, v4}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    invoke-static {v8, v7}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
-    move-result-object v4
+    move-result-object v7
 
-    invoke-static {v4, v0}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    invoke-static {v7, v0}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
-    move-result-object v4
+    move-result-object v7
 
-    const-string v5, "getData"
+    const-string v8, "getData"
 
-    invoke-static {v4, v5}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    invoke-static {v7, v8}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
-    move-result-object v4
+    move-result-object v7
 
-    sget-object v5, Lcom/k4/dressroom/HomeClock;->sStore:Ljava/lang/ref/WeakReference;
+    sget-object v8, Lcom/k4/dressroom/HomeClock;->sStore:Ljava/lang/ref/WeakReference;
 
-    invoke-virtual {v5}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+    invoke-virtual {v8}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
 
-    move-result-object v5
+    move-result-object v8
 
-    const/4 v6, 0x0
+    if-eqz v8, :cond_1
 
-    if-eqz v5, :cond_1
-
-    invoke-static {v5, v0}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    invoke-static {v8, v0}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
     move-result-object v0
 
     check-cast v0, Landroid/content/Context;
 
-    move-object v7, v0
+    move-object v10, v0
 
     goto :goto_0
 
     :cond_1
-    move-object v7, v6
+    const/4 v10, 0x0
 
     :goto_0
-    if-eqz v4, :cond_7
+    if-eqz v7, :cond_9
 
-    if-eqz v5, :cond_7
+    if-eqz v8, :cond_9
 
-    if-nez v7, :cond_2
+    if-nez v10, :cond_2
 
-    goto/16 :goto_6
+    goto/16 :goto_8
 
     :cond_2
-    invoke-virtual {v5}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    invoke-virtual {v8}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
     move-result-object v0
 
@@ -1276,64 +1329,64 @@
 
     move-result-object v0
 
-    array-length v8, v0
+    array-length v11, v0
 
-    move-object v11, v6
+    const/4 v13, 0x0
 
-    const/4 v10, 0x0
+    const/4 v14, 0x0
 
     :goto_1
-    if-ge v10, v8, :cond_4
+    if-ge v13, v11, :cond_4
 
-    aget-object v12, v0, v10
+    aget-object v15, v0, v13
 
-    invoke-virtual {v12}, Ljava/lang/reflect/Method;->getName()Ljava/lang/String;
+    invoke-virtual {v15}, Ljava/lang/reflect/Method;->getName()Ljava/lang/String;
 
-    move-result-object v13
+    move-result-object v12
 
-    const-string v14, "d"
+    const-string v9, "d"
 
-    invoke-virtual {v13, v14}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v12, v9}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
-    move-result v13
+    move-result v9
 
-    if-eqz v13, :cond_3
+    if-eqz v9, :cond_3
 
-    invoke-virtual {v12}, Ljava/lang/reflect/Method;->getParameterTypes()[Ljava/lang/Class;
+    invoke-virtual {v15}, Ljava/lang/reflect/Method;->getParameterTypes()[Ljava/lang/Class;
 
-    move-result-object v13
+    move-result-object v9
 
-    array-length v13, v13
+    array-length v9, v9
 
-    const/4 v14, 0x3
+    const/4 v12, 0x3
 
-    if-ne v13, v14, :cond_3
+    if-ne v9, v12, :cond_3
 
-    invoke-virtual {v12}, Ljava/lang/reflect/Method;->getParameterTypes()[Ljava/lang/Class;
+    invoke-virtual {v15}, Ljava/lang/reflect/Method;->getParameterTypes()[Ljava/lang/Class;
 
-    move-result-object v13
+    move-result-object v9
 
-    const/4 v14, 0x2
+    const/4 v12, 0x2
 
-    aget-object v13, v13, v14
+    aget-object v9, v9, v12
 
-    const-class v14, Landroid/os/Bundle;
+    const-class v12, Landroid/os/Bundle;
 
-    if-ne v13, v14, :cond_3
+    if-ne v9, v12, :cond_3
 
-    move-object v11, v12
+    move-object v14, v15
 
     :cond_3
-    add-int/lit8 v10, v10, 0x1
+    add-int/lit8 v13, v13, 0x1
 
     goto :goto_1
 
     :cond_4
-    new-instance v8, Landroid/os/Bundle;
+    new-instance v9, Landroid/os/Bundle;
 
-    invoke-direct {v8}, Landroid/os/Bundle;-><init>()V
+    invoke-direct {v9}, Landroid/os/Bundle;-><init>()V
 
-    invoke-virtual {v5}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+    invoke-virtual {v8}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
     move-result-object v0
 
@@ -1341,80 +1394,89 @@
 
     move-result-object v0
     :try_end_0
-    .catchall {:try_start_0 .. :try_end_0} :catchall_2
+    .catchall {:try_start_0 .. :try_end_0} :catchall_4
 
     :try_start_1
-    const-string v10, "com.samsung.android.lockscreen.editor.item.domain.entity.item.clock.ClockMarginData"
+    const-string v11, "com.samsung.android.lockscreen.editor.item.domain.entity.item.clock.ClockMarginData"
 
     const/4 v12, 0x1
 
-    invoke-static {v10, v12, v0}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;
+    invoke-static {v11, v12, v0}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;
 
-    move-result-object v10
+    move-result-object v11
 
     sget-object v13, Ljava/lang/Integer;->TYPE:Ljava/lang/Class;
 
-    sget-object v14, Ljava/lang/Float;->TYPE:Ljava/lang/Class;
-
     sget-object v15, Ljava/lang/Float;->TYPE:Ljava/lang/Class;
 
-    const-class v9, Landroid/graphics/RectF;
+    sget-object v12, Ljava/lang/Float;->TYPE:Ljava/lang/Class;
+    :try_end_1
+    .catchall {:try_start_1 .. :try_end_1} :catchall_1
 
-    filled-new-array {v13, v14, v15, v9}, [Ljava/lang/Class;
+    move-object/from16 v16, v1
 
-    move-result-object v9
+    :try_start_2
+    const-class v1, Landroid/graphics/RectF;
 
-    invoke-virtual {v10, v9}, Ljava/lang/Class;->getConstructor([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
+    filled-new-array {v13, v15, v12, v1}, [Ljava/lang/Class;
 
-    move-result-object v9
+    move-result-object v1
 
-    const-string v10, "getGravity"
+    invoke-virtual {v11, v1}, Ljava/lang/Class;->getConstructor([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
 
-    invoke-static {v4, v10}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object v1
 
-    move-result-object v10
+    const-string v11, "getGravity"
 
-    const-string v13, "getHorizontalMarginRatio"
+    invoke-static {v7, v11}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
-    invoke-static {v4, v13}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object v11
+
+    const-string v12, "getHorizontalMarginRatio"
+
+    invoke-static {v7, v12}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object v12
+
+    const-string v13, "getBottomMarginRatio"
+
+    invoke-static {v7, v13}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
     move-result-object v13
 
-    const-string v14, "getBottomMarginRatio"
-
-    invoke-static {v4, v14}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
-
-    move-result-object v14
-
     const-string v15, "getMovableAreaRatioRect"
 
-    invoke-static {v4, v15}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    invoke-static {v7, v15}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
     move-result-object v15
 
-    filled-new-array {v10, v13, v14, v15}, [Ljava/lang/Object;
+    filled-new-array {v11, v12, v13, v15}, [Ljava/lang/Object;
 
-    move-result-object v10
+    move-result-object v11
 
-    invoke-virtual {v9, v10}, Ljava/lang/reflect/Constructor;->newInstance([Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-virtual {v1, v11}, Ljava/lang/reflect/Constructor;->newInstance([Ljava/lang/Object;)Ljava/lang/Object;
 
-    move-result-object v9
+    move-result-object v1
 
-    const-string v10, "com.google.gson.Gson"
+    const-string v11, "com.google.gson.Gson"
 
-    invoke-static {v10, v12, v0}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;
+    const/4 v12, 0x1
 
-    move-result-object v0
-
-    invoke-virtual {v0, v6}, Ljava/lang/Class;->getConstructor([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
+    invoke-static {v11, v12, v0}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;
 
     move-result-object v0
 
-    invoke-virtual {v0, v6}, Ljava/lang/reflect/Constructor;->newInstance([Ljava/lang/Object;)Ljava/lang/Object;
+    const/4 v11, 0x0
+
+    invoke-virtual {v0, v11}, Ljava/lang/Class;->getConstructor([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
 
     move-result-object v0
 
-    const-string v10, "clock_position_data"
+    invoke-virtual {v0, v11}, Ljava/lang/reflect/Constructor;->newInstance([Ljava/lang/Object;)Ljava/lang/Object;
+
+    move-result-object v0
+
+    const-string v11, "clock_position_data"
 
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
@@ -1426,199 +1488,267 @@
 
     move-result-object v13
 
-    invoke-virtual {v12, v1, v13}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+    invoke-virtual {v12, v3, v13}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
 
     move-result-object v12
 
-    filled-new-array {v9}, [Ljava/lang/Object;
+    filled-new-array {v1}, [Ljava/lang/Object;
 
-    move-result-object v9
+    move-result-object v1
 
-    invoke-virtual {v12, v0, v9}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-virtual {v12, v0, v1}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object v0
 
     check-cast v0, Ljava/lang/String;
 
-    invoke-virtual {v8, v10, v0}, Landroid/os/Bundle;->putString(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {v9, v11, v0}, Landroid/os/Bundle;->putString(Ljava/lang/String;Ljava/lang/String;)V
 
     const-string v0, "clock_movable_area"
 
-    const-string v9, "getMovableArea"
+    const-string v1, "getMovableArea"
 
-    invoke-static {v4, v9}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    invoke-static {v7, v1}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
-    move-result-object v9
+    move-result-object v1
 
-    check-cast v9, Landroid/graphics/Rect;
+    check-cast v1, Landroid/graphics/Rect;
 
-    invoke-virtual {v8, v0, v9}, Landroid/os/Bundle;->putParcelable(Ljava/lang/String;Landroid/os/Parcelable;)V
-    :try_end_1
-    .catchall {:try_start_1 .. :try_end_1} :catchall_0
+    invoke-virtual {v9, v0, v1}, Landroid/os/Bundle;->putParcelable(Ljava/lang/String;Landroid/os/Parcelable;)V
+    :try_end_2
+    .catchall {:try_start_2 .. :try_end_2} :catchall_0
 
-    goto :goto_2
+    goto :goto_3
 
     :catchall_0
     move-exception v0
 
-    :try_start_2
-    const-string v9, "home apply: clock position"
+    goto :goto_2
 
-    invoke-static {v3, v9, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+    :catchall_1
+    move-exception v0
+
+    move-object/from16 v16, v1
 
     :goto_2
-    filled-new-array {v4, v6, v8}, [Ljava/lang/Object;
+    :try_start_3
+    const-string v1, "home apply: clock position"
+
+    invoke-static {v6, v1, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    :goto_3
+    const/4 v11, 0x0
+
+    filled-new-array {v7, v11, v9}, [Ljava/lang/Object;
 
     move-result-object v0
 
-    invoke-virtual {v11, v5, v0}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-virtual {v14, v8, v0}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
 
-    move-result-object v6
-    :try_end_2
-    .catchall {:try_start_2 .. :try_end_2} :catchall_2
+    move-result-object v1
+    :try_end_3
+    .catchall {:try_start_3 .. :try_end_3} :catchall_4
 
-    :try_start_3
+    :try_start_4
     const-string v0, "getClockPositionRect"
 
-    invoke-static {v4, v0}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    invoke-static {v7, v0}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
     move-result-object v0
 
     check-cast v0, Landroid/graphics/Rect;
 
-    const-string v8, "getScale"
+    const-string v9, "getScale"
 
-    invoke-static {v4, v8}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    invoke-static {v7, v9}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
-    move-result-object v4
+    move-result-object v9
+    :try_end_4
+    .catchall {:try_start_4 .. :try_end_4} :catchall_3
 
-    invoke-virtual {v7}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+    :try_start_5
+    const-string v11, "getFontColorType"
 
-    move-result-object v8
+    invoke-static {v7, v11}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
-    const-string v9, "k4_home_clock_item_rect"
+    move-result-object v7
 
-    iget v10, v0, Landroid/graphics/Rect;->left:I
+    instance-of v11, v7, Ljava/lang/Enum;
 
-    iget v11, v0, Landroid/graphics/Rect;->top:I
+    if-eqz v11, :cond_6
 
-    iget v12, v0, Landroid/graphics/Rect;->right:I
+    const-string v11, "BLACK"
+
+    move-object v12, v7
+
+    check-cast v12, Ljava/lang/Enum;
+
+    invoke-virtual {v12}, Ljava/lang/Enum;->name()Ljava/lang/String;
+
+    move-result-object v12
+
+    invoke-virtual {v11, v12}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v11
+
+    if-eqz v11, :cond_5
+
+    move-object v4, v2
+
+    goto :goto_4
+
+    :cond_5
+    const-string v11, "WHITE"
+
+    check-cast v7, Ljava/lang/Enum;
+
+    invoke-virtual {v7}, Ljava/lang/Enum;->name()Ljava/lang/String;
+
+    move-result-object v7
+
+    invoke-virtual {v11, v7}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v7
+    :try_end_5
+    .catchall {:try_start_5 .. :try_end_5} :catchall_2
+
+    if-eqz v7, :cond_6
+
+    move-object/from16 v4, v16
+
+    :catchall_2
+    :cond_6
+    :goto_4
+    :try_start_6
+    invoke-virtual {v10}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+
+    move-result-object v7
+
+    const-string v11, "k4_home_clock_item_rect"
+
+    iget v12, v0, Landroid/graphics/Rect;->left:I
+
+    iget v13, v0, Landroid/graphics/Rect;->top:I
+
+    iget v14, v0, Landroid/graphics/Rect;->right:I
 
     iget v0, v0, Landroid/graphics/Rect;->bottom:I
 
-    invoke-static {v4}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+    invoke-static {v9}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
-    move-result-object v4
+    move-result-object v9
 
-    new-instance v13, Ljava/lang/StringBuilder;
+    new-instance v15, Ljava/lang/StringBuilder;
 
-    invoke-direct {v13}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-direct {v15}, Ljava/lang/StringBuilder;-><init>()V
 
-    invoke-virtual {v13, v10}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v15, v12}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v13, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v15, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v13, v11}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v15, v13}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v13, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v15, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v13, v12}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v15, v14}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v13, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v15, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v13, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+    invoke-virtual {v15, v0}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v13, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v15, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v13, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v15, v9}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v13}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {v15, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v15, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v15}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v0
 
-    invoke-static {v8, v9, v0}, Landroid/provider/Settings$System;->putString(Landroid/content/ContentResolver;Ljava/lang/String;Ljava/lang/String;)Z
-    :try_end_3
-    .catchall {:try_start_3 .. :try_end_3} :catchall_1
+    invoke-static {v7, v11, v0}, Landroid/provider/Settings$System;->putString(Landroid/content/ContentResolver;Ljava/lang/String;Ljava/lang/String;)Z
+    :try_end_6
+    .catchall {:try_start_6 .. :try_end_6} :catchall_3
 
-    goto :goto_3
+    goto :goto_5
 
-    :catchall_1
+    :catchall_3
     move-exception v0
 
-    :try_start_4
-    const-string v2, "home apply: clock rect"
+    :try_start_7
+    const-string v4, "home apply: clock rect"
 
-    invoke-static {v3, v2, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+    invoke-static {v6, v4, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    :goto_3
-    invoke-static {v5}, Lcom/k4/dressroom/HomeClock;->gson(Ljava/lang/Object;)Ljava/lang/Object;
+    :goto_5
+    invoke-static {v8}, Lcom/k4/dressroom/HomeClock;->gson(Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object v0
 
-    const-string v2, "com.samsung.android.sdk.aodservice.entities.item.LockScreenItem"
+    const-string v4, "com.samsung.android.sdk.aodservice.entities.item.LockScreenItem"
 
-    invoke-virtual {v5}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    move-result-object v4
-
-    invoke-virtual {v4}, Ljava/lang/Class;->getClassLoader()Ljava/lang/ClassLoader;
-
-    move-result-object v4
-
-    const/4 v5, 0x0
-
-    invoke-static {v2, v5, v4}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;
-
-    move-result-object v2
-
-    invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    move-result-object v4
-
-    const-class v5, Ljava/lang/Object;
-
-    const-class v8, Ljava/lang/reflect/Type;
-
-    filled-new-array {v5, v8}, [Ljava/lang/Class;
+    invoke-virtual {v8}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
     move-result-object v5
 
-    invoke-virtual {v4, v1, v5}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+    invoke-virtual {v5}, Ljava/lang/Class;->getClassLoader()Ljava/lang/ClassLoader;
+
+    move-result-object v5
+
+    const/4 v7, 0x0
+
+    invoke-static {v4, v7, v5}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;
+
+    move-result-object v4
+
+    invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v5
+
+    const-class v7, Ljava/lang/Object;
+
+    const-class v8, Ljava/lang/reflect/Type;
+
+    filled-new-array {v7, v8}, [Ljava/lang/Class;
+
+    move-result-object v7
+
+    invoke-virtual {v5, v3, v7}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+
+    move-result-object v3
+
+    filled-new-array {v1, v4}, [Ljava/lang/Object;
 
     move-result-object v1
 
-    filled-new-array {v6, v2}, [Ljava/lang/Object;
-
-    move-result-object v2
-
-    invoke-virtual {v1, v0, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-virtual {v3, v0, v1}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object v0
 
     check-cast v0, Ljava/lang/String;
 
-    invoke-virtual {v7}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+    invoke-virtual {v10}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
 
     move-result-object v1
 
-    const-string v2, "k4_home_clock_item"
+    const-string v3, "k4_home_clock_item"
 
-    invoke-static {v1, v2, v0}, Landroid/provider/Settings$System;->putString(Landroid/content/ContentResolver;Ljava/lang/String;Ljava/lang/String;)Z
+    invoke-static {v1, v3, v0}, Landroid/provider/Settings$System;->putString(Landroid/content/ContentResolver;Ljava/lang/String;Ljava/lang/String;)Z
 
     const-string v1, "persist.sys.k4.home_depth_clock"
 
-    sget-boolean v2, Lcom/k4/dressroom/HomeClock;->on:Z
+    sget-boolean v3, Lcom/k4/dressroom/HomeClock;->on:Z
 
-    if-eqz v2, :cond_5
+    if-eqz v3, :cond_7
 
-    const-string v2, "1"
+    goto :goto_6
 
-    goto :goto_4
+    :cond_7
+    move-object/from16 v2, v16
 
-    :cond_5
-    const-string v2, "0"
-
-    :goto_4
+    :goto_6
     invoke-static {v1, v2}, Landroid/os/SemSystemProperties;->set(Ljava/lang/String;Ljava/lang/String;)V
 
     new-instance v1, Landroid/content/Intent;
@@ -1639,27 +1769,27 @@
 
     move-result-object v1
 
-    invoke-virtual {v7, v1}, Landroid/content/Context;->sendBroadcast(Landroid/content/Intent;)V
+    invoke-virtual {v10, v1}, Landroid/content/Context;->sendBroadcast(Landroid/content/Intent;)V
 
     sget-boolean v1, Lcom/k4/dressroom/HomeClock;->on:Z
 
-    if-eqz v1, :cond_6
+    if-eqz v1, :cond_8
 
     const-string v1, "on"
 
-    goto :goto_5
+    goto :goto_7
 
-    :cond_6
+    :cond_8
     const-string v1, "off"
 
-    :goto_5
+    :goto_7
     new-instance v2, Ljava/lang/StringBuilder;
 
     invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
 
-    const-string v4, "home apply: clock "
+    const-string v3, "home apply: clock "
 
-    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     invoke-virtual {v2, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
@@ -1673,28 +1803,28 @@
 
     move-result-object v0
 
-    invoke-static {v3, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    invoke-static {v6, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    goto :goto_7
+    goto :goto_9
 
-    :cond_7
-    :goto_6
+    :cond_9
+    :goto_8
     const-string v0, "home apply: no clock data/store"
 
-    invoke-static {v3, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
-    :try_end_4
-    .catchall {:try_start_4 .. :try_end_4} :catchall_2
+    invoke-static {v6, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_7
+    .catchall {:try_start_7 .. :try_end_7} :catchall_4
 
     return-void
 
-    :catchall_2
+    :catchall_4
     move-exception v0
 
     const-string v1, "onHomeSave"
 
-    invoke-static {v3, v1, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+    invoke-static {v6, v1, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    :goto_7
+    :goto_9
     return-void
 .end method
 
@@ -2261,7 +2391,7 @@
 
     const-string v6, "presetFontIndex"
 
-    const/16 v7, 0x32e
+    const/16 v7, 0x320
 
     invoke-virtual {v4, v6, v7}, Lorg/json/JSONObject;->put(Ljava/lang/String;I)Lorg/json/JSONObject;
 

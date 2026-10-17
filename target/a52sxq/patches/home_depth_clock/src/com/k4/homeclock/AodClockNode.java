@@ -54,7 +54,8 @@ final class AodClockNode extends DepthClock {
         int b = Math.round(item.rect.bottom * f[1]);
         float lum = luminance(background, l, t, r, b);
         // what SystemUI gives the lock-screen clock: 0 = white text (dark wallpaper), 1 = black (light wallpaper)
-        fontColorType = lum > 0.6f ? 1 : 0;
+        // the editor's own analysis when saved with the item, else a luminance guess
+        fontColorType = item.fontColorType != null ? item.fontColorType : (lum > 0.6f ? 1 : 0);
         areaColor = meanColor(background, l, t, r, b);
     }
 
@@ -108,6 +109,9 @@ final class AodClockNode extends DepthClock {
         if (!cv.isInstance(v)) {
             throw new IllegalStateException("not a ClockView: " + v.getClass());
         }
+        // off-screen setup like AODService's own: awake (not dozing) colours, no spring animation
+        opt(v, "setDozing", new Class<?>[] {boolean.class}, false);
+        opt(v, "setDozeAmount", new Class<?>[] {float.class}, 0f);
         opt(v, "setAnimationAllowed", new Class<?>[] {boolean.class}, false);
         opt(v, "setShowWeatherInformation", new Class<?>[] {boolean.class}, false);
         if (item.fontIndex != null) {
@@ -117,7 +121,8 @@ final class AodClockNode extends DepthClock {
                 Object data = fd.getConstructor(int.class, String.class, Integer.class, Integer.class, List.class)
                         .newInstance(item.fontIndex, item.fontPath,
                                 item.fontWeight != null ? item.fontWeight : Integer.valueOf(-1),
-                                item.fontRounded != null ? item.fontRounded : Integer.valueOf(-1), null);
+                                item.fontRounded != null ? item.fontRounded : Integer.valueOf(-1),
+                                stretchable() ? item.fontHeights : null);
                 fe.getMethod("setFontType", fd).invoke(v, data);
             } else if (item.fontPath.isEmpty()) {
                 call(v, "setFontType", new Class<?>[] {int.class}, item.fontIndex);
@@ -158,6 +163,13 @@ final class AodClockNode extends DepthClock {
         }
     }
 
+    /** Samsung's canApplyStretchFont: digital clock types 1/2 with a stretch font (0, 800-805, 812, 813). */
+    private boolean stretchable() {
+        Integer f = item.fontIndex;
+        return (item.clockType == 1 || item.clockType == 2) && f != null
+                && (f == 0 || (f >= 800 && f <= 805) || f == 812 || f == 813);
+    }
+
     private float left;
     private float top;
     private float scale;
@@ -165,6 +177,7 @@ final class AodClockNode extends DepthClock {
     /** forceRefresh(now), measure, layout and where (surface pixels) the scaled view goes. */
     private void place(boolean log) throws Exception {
         View v = clock;
+        opt(v, "stopSpringAnimation", new Class<?>[0]);
         call(v, "forceRefresh", new Class<?>[] {long.class}, System.currentTimeMillis());
         int unspecified = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
         v.measure(unspecified, unspecified);

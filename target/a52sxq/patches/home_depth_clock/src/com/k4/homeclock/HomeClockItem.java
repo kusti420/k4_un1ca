@@ -22,6 +22,10 @@ final class HomeClockItem {
     Integer fontIndex;
     String fontPath = "";
     Integer fontWeight;
+    /** Stretch clock per-digit heights, null when the clock is not stretched. */
+    java.util.List<Float> fontHeights;
+    /** The editor's ClockData.fontColorType: 0 = white text, 1 = black; null when not saved (older config). */
+    Integer fontColorType;
     Integer fontRounded;
     /** Colour: the simple name of the ClockItem colour impl (ClockPresetColorImpl, StaticColorImpl, Adaptive*). */
     String colorType = "";
@@ -83,6 +87,14 @@ final class HomeClockItem {
             if (font.has("fontRoundedCorners") && !font.isNull("fontRoundedCorners")) {
                 it.fontRounded = font.getInt("fontRoundedCorners");
             }
+            // stretch clock: per-digit heights (ClockFontData's 5th argument, as KeyguardClockProvider passes them)
+            org.json.JSONArray hs = font.optJSONArray("fontHeights");
+            if (hs != null && hs.length() > 0) {
+                it.fontHeights = new java.util.ArrayList<>();
+                for (int i = 0; i < hs.length(); i++) {
+                    it.fontHeights.add((float) hs.getDouble(i));
+                }
+            }
         }
         JSONObject color = o.optJSONObject("color");
         if (color != null) {
@@ -118,6 +130,9 @@ final class HomeClockItem {
         if (p.length > 4) {
             float s = Float.parseFloat(p[4]);
             it.scale = s > 0.05f && s < 20f ? s : 1f;
+        }
+        if (p.length > 5 && !p[5].isEmpty()) {
+            it.fontColorType = Integer.parseInt(p[5].trim()); // the editor's colour analysis of the clock area
         }
         return it;
     }

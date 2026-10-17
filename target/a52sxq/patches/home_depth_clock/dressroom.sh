@@ -187,6 +187,76 @@ patch(f, "public final c(Ljava/lang/String;)" + CI, hc, "ClockStoreRepositoryImp
 q = open(by_text('"LockScreenRemoteItemStoreImpl"')).read()
 assert re.search(r"^\.field public final b:Lji/d;$", q, re.M), "LockScreenRemoteItemStoreImpl.b"
 
+# 5c. Home editor zoom-out + rotation (EditXf): CropImageView touch / pinch, MaskImageView draw, SaveImageMaker save
+XF = "Lcom/k4/dressroom/EditXf;"
+W = "com/samsung/android/app/dressroom/presentation/preview/widget/"
+def one(path):
+    hits = glob.glob(root + "/smali*/" + path)
+    assert len(hits) == 1, "%s: %d" % (path, len(hits))
+    return hits[0]
+def xpatch(f, sig, fn, what):
+    s = open(f).read()
+    body = method(s, sig)
+    if XF in body:
+        print("  - %s already hooked" % what)
+        return
+    new = fn(body)
+    assert new != body and XF in new, what
+    open(f, "w").write(s.replace(body, new, 1))
+    print("  - %s" % what)
+def at_start(call, regs_max):
+    def fn(body):
+        n = nlocals(body)
+        assert n + regs_max <= 16, "locals %d" % n
+        hdr = "    .locals %d\n\n" % n
+        assert body.count(hdr) == 1
+        return body.replace(hdr, hdr + call, 1)
+    return fn
+f = one(W + "CropImageView.smali")
+s = open(f).read()
+for fld in (".field public C:Z", ".field public D:Z", ".field public E:Z", ".field public x:F"):
+    assert fld in s, "CropImageView " + fld
+for m in ("public final getDrawableInner()Landroid/graphics/drawable/Drawable;", "public final getDrawableBounds()Landroid/graphics/RectF;",
+          "public final getDrawableOriginScaledBounds()Landroid/graphics/RectF;"):
+    assert re.search(r"^\.method %s$" % re.escape(m), s, re.M), "CropImageView." + m
+xpatch(f, "public final onTouchEvent(Landroid/view/MotionEvent;)Z", at_start(
+    "    invoke-static {p0, p1}, %s->touch(Landroid/view/View;Landroid/view/MotionEvent;)Landroid/view/MotionEvent;\n\n    move-result-object p1\n\n" % XF, 2),
+    "CropImageView.onTouchEvent -> EditXf.touch")
+xpatch(f, "public final N(F)V", at_start(
+    "    invoke-static {p0, p1}, %s->scale(Landroid/view/View;F)F\n\n    move-result p1\n\n" % XF, 2), "CropImageView.N -> EditXf.scale")
+f = one(W + "MaskImageView.smali")
+def hdraw(body):
+    a = "    :try_start_0\n    invoke-super {p0, p1}, Landroid/widget/ImageView;->onDraw(Landroid/graphics/Canvas;)V\n    :try_end_0\n"
+    assert body.count(a) == 1 and "    :goto_0\n    invoke-virtual {p1, v3}, Landroid/graphics/Canvas;->restoreToCount(I)V\n\n    sget-boolean v0," in body, "MaskImageView.onDraw: super call"
+    return body.replace(a, "    :try_start_0\n    invoke-static {p0, p1}, %s->draw(Landroid/view/View;Landroid/graphics/Canvas;)Z\n\n    move-result v0\n\n"
+                        "    if-nez v0, :k4_drawn\n\n    invoke-super {p0, p1}, Landroid/widget/ImageView;->onDraw(Landroid/graphics/Canvas;)V\n\n    :k4_drawn\n    :try_end_0\n" % XF, 1)
+xpatch(f, "public onDraw(Landroid/graphics/Canvas;)V", hdraw, "MaskImageView.onDraw -> EditXf.draw")
+f = by_text('"makeBackgroundImage"')
+s = open(f).read()
+for fld in (".field public final f:Landroid/util/Size;", ".field public h:Landroid/graphics/Bitmap;", ".field public o:F", ".field public p:F"):
+    assert fld in s, "SaveImageMaker " + fld
+assert re.search(r"^\.field private a:Ljava/util/ArrayList;$", open(one("c7/c0.smali")).read(), re.M), "c7.c0.a (expand offsets)"
+assert glob.glob(root + "/smali*/fj/j.smali") and ".method public constructor <init>(Landroid/graphics/drawable/Drawable;)V" in open(one("fj/j.smali")).read(), "fj.j (ExpandableDrawable)"
+xpatch(f, "public final f(Landroid/graphics/RectF;Landroid/graphics/RectF;Landroid/graphics/RectF;Ljava/lang/String;)V", at_start(
+    "    invoke-static {p0, p1, p2, p3}, %s->bakeBackground(Ljava/lang/Object;Landroid/graphics/RectF;Landroid/graphics/RectF;Landroid/graphics/RectF;)V\n\n" % XF, 0),
+    "SaveImageMaker.f -> EditXf.bakeBackground")
+def hobj(body):
+    hdr = "    .locals %d\n\n" % nlocals(body)
+    assert body.count(hdr) == 1
+    return body.replace(hdr, hdr + "    invoke-static/range {p0 .. p3}, %s->bakeObject(Ljava/lang/Object;Landroid/graphics/Bitmap;Landroid/graphics/Rect;F)Landroid/graphics/Bitmap;\n\n"
+                        "    move-result-object p1\n\n    invoke-static/range {p3 .. p3}, %s->objectScale(F)F\n\n    move-result p3\n\n" % (XF, XF), 1)
+xpatch(f, "public final h(Landroid/graphics/Bitmap;Landroid/graphics/Rect;FLjava/lang/String;)Landroid/graphics/Bitmap;", hobj, "SaveImageMaker.h -> EditXf.bakeObject")
+def hthumb(body):
+    hdr = "    .locals %d\n\n" % nlocals(body)
+    assert body.count(hdr) == 1 and nlocals(body) + 2 <= 16
+    return body.replace(hdr, hdr + "    invoke-static {p0, p1}, %s->thumbnail(Ljava/lang/Object;Landroid/graphics/Bitmap;)Landroid/graphics/Bitmap;\n\n    move-result-object p1\n\n" % XF, 1)
+xpatch(f, "public final o(Landroid/graphics/Bitmap;)Ljava/lang/String;", hthumb, "SaveImageMaker.o -> EditXf.thumbnail")
+def hxml(body):
+    hdr = "    .locals %d\n\n" % nlocals(body)
+    assert body.count(hdr) == 1
+    return body.replace(hdr, hdr + "    invoke-static/range {p0 .. p2}, %s->beforeXml(Ljava/lang/Object;Ljava/util/ArrayList;Ljava/lang/Object;)V\n\n" % XF, 1)
+xpatch(f, "public final i(Ljava/util/ArrayList;Lc7/c0;)V", hxml, "SaveImageMaker.i -> EditXf.beforeXml")
+
 # 6. helper classes into the last dex, menu icon resources
 for old in glob.glob(root + "/smali*/com/k4/dressroom"):
     shutil.rmtree(old)
