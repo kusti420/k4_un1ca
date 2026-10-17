@@ -65,3 +65,10 @@ if [ ! -f "$SRC_DIR/target/a52sxq/patches/remaster_models/disable" ]; then
     unset REMASTER_MODELS_LIST
     unset -f REMASTER_MODELS_SRC REMASTER_MODELS_CHECK_SOURCES REMASTER_MODELS_INSTALL
 fi
+
+# Home screen depth clock switch (target/a52sxq/patches/home_depth_clock): added here, not from the patch, because
+# res/xml/unica_ui_settings.xml only exists once unica/mods/settings has run
+if [ ! -f "$SRC_DIR/target/a52sxq/patches/home_depth_clock/disable" ]; then
+    # shellcheck source=/dev/null
+    source "$SRC_DIR/target/a52sxq/patches/home_depth_clock/settings.sh"
+fi

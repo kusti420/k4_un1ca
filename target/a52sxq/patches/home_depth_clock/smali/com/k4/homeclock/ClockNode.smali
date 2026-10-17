@@ -4,6 +4,8 @@
 
 
 # instance fields
+.field private final accent:Z
+
 .field private final baseline:F
 
 .field private final centerX:F
@@ -14,19 +16,23 @@
 
 .field private final lightBackground:Z
 
+.field private final owner:Lh3/a;
+
 .field private final paint:Landroid/graphics/Paint;
+
+.field private final scaleRef:Li3/c;
 
 
 # direct methods
-.method constructor <init>(Landroid/content/Context;IIFLandroid/graphics/Bitmap;)V
-    .registers 12
+.method constructor <init>(Landroid/content/Context;IIFLandroid/graphics/Bitmap;Li3/c;Lh3/a;)V
+    .registers 13
 
-    .line 35
+    .line 40
     const-string v0, "K4DepthClockNode"
 
     invoke-direct {p0, p1, v0}, Li3/j;-><init>(Landroid/content/Context;Ljava/lang/String;)V
 
-    .line 27
+    .line 29
     new-instance p1, Landroid/graphics/Paint;
 
     const/16 v0, 0x81
@@ -35,351 +41,419 @@
 
     iput-object p1, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
 
-    .line 32
+    .line 37
     const-string p1, ""
 
     iput-object p1, p0, Lcom/k4/homeclock/ClockNode;->lastDrawn:Ljava/lang/String;
 
-    .line 36
-    iget-object p1, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
-
-    sget-object v0, Landroid/graphics/Typeface;->DEFAULT:Landroid/graphics/Typeface;
-
-    const/16 v1, 0x1f4
-
-    const/4 v2, 0x0
-
-    invoke-static {v0, v1, v2}, Landroid/graphics/Typeface;->create(Landroid/graphics/Typeface;IZ)Landroid/graphics/Typeface;
-
-    move-result-object v0
-
-    invoke-virtual {p1, v0}, Landroid/graphics/Paint;->setTypeface(Landroid/graphics/Typeface;)Landroid/graphics/Typeface;
-
-    .line 37
-    iget-object p1, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
-
-    sget-object v0, Landroid/graphics/Paint$Align;->CENTER:Landroid/graphics/Paint$Align;
-
-    invoke-virtual {p1, v0}, Landroid/graphics/Paint;->setTextAlign(Landroid/graphics/Paint$Align;)V
-
-    .line 38
-    iget-object p1, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
-
-    const-string v0, "tnum"
-
-    invoke-virtual {p1, v0}, Landroid/graphics/Paint;->setFontFeatureSettings(Ljava/lang/String;)V
-
-    .line 39
-    iget-object p1, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
-
-    const/high16 v0, 0x42c80000    # 100.0f
-
-    invoke-virtual {p1, v0}, Landroid/graphics/Paint;->setTextSize(F)V
-
-    .line 40
-    if-gt p2, p3, :cond_3b
-
-    const p1, 0x3f570a3d    # 0.84f
-
-    goto :goto_3e
-
-    :cond_3b
-    const p1, 0x3ed70a3d    # 0.42f
-
-    :goto_3e
-    int-to-float p2, p2
-
-    mul-float/2addr p1, p2
-
     .line 41
-    iget-object v1, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
-
-    mul-float v3, p1, v0
-
-    iget-object v4, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
-
-    const-string v5, "00:00"
-
-    invoke-virtual {v4, v5}, Landroid/graphics/Paint;->measureText(Ljava/lang/String;)F
-
-    move-result v4
-
-    div-float/2addr v3, v4
-
-    invoke-virtual {v1, v3}, Landroid/graphics/Paint;->setTextSize(F)V
+    iput-object p6, p0, Lcom/k4/homeclock/ClockNode;->scaleRef:Li3/c;
 
     .line 42
-    new-instance v1, Landroid/graphics/Rect;
-
-    invoke-direct {v1}, Landroid/graphics/Rect;-><init>()V
+    iput-object p7, p0, Lcom/k4/homeclock/ClockNode;->owner:Lh3/a;
 
     .line 43
-    iget-object v3, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
+    iget-object p6, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
 
-    const-string v4, "0123456789"
+    sget-object p7, Landroid/graphics/Typeface;->DEFAULT:Landroid/graphics/Typeface;
 
-    const/16 v5, 0xa
+    const/16 v0, 0x1f4
 
-    invoke-virtual {v3, v4, v2, v5, v1}, Landroid/graphics/Paint;->getTextBounds(Ljava/lang/String;IILandroid/graphics/Rect;)V
+    const/4 v1, 0x0
+
+    invoke-static {p7, v0, v1}, Landroid/graphics/Typeface;->create(Landroid/graphics/Typeface;IZ)Landroid/graphics/Typeface;
+
+    move-result-object p7
+
+    invoke-virtual {p6, p7}, Landroid/graphics/Paint;->setTypeface(Landroid/graphics/Typeface;)Landroid/graphics/Typeface;
 
     .line 44
-    iget v1, v1, Landroid/graphics/Rect;->top:I
+    iget-object p6, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
 
-    neg-int v1, v1
+    sget-object p7, Landroid/graphics/Paint$Align;->CENTER:Landroid/graphics/Paint$Align;
 
-    int-to-float v1, v1
+    invoke-virtual {p6, p7}, Landroid/graphics/Paint;->setTextAlign(Landroid/graphics/Paint$Align;)V
+
+    .line 45
+    iget-object p6, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
+
+    const-string p7, "tnum"
+
+    invoke-virtual {p6, p7}, Landroid/graphics/Paint;->setFontFeatureSettings(Ljava/lang/String;)V
 
     .line 46
-    const-string v3, "persist.sys.k4.home_depth_clock_y"
+    iget-object p6, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
 
-    invoke-static {v3}, Lcom/k4/homeclock/HomeDepthClock;->prop(Ljava/lang/String;)Ljava/lang/String;
+    const/high16 p7, 0x42c80000    # 100.0f
 
-    move-result-object v3
+    invoke-virtual {p6, p7}, Landroid/graphics/Paint;->setTextSize(F)V
 
-    invoke-static {v3}, Lcom/k4/homeclock/ClockNode;->parse(Ljava/lang/String;)F
+    .line 47
+    if-gt p2, p3, :cond_3f
+
+    const p6, 0x3f570a3d    # 0.84f
+
+    goto :goto_42
+
+    :cond_3f
+    const p6, 0x3ed70a3d    # 0.42f
+
+    :goto_42
+    int-to-float p2, p2
+
+    mul-float/2addr p6, p2
+
+    .line 48
+    iget-object v0, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
+
+    mul-float v2, p6, p7
+
+    iget-object v3, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
+
+    const-string v4, "00:00"
+
+    invoke-virtual {v3, v4}, Landroid/graphics/Paint;->measureText(Ljava/lang/String;)F
 
     move-result v3
 
-    .line 47
-    invoke-static {v3}, Ljava/lang/Float;->isNaN(F)Z
+    div-float/2addr v2, v3
 
-    move-result v4
+    invoke-virtual {v0, v2}, Landroid/graphics/Paint;->setTextSize(F)V
 
-    const/high16 v5, 0x40000000    # 2.0f
+    .line 49
+    new-instance v0, Landroid/graphics/Rect;
 
-    if-nez v4, :cond_85
-
-    .line 48
-    int-to-float p3, p3
-
-    mul-float/2addr v3, p3
-
-    div-float/2addr v3, v0
-
-    div-float v0, v1, v5
-
-    add-float/2addr v3, v0
-
-    invoke-static {v1, v3}, Ljava/lang/Math;->max(FF)F
-
-    move-result v0
-
-    invoke-static {p3, v0}, Ljava/lang/Math;->min(FF)F
-
-    move-result p3
-
-    iput p3, p0, Lcom/k4/homeclock/ClockNode;->baseline:F
-
-    goto :goto_b0
+    invoke-direct {v0}, Landroid/graphics/Rect;-><init>()V
 
     .line 50
-    :cond_85
-    const/4 v0, 0x0
+    iget-object v2, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
 
-    cmpl-float v0, p4, v0
+    const-string v3, "0123456789"
 
-    if-ltz v0, :cond_90
+    const/16 v4, 0xa
 
-    const v0, 0x3eb33333    # 0.35f
-
-    mul-float/2addr v0, v1
-
-    add-float/2addr v0, p4
-
-    goto :goto_98
-
-    :cond_90
-    const v0, 0x3e99999a    # 0.3f
-
-    int-to-float v3, p3
-
-    mul-float/2addr v3, v0
-
-    div-float v0, v1, v5
-
-    add-float/2addr v0, v3
+    invoke-virtual {v2, v3, v1, v4, v0}, Landroid/graphics/Paint;->getTextBounds(Ljava/lang/String;IILandroid/graphics/Rect;)V
 
     .line 51
-    :goto_98
-    int-to-float p3, p3
+    iget v0, v0, Landroid/graphics/Rect;->top:I
 
-    const v3, 0x3dcccccd    # 0.1f
+    neg-int v0, v0
 
-    mul-float/2addr v3, p3
-
-    add-float/2addr v3, v1
-
-    .line 52
-    const v4, 0x3ee66666    # 0.45f
-
-    mul-float/2addr p3, v4
-
-    invoke-static {v3, p3}, Ljava/lang/Math;->max(FF)F
-
-    move-result p3
+    int-to-float v0, v0
 
     .line 53
-    invoke-static {v3, v0}, Ljava/lang/Math;->max(FF)F
+    const-string v2, "persist.sys.k4.home_depth_clock_y"
 
-    move-result v0
+    invoke-static {v2}, Lcom/k4/homeclock/HomeDepthClock;->prop(Ljava/lang/String;)Ljava/lang/String;
 
-    invoke-static {p3, v0}, Ljava/lang/Math;->min(FF)F
+    move-result-object v2
+
+    invoke-static {v2}, Lcom/k4/homeclock/ClockNode;->parse(Ljava/lang/String;)F
+
+    move-result v2
+
+    .line 54
+    invoke-static {v2}, Ljava/lang/Float;->isNaN(F)Z
+
+    move-result v3
+
+    const/high16 v4, 0x40000000    # 2.0f
+
+    if-nez v3, :cond_89
+
+    .line 55
+    int-to-float p3, p3
+
+    mul-float/2addr v2, p3
+
+    div-float/2addr v2, p7
+
+    div-float p7, v0, v4
+
+    add-float/2addr v2, p7
+
+    invoke-static {v0, v2}, Ljava/lang/Math;->max(FF)F
+
+    move-result p7
+
+    invoke-static {p3, p7}, Ljava/lang/Math;->min(FF)F
 
     move-result p3
 
     iput p3, p0, Lcom/k4/homeclock/ClockNode;->baseline:F
 
-    .line 55
-    :goto_b0
-    div-float/2addr p2, v5
+    goto :goto_b4
+
+    .line 57
+    :cond_89
+    const/4 p7, 0x0
+
+    cmpl-float p7, p4, p7
+
+    if-ltz p7, :cond_94
+
+    const p7, 0x3eb33333    # 0.35f
+
+    mul-float/2addr p7, v0
+
+    add-float/2addr p7, p4
+
+    goto :goto_9c
+
+    :cond_94
+    const p7, 0x3e99999a    # 0.3f
+
+    int-to-float v2, p3
+
+    mul-float/2addr v2, p7
+
+    div-float p7, v0, v4
+
+    add-float/2addr p7, v2
+
+    .line 58
+    :goto_9c
+    int-to-float p3, p3
+
+    const v2, 0x3dcccccd    # 0.1f
+
+    mul-float/2addr v2, p3
+
+    add-float/2addr v2, v0
+
+    .line 59
+    const v3, 0x3ee66666    # 0.45f
+
+    mul-float/2addr p3, v3
+
+    invoke-static {v2, p3}, Ljava/lang/Math;->max(FF)F
+
+    move-result p3
+
+    .line 60
+    invoke-static {v2, p7}, Ljava/lang/Math;->max(FF)F
+
+    move-result p7
+
+    invoke-static {p3, p7}, Ljava/lang/Math;->min(FF)F
+
+    move-result p3
+
+    iput p3, p0, Lcom/k4/homeclock/ClockNode;->baseline:F
+
+    .line 62
+    :goto_b4
+    div-float/2addr p2, v4
 
     iput p2, p0, Lcom/k4/homeclock/ClockNode;->centerX:F
 
-    .line 57
-    iget p2, p0, Lcom/k4/homeclock/ClockNode;->centerX:F
+    .line 64
+    const-string p2, "persist.sys.k4.home_depth_clock_color"
 
-    div-float/2addr p1, v5
+    invoke-static {p2}, Lcom/k4/homeclock/HomeDepthClock;->prop(Ljava/lang/String;)Ljava/lang/String;
 
-    sub-float/2addr p2, p1
+    move-result-object p2
 
-    float-to-int p2, p2
+    .line 65
+    const/4 p3, -0x1
 
-    iget p3, p0, Lcom/k4/homeclock/ClockNode;->baseline:F
+    invoke-static {p3}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 
-    sub-float/2addr p3, v1
+    move-result-object p3
 
-    float-to-int p3, p3
-
-    iget v0, p0, Lcom/k4/homeclock/ClockNode;->centerX:F
-
-    add-float/2addr v0, p1
-
-    float-to-int p1, v0
-
-    iget v0, p0, Lcom/k4/homeclock/ClockNode;->baseline:F
-
-    float-to-int v0, v0
-
-    invoke-static {p5, p2, p3, p1, v0}, Lcom/k4/homeclock/ClockNode;->luminance(Landroid/graphics/Bitmap;IIII)F
-
-    move-result p1
-
-    const p2, 0x3f19999a    # 0.6f
-
-    cmpl-float p1, p1, p2
-
-    if-lez p1, :cond_cf
-
-    const/4 v2, 0x1
-
-    :cond_cf
-    iput-boolean v2, p0, Lcom/k4/homeclock/ClockNode;->lightBackground:Z
-
-    .line 59
+    .line 66
     nop
 
-    .line 60
-    const-string p1, "persist.sys.k4.home_depth_clock_color"
+    .line 67
+    const-string p7, "accent"
 
-    invoke-static {p1}, Lcom/k4/homeclock/HomeDepthClock;->prop(Ljava/lang/String;)Ljava/lang/String;
+    invoke-virtual {p7, p2}, Ljava/lang/String;->equalsIgnoreCase(Ljava/lang/String;)Z
 
-    move-result-object p1
+    move-result v2
 
-    .line 61
-    invoke-virtual {p1}, Ljava/lang/String;->isEmpty()Z
+    const/4 v3, 0x1
+
+    if-eqz v2, :cond_ce
+
+    .line 68
+    move p2, v3
+
+    goto :goto_e2
+
+    .line 69
+    :cond_ce
+    const-string v2, "#"
+
+    invoke-virtual {p2, v2}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v2
+
+    if-eqz v2, :cond_e1
+
+    .line 71
+    :try_start_d6
+    invoke-static {p2}, Landroid/graphics/Color;->parseColor(Ljava/lang/String;)I
 
     move-result p2
 
-    if-nez p2, :cond_e8
+    invoke-static {p2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 
-    .line 63
-    :try_start_de
-    invoke-static {p1}, Landroid/graphics/Color;->parseColor(Ljava/lang/String;)I
+    move-result-object p3
+    :try_end_de
+    .catch Ljava/lang/IllegalArgumentException; {:try_start_d6 .. :try_end_de} :catch_e0
 
-    move-result p1
+    .line 73
+    move p2, v1
 
-    invoke-static {p1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+    goto :goto_e2
 
-    move-result-object p1
-    :try_end_e6
-    .catch Ljava/lang/IllegalArgumentException; {:try_start_de .. :try_end_e6} :catch_e7
+    .line 72
+    :catch_e0
+    move-exception p2
 
-    .line 65
-    goto :goto_e9
+    .line 75
+    :cond_e1
+    move p2, v1
 
-    .line 64
-    :catch_e7
-    move-exception p1
+    :goto_e2
+    iput-boolean p2, p0, Lcom/k4/homeclock/ClockNode;->accent:Z
 
-    .line 67
-    :cond_e8
-    const/4 p1, 0x0
+    .line 76
+    iput-object p3, p0, Lcom/k4/homeclock/ClockNode;->fixedColor:Ljava/lang/Integer;
 
-    :goto_e9
-    iput-object p1, p0, Lcom/k4/homeclock/ClockNode;->fixedColor:Ljava/lang/Integer;
+    .line 77
+    if-eqz p2, :cond_106
 
-    .line 68
-    iget-object p1, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
+    if-eqz p5, :cond_106
 
-    invoke-virtual {p1}, Landroid/graphics/Paint;->getTextSize()F
+    iget p2, p0, Lcom/k4/homeclock/ClockNode;->centerX:F
 
-    move-result p1
+    div-float/2addr p6, v4
 
-    iget p2, p0, Lcom/k4/homeclock/ClockNode;->baseline:F
+    sub-float/2addr p2, p6
 
-    iget-boolean p3, p0, Lcom/k4/homeclock/ClockNode;->lightBackground:Z
+    float-to-int p2, p2
 
-    new-instance p5, Ljava/lang/StringBuilder;
+    iget v2, p0, Lcom/k4/homeclock/ClockNode;->baseline:F
 
-    invoke-direct {p5}, Ljava/lang/StringBuilder;-><init>()V
+    sub-float/2addr v2, v0
 
-    const-string v0, "layout: textSize="
+    float-to-int v2, v2
 
-    invoke-virtual {p5, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget v4, p0, Lcom/k4/homeclock/ClockNode;->centerX:F
 
-    move-result-object p5
+    add-float/2addr v4, p6
 
-    invoke-virtual {p5, p1}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+    float-to-int p6, v4
 
-    move-result-object p1
+    iget v4, p0, Lcom/k4/homeclock/ClockNode;->baseline:F
 
-    const-string p5, ", digitH="
+    float-to-int v4, v4
 
-    invoke-virtual {p1, p5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {p5, p2, v2, p6, v4}, Lcom/k4/homeclock/ClockNode;->luminance(Landroid/graphics/Bitmap;IIII)F
 
-    move-result-object p1
+    move-result p2
 
-    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+    const p5, 0x3f19999a    # 0.6f
 
-    move-result-object p1
+    cmpl-float p2, p2, p5
 
-    const-string p5, ", baseline="
+    if-lez p2, :cond_106
 
-    invoke-virtual {p1, p5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move v1, v3
 
-    move-result-object p1
+    :cond_106
+    iput-boolean v1, p0, Lcom/k4/homeclock/ClockNode;->lightBackground:Z
 
-    invoke-virtual {p1, p2}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+    .line 79
+    iget-object p2, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
 
-    move-result-object p1
+    invoke-virtual {p2}, Landroid/graphics/Paint;->getTextSize()F
 
-    const-string p2, " (subjectTop="
+    move-result p2
 
-    invoke-virtual {p1, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    iget p5, p0, Lcom/k4/homeclock/ClockNode;->baseline:F
 
-    move-result-object p1
+    .line 80
+    iget-boolean p6, p0, Lcom/k4/homeclock/ClockNode;->accent:Z
 
-    invoke-virtual {p1, p4}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+    if-eqz p6, :cond_115
 
-    move-result-object p1
+    goto :goto_11d
 
-    const-string p2, "), lightBg="
+    :cond_115
+    invoke-virtual {p3}, Ljava/lang/Integer;->intValue()I
 
-    invoke-virtual {p1, p2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result p3
 
-    move-result-object p1
+    invoke-static {p3}, Ljava/lang/Integer;->toHexString(I)Ljava/lang/String;
 
-    invoke-virtual {p1, p3}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+    move-result-object p7
+
+    .line 81
+    :goto_11d
+    iget-object p3, p0, Lcom/k4/homeclock/ClockNode;->owner:Lh3/a;
+
+    if-eqz p3, :cond_123
+
+    const-string p1, ", gated"
+
+    :cond_123
+    new-instance p3, Ljava/lang/StringBuilder;
+
+    invoke-direct {p3}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string p6, "layout: textSize="
+
+    invoke-virtual {p3, p6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p3
+
+    invoke-virtual {p3, p2}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+
+    move-result-object p2
+
+    const-string p3, ", digitH="
+
+    invoke-virtual {p2, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p2
+
+    invoke-virtual {p2, v0}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+
+    move-result-object p2
+
+    const-string p3, ", baseline="
+
+    invoke-virtual {p2, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p2
+
+    invoke-virtual {p2, p5}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+
+    move-result-object p2
+
+    const-string p3, " (subjectTop="
+
+    invoke-virtual {p2, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p2
+
+    invoke-virtual {p2, p4}, Ljava/lang/StringBuilder;->append(F)Ljava/lang/StringBuilder;
+
+    move-result-object p2
+
+    const-string p3, "), color="
+
+    invoke-virtual {p2, p3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p2
+
+    invoke-virtual {p2, p7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p2
+
+    invoke-virtual {p2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object p1
 
@@ -387,30 +461,31 @@
 
     move-result-object p1
 
+    .line 79
     const-string p2, "K4HomeClock"
 
     invoke-static {p2, p1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 70
+    .line 82
     return-void
 .end method
 
 .method private static luminance(Landroid/graphics/Bitmap;IIII)F
     .registers 15
 
-    .line 105
+    .line 145
     const/4 v0, 0x0
 
     invoke-static {v0, p1}, Ljava/lang/Math;->max(II)I
 
     move-result p1
 
-    .line 106
+    .line 146
     invoke-static {v0, p2}, Ljava/lang/Math;->max(II)I
 
     move-result p2
 
-    .line 107
+    .line 147
     invoke-virtual {p0}, Landroid/graphics/Bitmap;->getWidth()I
 
     move-result v1
@@ -421,7 +496,7 @@
 
     move-result p3
 
-    .line 108
+    .line 148
     invoke-virtual {p0}, Landroid/graphics/Bitmap;->getHeight()I
 
     move-result v1
@@ -432,7 +507,7 @@
 
     move-result p4
 
-    .line 109
+    .line 149
     const/4 v1, 0x0
 
     if-le p3, p1, :cond_6c
@@ -441,14 +516,14 @@
 
     goto :goto_6c
 
-    .line 112
+    .line 152
     :cond_23
     nop
 
-    .line 113
+    .line 153
     nop
 
-    .line 114
+    .line 154
     move v2, v0
 
     move v3, v2
@@ -458,7 +533,7 @@
 
     if-ge v2, v4, :cond_69
 
-    .line 115
+    .line 155
     sub-int v4, p4, p2
 
     mul-int/2addr v4, v2
@@ -467,7 +542,7 @@
 
     add-int/2addr v4, p2
 
-    .line 116
+    .line 156
     move v5, v0
 
     :goto_32
@@ -475,7 +550,7 @@
 
     if-ge v5, v6, :cond_66
 
-    .line 117
+    .line 157
     sub-int v6, p3, p1
 
     mul-int/2addr v6, v5
@@ -488,7 +563,7 @@
 
     move-result v6
 
-    .line 118
+    .line 158
     invoke-static {v6}, Landroid/graphics/Color;->red(I)I
 
     move-result v7
@@ -529,21 +604,21 @@
 
     add-float/2addr v1, v7
 
-    .line 119
+    .line 159
     add-int/lit8 v3, v3, 0x1
 
-    .line 116
+    .line 156
     add-int/lit8 v5, v5, 0x1
 
     goto :goto_32
 
-    .line 114
+    .line 154
     :cond_66
     add-int/lit8 v2, v2, 0x1
 
     goto :goto_27
 
-    .line 122
+    .line 162
     :cond_69
     int-to-float p0, v3
 
@@ -551,7 +626,7 @@
 
     return v1
 
-    .line 110
+    .line 150
     :cond_6c
     :goto_6c
     return v1
@@ -560,7 +635,7 @@
 .method private static parse(Ljava/lang/String;)F
     .registers 3
 
-    .line 92
+    .line 132
     invoke-virtual {p0}, Ljava/lang/String;->isEmpty()Z
 
     move-result v0
@@ -569,10 +644,10 @@
 
     if-eqz v0, :cond_9
 
-    .line 93
+    .line 133
     return v1
 
-    .line 96
+    .line 136
     :cond_9
     :try_start_9
     invoke-static {p0}, Ljava/lang/Float;->parseFloat(Ljava/lang/String;)F
@@ -581,7 +656,7 @@
     :try_end_d
     .catch Ljava/lang/NumberFormatException; {:try_start_9 .. :try_end_d} :catch_1a
 
-    .line 97
+    .line 137
     const/4 v0, 0x0
 
     cmpl-float v0, p0, v0
@@ -599,91 +674,260 @@
     :cond_19
     return v1
 
-    .line 98
+    .line 138
     :catch_1a
     move-exception p0
 
-    .line 99
+    .line 139
     return v1
 .end method
 
 
 # virtual methods
 .method public a(Landroid/graphics/Canvas;)V
-    .registers 6
+    .registers 8
 
-    .line 79
+    .line 112
+    invoke-virtual {p0}, Lcom/k4/homeclock/ClockNode;->showing()Z
+
+    move-result v0
+
+    if-nez v0, :cond_b
+
+    .line 113
+    const-string p1, ""
+
+    iput-object p1, p0, Lcom/k4/homeclock/ClockNode;->lastDrawn:Ljava/lang/String;
+
+    .line 114
+    return-void
+
+    .line 116
+    :cond_b
     invoke-virtual {p0}, Lcom/k4/homeclock/ClockNode;->text()Ljava/lang/String;
 
     move-result-object v0
 
-    .line 81
-    iget-object v1, p0, Lcom/k4/homeclock/ClockNode;->fixedColor:Ljava/lang/Integer;
+    .line 117
+    iget-boolean v1, p0, Lcom/k4/homeclock/ClockNode;->accent:Z
 
-    if-eqz v1, :cond_f
+    if-eqz v1, :cond_25
 
-    .line 82
+    .line 118
+    iget-object v1, p0, Lcom/k4/homeclock/ClockNode;->a:Landroid/content/Context;
+
+    iget-boolean v2, p0, Lcom/k4/homeclock/ClockNode;->lightBackground:Z
+
+    if-eqz v2, :cond_1d
+
+    const v2, 0x1060041
+
+    goto :goto_20
+
+    :cond_1d
+    const v2, 0x1060039
+
+    :goto_20
+    invoke-virtual {v1, v2}, Landroid/content/Context;->getColor(I)I
+
+    move-result v1
+
+    goto :goto_2b
+
+    .line 119
+    :cond_25
     iget-object v1, p0, Lcom/k4/homeclock/ClockNode;->fixedColor:Ljava/lang/Integer;
 
     invoke-virtual {v1}, Ljava/lang/Integer;->intValue()I
 
     move-result v1
 
-    goto :goto_20
-
-    .line 84
-    :cond_f
-    iget-object v1, p0, Lcom/k4/homeclock/ClockNode;->a:Landroid/content/Context;
-
-    iget-boolean v2, p0, Lcom/k4/homeclock/ClockNode;->lightBackground:Z
-
-    if-eqz v2, :cond_19
-
-    const v2, 0x1060041
-
-    goto :goto_1c
-
-    :cond_19
-    const v2, 0x1060039
-
-    :goto_1c
-    invoke-virtual {v1, v2}, Landroid/content/Context;->getColor(I)I
-
-    move-result v1
-
-    .line 86
-    :goto_20
+    .line 120
+    :goto_2b
     iget-object v2, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
 
     invoke-virtual {v2, v1}, Landroid/graphics/Paint;->setColor(I)V
 
-    .line 87
+    .line 121
+    iget-object v1, p0, Lcom/k4/homeclock/ClockNode;->scaleRef:Li3/c;
+
+    const/high16 v2, 0x3f800000    # 1.0f
+
+    if-eqz v1, :cond_3b
+
+    iget-object v1, p0, Lcom/k4/homeclock/ClockNode;->scaleRef:Li3/c;
+
+    iget v1, v1, Li3/c;->e:F
+
+    goto :goto_3c
+
+    :cond_3b
+    move v1, v2
+
+    .line 122
+    :goto_3c
+    invoke-virtual {p1}, Landroid/graphics/Canvas;->save()I
+
+    move-result v3
+
+    .line 123
+    cmpl-float v2, v1, v2
+
+    if-eqz v2, :cond_5a
+
+    const/4 v2, 0x0
+
+    cmpl-float v2, v1, v2
+
+    if-lez v2, :cond_5a
+
+    .line 124
+    invoke-virtual {p1}, Landroid/graphics/Canvas;->getWidth()I
+
+    move-result v2
+
+    int-to-float v2, v2
+
+    const/high16 v4, 0x40000000    # 2.0f
+
+    div-float/2addr v2, v4
+
+    invoke-virtual {p1}, Landroid/graphics/Canvas;->getHeight()I
+
+    move-result v5
+
+    int-to-float v5, v5
+
+    div-float/2addr v5, v4
+
+    invoke-virtual {p1, v1, v1, v2, v5}, Landroid/graphics/Canvas;->scale(FFFF)V
+
+    .line 126
+    :cond_5a
     iget v1, p0, Lcom/k4/homeclock/ClockNode;->centerX:F
 
     iget v2, p0, Lcom/k4/homeclock/ClockNode;->baseline:F
 
-    iget-object v3, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
+    iget-object v4, p0, Lcom/k4/homeclock/ClockNode;->paint:Landroid/graphics/Paint;
 
-    invoke-virtual {p1, v0, v1, v2, v3}, Landroid/graphics/Canvas;->drawText(Ljava/lang/String;FFLandroid/graphics/Paint;)V
+    invoke-virtual {p1, v0, v1, v2, v4}, Landroid/graphics/Canvas;->drawText(Ljava/lang/String;FFLandroid/graphics/Paint;)V
 
-    .line 88
+    .line 127
+    invoke-virtual {p1, v3}, Landroid/graphics/Canvas;->restoreToCount(I)V
+
+    .line 128
     iput-object v0, p0, Lcom/k4/homeclock/ClockNode;->lastDrawn:Ljava/lang/String;
 
-    .line 89
+    .line 129
     return-void
+.end method
+
+.method expected()Ljava/lang/String;
+    .registers 2
+
+    .line 107
+    invoke-virtual {p0}, Lcom/k4/homeclock/ClockNode;->showing()Z
+
+    move-result v0
+
+    if-eqz v0, :cond_b
+
+    invoke-virtual {p0}, Lcom/k4/homeclock/ClockNode;->text()Ljava/lang/String;
+
+    move-result-object v0
+
+    goto :goto_d
+
+    :cond_b
+    const-string v0, ""
+
+    :goto_d
+    return-object v0
+.end method
+
+.method showing()Z
+    .registers 5
+
+    .line 91
+    iget-object v0, p0, Lcom/k4/homeclock/ClockNode;->owner:Lh3/a;
+
+    const/4 v1, 0x1
+
+    if-nez v0, :cond_6
+
+    .line 92
+    return v1
+
+    .line 94
+    :cond_6
+    sget-boolean v0, Lcom/k4/homeclock/KeyguardWatch;->locked:Z
+
+    const/4 v2, 0x0
+
+    if-eqz v0, :cond_c
+
+    .line 95
+    return v2
+
+    .line 97
+    :cond_c
+    iget-object v0, p0, Lcom/k4/homeclock/ClockNode;->owner:Lh3/a;
+
+    invoke-static {v0}, Lcom/k4/homeclock/HomeDepthClock;->engineOf(Lh3/a;)Lf3/a;
+
+    move-result-object v0
+
+    .line 98
+    if-nez v0, :cond_15
+
+    .line 99
+    return v2
+
+    .line 101
+    :cond_15
+    invoke-virtual {v0}, Lf3/a;->getDisplayState()LB2/a;
+
+    move-result-object v0
+
+    .line 102
+    instance-of v3, v0, Ljava/lang/Enum;
+
+    if-eqz v3, :cond_2c
+
+    check-cast v0, Ljava/lang/Enum;
+
+    invoke-virtual {v0}, Ljava/lang/Enum;->name()Ljava/lang/String;
+
+    move-result-object v0
+
+    const-string v3, "ON"
+
+    invoke-virtual {v3, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_2c
+
+    goto :goto_2d
+
+    :cond_2c
+    move v1, v2
+
+    :goto_2d
+    return v1
 .end method
 
 .method text()Ljava/lang/String;
     .registers 4
 
-    .line 73
+    .line 85
     iget-object v0, p0, Lcom/k4/homeclock/ClockNode;->a:Landroid/content/Context;
 
     invoke-static {v0}, Landroid/text/format/DateFormat;->is24HourFormat(Landroid/content/Context;)Z
 
     move-result v0
 
-    .line 74
+    .line 86
     new-instance v1, Ljava/text/SimpleDateFormat;
 
     if-eqz v0, :cond_d

@@ -23,12 +23,8 @@ import java.util.ArrayList;
  * Memory: two screen-sized bitmaps instead of one.
  */
 final class HomeClockPresenter extends h3.a {
-    final Ticker ticker;
-    volatile ClockNode clock;
-
     HomeClockPresenter(Context context, int which, b source) {
         super(context, which, source);
-        ticker = new Ticker(this);
     }
 
     @Override
@@ -71,21 +67,21 @@ final class HomeClockPresenter extends h3.a {
 
             Rect full = new Rect(0, 0, w, h);
             i3.c backNode = new i3.c(this.a, new i3.b(back, full, full, null), this.c);
-            ClockNode clockNode = new ClockNode(this.a, w, h, subjectTop, back);
+            ClockNode clockNode = new ClockNode(this.a, w, h, subjectTop, back, null, null);
             data.c = backNode;
             group.c.add(backNode);
             group.c.add(clockNode);
             if (front != null) {
                 group.c.add(new i3.c(this.a, new i3.b(front, full, full, null), this.c));
             }
-            clock = clockNode;
+            HomeDepthClock.setClock(this, clockNode);
             inner.d(); // recycles the source bitmaps, as FlattenLayeredPresenter does
             Log.i(HomeDepthClock.TAG, "build: " + w + "x" + h + ", layers=" + nodes.size() + ", subjectAt=" + split
                     + ", subjectTop=" + subjectTop + ", " + (SystemClock.elapsedRealtime() - t0) + " ms");
         } catch (Throwable t) {
             // keep the stock full layer stack (no clock) rather than a broken wallpaper
             Log.e(HomeDepthClock.TAG, "build failed, showing the layers without a clock", t);
-            clock = null;
+            HomeDepthClock.setClock(this, null);
             group.c.clear();
             for (Object n : nodes) {
                 group.c.add(n);
@@ -98,7 +94,7 @@ final class HomeClockPresenter extends h3.a {
 
     @Override
     public void d() {
-        clock = null;
+        HomeDepthClock.setClock(this, null);
         this.f.b();
     }
 
@@ -110,7 +106,7 @@ final class HomeClockPresenter extends h3.a {
     }
 
     /** Screen y of the first clearly opaque row of the cut-out subject, or -1. */
-    private static float subjectTop(i3.c node) {
+    static float subjectTop(i3.c node) {
         if (node == null) {
             return -1;
         }

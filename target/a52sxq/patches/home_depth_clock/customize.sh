@@ -39,12 +39,36 @@ else:
     open(f, "w").write(s)
     print("  - c3.a.a: home FlattenLayeredPresenter -> HomeDepthClock.presenter()")
 
-# 2. LayeredEngine (f3.a): minute ticker follows visibility; stopped in onDestroy.
+# 2. AbstractLayeredPresenter.updateSurfaceSize (h3.a.e): right after the layer list is built (this.a(source, w, h,
+#    data)), HomeDepthClock.afterBuild(this) adds the gated clock to a shared home+lock instance's h3.b.
+f = one("h3/a.smali")
+s = open(f).read()
+assert s.startswith(".class public abstract Lh3/a;\n"), "h3.a: not the abstract layered presenter"
+m = re.search(r"^\.method public e\(II\)V\n.*?^\.end method\n", s, re.M | re.S)
+assert m, "h3.a.e(II)V"
+body = m.group(0)
+call = "    invoke-static {p0}, %s->afterBuild(Lh3/a;)V\n" % HDC
+if call in body:
+    print("  - h3.a.e already hooked")
+else:
+    pat = re.compile(r"(    invoke-virtual \{p0, \w+, \w+, \w+, \w+\}, Lh3/a;->a\(" + re.escape(SRC_B) + r"IILg0/a;\)V\n)")
+    assert len(pat.findall(body)) == 1, "h3.a.e: build call: %d" % len(pat.findall(body))
+    s = s.replace(body, pat.sub(lambda g: g.group(1) + "\n" + call, body), 1)
+    open(f, "w").write(s)
+    print("  - h3.a.e: layer list built -> HomeDepthClock.afterBuild()")
+assert re.search(r"^\.field public final c:I$", s, re.M) and re.search(r"^\.field public e:Lg0/a;$", s, re.M), "h3.a fields changed"
+assert re.search(r"^\.class public final Lh3/b;\n\.super Lh3/f;$", open(one("h3/b.smali")).read(), re.M), "h3.b is not the BgCachableLayeredPresenter"
+
+# 3. LayeredEngine (f3.a): engine state (reload receiver, minute ticker) from onCreate to onDestroy.
 f = one("f3/a.smali")
 s = open(f).read()
 assert s.startswith(".class public final Lf3/a;\n.super Lcom/samsung/android/wallpaper/live/sdk/service/switchable/d;"), "f3.a: not the LayeredEngine"
 assert ".field public final g:Lh3/a;" in s and "->b(Landroid/view/SurfaceHolder;)V" in s, "f3.a: presenter field / draw method changed"
-for sig, call in ((".method public final onVisibilityChanged(Z)V\n", "invoke-static {p0, p1}, %s->onVisibility(Lf3/a;Z)V" % HDC),
+sw = open(one("com/samsung/android/wallpaper/live/sdk/service/switchable/d.smali")).read()
+for m_ in ("stopSelf()V", "getDisplayState()LB2/a;", "getWhich()I", "getAppContext()Landroid/content/Context;"):
+    assert re.search(r"^\.method public %s$" % re.escape(m_), sw, re.M), "switchable.d." + m_
+for sig, call in ((".method public final onCreate(Landroid/view/SurfaceHolder;)V\n", "invoke-static {p0}, %s->onCreate(Lf3/a;)V" % HDC),
+                  (".method public final onVisibilityChanged(Z)V\n", "invoke-static {p0, p1}, %s->onVisibility(Lf3/a;Z)V" % HDC),
                   (".method public final onDestroy()V\n", "invoke-static {p0}, %s->onDestroy(Lf3/a;)V" % HDC)):
     assert s.count(sig) == 1, "f3.a: %s" % sig.strip()
     i = s.index(sig) + len(sig)
@@ -59,7 +83,7 @@ for sig, call in ((".method public final onVisibilityChanged(Z)V\n", "invoke-sta
     print("  - f3.a.%s -> HomeDepthClock" % sig.split()[3].split("(")[0])
 open(f, "w").write(s)
 
-# 3. helper classes into the last dex
+# 4. helper classes into the last dex
 for old in glob.glob(root + "/smali*/com/k4/homeclock"):
     shutil.rmtree(old)
 dirs = sorted((d for d in glob.glob(root + "/smali_classes*") if re.fullmatch(r"smali_classes\d+", os.path.basename(d))),
