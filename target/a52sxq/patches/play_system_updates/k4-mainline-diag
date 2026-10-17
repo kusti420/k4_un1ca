@@ -1,0 +1,275 @@
+#!/system/bin/sh
+# k4-mainline-diag - why did the last Google Play system update ("mainline train") fail on this K4_UN1CA build?
+# Installed by target/a52sxq/patches/play_system_updates. Read-only: it never installs, aborts or deletes anything.
+#
+#   adb shell k4-mainline-diag        one line: the verdict
+#   adb shell k4-mainline-diag -v     + sessions, active modules, Tethering BPF check, log lines
+#   adb shell k4-mainline-diag -s     + saves everything under /data/local/tmp/k4-mainline-<time>/ (adb pull it)
+#
+# Works as the adb shell user; as root (su -c k4-mainline-diag -v) it also reads the apexd state in /metadata/apex,
+# the SELinux denials, and what the ROM captured in /cache/k4_mainline during the last update boot.
+
+VERBOSE=0
+SAVE=0
+for a in "$@"; do
+    case "$a" in
+        -v) VERBOSE=1 ;;
+        -s) VERBOSE=1; SAVE=1 ;;
+        *) sed -n '2,12s/^# \{0,1\}//p' "$0"; exit 0 ;;
+    esac
+done
+
+ROOT=0
+[ "$(id -u)" = 0 ] && ROOT=1
+T="$(mktemp -d /data/local/tmp/k4md.XXXXXX 2> /dev/null)"
+if [ -z "$T" ] || [ ! -d "$T" ]; then
+    echo "k4-mainline-diag: cannot create a work dir in /data/local/tmp (run it from adb shell or as root)"
+    exit 1
+fi
+if [ "$SAVE" = 1 ]; then
+    OUT="/data/local/tmp/k4-mainline-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$OUT" && rm -rf "$T" && T="$OUT"
+else
+    trap 'rm -rf "$T"' EXIT
+fi
+
+CAP=/cache/k4_mainline
+LIVE_NETD=/apex/com.android.tethering/etc/bpf/mainline/netd.o
+OURS_NETD=/system/etc/bpf/a52_netd.o
+KNOWN=/system/etc/bpf/a52_netd.known
+
+ms2date() { # epoch milliseconds -> local date (mksh arithmetic is 32-bit: cut the digits instead)
+    case "$1" in ''|*[!0-9]*|?|??|???) echo "?"; return ;; esac
+    date -d "@${1%???}" '+%Y-%m-%d %H:%M' 2> /dev/null || echo "?"
+}
+
+# BPF map pin paths an object defines (/sys/fs/bpf/<dir>/map_<obj>_<name>), one per line, sorted
+pins() { strings -n 8 "$1" 2> /dev/null | grep '^/sys/fs/bpf/[^/]*/map_' | sort -u; }
+
+# --- staged sessions (PackageInstallerService dump; works for the shell user) ---------------------------------------
+if [ -n "$K4MD_DUMPSYS_FILE" ]; then   # testing: feed a saved `dumpsys package` instead of the live one
+    cp "$K4MD_DUMPSYS_FILE" "$T/dumpsys_package.txt"
+else
+    dumpsys package > "$T/dumpsys_package.txt" 2>&1
+fi
+sed -n '/^Active install sessions:/,/^Historical install sessions:/p' "$T/dumpsys_package.txt" > "$T/sessions.txt"
+rm -f "$T/dumpsys_package.txt"
+if ! grep -q "Session [0-9-]*:" "$T/sessions.txt"; then
+    if grep -q "^Active install sessions:" "$T/sessions.txt"; then
+        echo "NONE - no Google Play system update session on record yet (Play has not staged one on this install)"
+    else
+        echo "k4-mainline-diag: dumpsys package is not readable here; run it from adb shell or with su"
+    fi
+    exit 0
+fi
+
+# One TAB line per session: kind id parent staged committedMillis applied failed ready destroyed code pkg msg
+awk '
+function v(s, k) { if (match(s, " " k "=[^ ]*")) return substr(s, RSTART + length(k) + 2, RLENGTH - length(k) - 2); return "" }
+function flush() {
+    if (id == "") return
+    m = ""
+    if (match(buf, " mSessionErrorMessage=.* mPreapprovalDetails=")) m = substr(buf, RSTART + 22, RLENGTH - 22 - 21)
+    gsub(/\t/, " ", m)
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", kind, id, v(buf, "mParentSessionId"), v(buf, "params.isStaged"),
+        v(buf, "committedMillis"), v(buf, "mSessionApplied"), v(buf, "mSessionFailed"), v(buf, "mSessionReady"),
+        v(buf, "mDestroyed"), v(buf, "mSessionErrorCode"), v(buf, "appPackageName"), m
+    id = ""; buf = ""
+}
+/^ *(Finalized )?(Child )?Session -?[0-9]+:$/ {
+    flush(); kind = ($0 ~ /Child Session/) ? "C" : "P"
+    id = $0; sub(/:$/, "", id); sub(/.* /, "", id); next
+}
+/^[A-Z]/ { flush(); next }
+{ line = $0; sub(/^ */, "", line); buf = buf " " line }
+END { flush() }' "$T/sessions.txt" > "$T/sessions.tsv"
+
+# Decide on the newest batch of staged parents: Play commits tzdata/statsd/adservices/the main train within a minute or
+# two and one reboot activates them all; one failed APEX fails the whole batch, so the most specific error message of
+# the batch is the reason. Retries after a failed boot come minutes later, hence the 3 minute window.
+awk -F '\t' '
+function rank(m) {
+    if (m == "") return 0
+    if (m ~ /Another apex session failed/) return 1
+    if (m ~ /^APEX activation failed\.$/ || m ~ /^Reverting back to safe state/) return 2
+    if (m ~ /Found both applied and failed apex sessions/) return 3
+    return 4
+}
+$4 == "true" && $1 == "C" { kids[$3] = kids[$3] " " $11 }
+$4 == "true" && $1 == "P" && $3 == "-1" && $9 != "true" {
+    n++; id[n] = $2; t[n] = $5 + 0; ap[n] = $6; fa[n] = $7; re[n] = $8; pk[n] = $11; msg[n] = $12
+    if (t[n] > latest) latest = t[n]
+}
+END {
+    if (!n) { print "STATE\tnone"; exit }
+    st = "applied"; best = ""; br = -1; when = 0; nf = 0; na = 0; np = 0; lastok = 0
+    for (i = 1; i <= n; i++) {
+        if (ap[i] == "true" && t[i] > lastok) { lastok = t[i]; okp = kids[id[i]] }
+        if (t[i] < latest - 180000) continue
+        p = kids[id[i]]; if (p == "") p = " " pk[i]
+        pkgs = pkgs p; ids = ids " " id[i]
+        if (re[i] == "true" && ap[i] != "true" && fa[i] != "true") np++
+        else if (fa[i] == "true") { nf++; r = rank(msg[i]); if (r > br) { br = r; best = msg[i]; bid = id[i] } }
+        else if (ap[i] == "true") na++
+    }
+    if (np) st = "pending"; else if (nf) st = "failed"; else if (!na) st = "unknown"
+    print "STATE\t" st; print "WHEN\t" latest; print "PKGS\t" pkgs; print "IDS\t" ids
+    print "NFAILED\t" nf; print "NAPPLIED\t" na; print "NPENDING\t" np
+    print "ERR\t" best; print "ERRID\t" bid; print "LASTOK\t" lastok; print "LASTOKPKGS\t" okp
+}' "$T/sessions.tsv" > "$T/verdict.tsv"
+
+g() { awk -F '\t' -v k="$1" '$1 == k { print $2 }' "$T/verdict.tsv"; }
+STATE="$(g STATE)"; WHEN="$(ms2date "$(g WHEN)")"; ERR="$(g ERR)"; PKGS="$(g PKGS)"
+NPKG="$(echo $PKGS | wc -w)"
+LEVEL="$(dumpsys package com.google.android.modulemetadata 2> /dev/null | sed -n 's/^ *versionName=//p' | head -n 1)"
+TETH_VER="$(pm list packages --apex-only --show-versioncode 2> /dev/null | \
+    sed -n 's/^package:com\.\(google\.\)\{0,1\}android\.tethering versionCode://p' | head -n 1)"
+case " $PKGS " in *tethering*) TETH_IN=1 ;; *) TETH_IN=0 ;; esac
+
+# --- Tethering BPF coverage: our frozen loader only loads /system/etc/bpf/a52_netd.o -------------------------------
+# A Tethering train whose netd.o defines a map that a52_netd.o lacks aborts netd/system_server at boot ("Cannot open
+# ... map") -> apexd reverts the whole update. Checked for the live APEX and for the one captured from the last update
+# boot (root only), by map pin path.
+pins "$OURS_NETD" > "$T/ours.pins"
+pins "$LIVE_NETD" > "$T/live.pins"
+LIVE_MISSING="$(comm -23 "$T/live.pins" "$T/ours.pins" | sed 's|.*/map_netd_||; s|.*/map_||' | tr '\n' ' ')"
+LIVE_SHA="$(sha256sum "$LIVE_NETD" 2> /dev/null | cut -d ' ' -f 1)"
+LIVE_KNOWN="$(grep "^$LIVE_SHA " "$KNOWN" 2> /dev/null | cut -d ' ' -f 2-)"
+CAP_MISSING=""; CAP_VER=""
+if [ "$ROOT" = 1 ] && [ -f "$CAP/staged_tethering_netd.o" ]; then
+    pins "$CAP/staged_tethering_netd.o" > "$T/staged.pins"
+    CAP_MISSING="$(comm -23 "$T/staged.pins" "$T/ours.pins" | sed 's|.*/map_netd_||; s|.*/map_||' | tr '\n' ' ')"
+    CAP_VER="$(grep -o '<apex-info [^>]*moduleName="com.android.tethering"[^>]*isActive="true"[^>]*>' \
+        "$CAP/staged_apex-info-list.xml" 2> /dev/null | sed -n 's/.*versionCode="\([0-9]*\)".*/\1/p' | head -n 1)"
+fi
+DEV_HINT="developer: rerun tethering/regen.py --train-progs with that netd.o (root: /cache/k4_mainline/staged_tethering_netd.o) and add it to tethering_trains/known"
+
+# --- the one line ---------------------------------------------------------------------------------------------------
+explain() {
+    case "$1" in
+        *"Failed to set mtime"*)
+            echo "apexd was denied setting the mtime of a new APEX dm device (SELinux race, fixed in 9.3.36 by apexd_dm_mtime) - flash 9.3.36 or newer and let Play retry" ;;
+        *"container signature"*|*"not compatible with the one currently installed"*)
+            echo "an APEX in the ROM is re-signed with our own key, so Google's update for it is rejected before the reboot - ROM bug (Tethering must ship Google's original APEX)" ;;
+        *"Build fingerprint has changed"*)
+            echo "a new ROM build was flashed while the update was waiting for its reboot; Android drops it by design and Play downloads it again (harmless)" ;;
+        *"crashing native process"*)
+            echo "a native service crashed right after the update and apexd rolled it back (${1##*process: }) - if that is netd: Tethering needs newer BPF maps; $DEV_HINT" ;;
+        *"Found both applied and failed apex sessions"*)
+            echo "one module of the batch failed to activate while others did, so Android rolled the whole batch back - look at the session errors with -v (before 9.3.36 this was the apexd mtime denial)" ;;
+        "APEX activation failed.")
+            if [ -n "$CAP_MISSING" ]; then
+                echo "rolled back after the update boot: Tethering ${CAP_VER:-?} defines BPF maps the ROM does not create ($CAP_MISSING) -> netd/system_server crash; $DEV_HINT"
+            elif [ "$TETH_IN" = 1 ]; then
+                echo "rolled back after the update boot (boot did not finish or a service crash-looped); Tethering was part of it, so a BPF map gap is the prime suspect - run with su -v for the captured evidence"
+            else
+                echo "rolled back after the update boot (boot did not finish or a service crash-looped) - run with su -v for the captured evidence"
+            fi ;;
+        *"did not know anything about a staged session"*)
+            echo "apexd lost the session state in /metadata/apex (was /metadata wiped or formatted after the update was staged?) - Play retries" ;;
+        *"didn't activate nor fail"*|*"Impossible state"*)
+            echo "apexd did not process the staged session at boot (state left STAGED) - run with su -v and report" ;;
+        *"Another apex session failed"*)
+            echo "another update session of the same boot failed and took this one with it - see -v" ;;
+        *)
+            echo "$1" ;;
+    esac
+}
+
+case "$STATE" in
+    pending)
+        LINE="PENDING - update staged $WHEN (modules: $NPKG$( [ "$TETH_IN" = 1 ] && echo ", incl. Tethering")), waiting for a reboot" ;;
+    failed)
+        LINE="FAILED $WHEN (modules: $NPKG) - $(explain "$ERR")" ;;
+    applied)
+        LINE="OK - last update applied $WHEN (modules: $NPKG)" ;;
+    none)
+        LINE="NONE - no Google Play system update session on record yet" ;;
+    *)
+        LINE="UNKNOWN - newest update sessions ($WHEN) are neither applied nor failed - see -v" ;;
+esac
+if [ "$STATE" = failed ]; then
+    LASTOK="$(g LASTOK)"
+    [ -n "$LASTOK" ] && [ "$LASTOK" != 0 ] && LINE="$LINE; last successful update $(ms2date "$LASTOK")"
+fi
+LINE="$LINE; update level ${LEVEL:-?}; Tethering ${TETH_VER:-?}"
+if [ -n "$LIVE_MISSING" ]; then
+    LINE="$LINE; WARNING: the active Tethering defines BPF maps the ROM lacks ($LIVE_MISSING)"
+elif [ -n "$LIVE_KNOWN" ]; then
+    LINE="$LINE (BPF maps covered, $LIVE_KNOWN)"
+elif [ -s "$T/live.pins" ]; then
+    LINE="$LINE (BPF maps covered by name; this netd.o is not in the ROM's verified list)"
+fi
+echo "$LINE"
+echo "$LINE" > "$T/verdict.txt"
+[ "$VERBOSE" = 1 ] || exit 0
+
+# --- details -------------------------------------------------------------------------------------------------------
+{
+echo
+echo "== build: $(getprop ro.build.display.id) | kernel $(uname -r) | uid $(id -u)"
+echo "== apexd.status=$(getprop apexd.status) bpf.progs_loaded=$(getprop bpf.progs_loaded) boot reasons: $(getprop persist.sys.boot.reason.history | tr '\n' ' ' | cut -c 1-160)"
+echo
+echo "== staged update sessions (newest last): committed | state | packages | error"
+awk -F '\t' '$4 == "true" && $1 == "C" { kids[$3] = kids[$3] " " $11 }
+    $4 == "true" && $1 == "P" && $3 == "-1" { n++; l[n] = $5 "\t" $2 "\t" ($6 == "true" ? "applied" : $7 == "true" ? "FAILED" : $8 == "true" ? "ready" : "staged") "\t" $11 "\t" $12 }
+    END { for (i = 1; i <= n; i++) { split(l[i], f, "\t"); print f[1] "\t" f[2] "\t" f[3] "\t" (kids[f[2]] != "" ? kids[f[2]] : f[4]) "\t" f[5] } }' \
+    "$T/sessions.tsv" | sort -n | tail -n 12 | while IFS="$(printf '\t')" read -r ms sid state pk em; do
+        echo "  $(ms2date "$ms")  #$sid  $state  [$(echo $pk | wc -w)] $(echo $pk | sed 's/com\.google\.android\.//g' | cut -c 1-90)"
+        [ -n "$em" ] && echo "      $em"
+    done
+echo
+echo "== Tethering BPF"
+echo "  active Tethering $TETH_VER, netd.o sha256 $LIVE_SHA ${LIVE_KNOWN:+($LIVE_KNOWN)}"
+echo "  ROM a52_netd.o: $(wc -l < "$T/ours.pins") maps; active netd.o: $(wc -l < "$T/live.pins") maps; missing: ${LIVE_MISSING:-none}"
+grep -q "netbpfload_a52" /system/etc/init/netbpfload.rc 2> /dev/null && echo "  bpfloader runs /system/bin/netbpfload_a52* (frozen loader)" || \
+    echo "  WARNING: /system/etc/init/netbpfload.rc does not run netbpfload_a52*"
+if [ "$ROOT" = 1 ]; then
+    if [ -f "$CAP/staged_tethering_netd.o" ]; then
+        echo "  captured at the last update boot ($(stat -c %y "$CAP/staged_tethering_netd.o" | cut -c 1-16)): Tethering ${CAP_VER:-?}, missing maps: ${CAP_MISSING:-none}"
+    else
+        echo "  nothing captured in $CAP yet (filled at the next update boot)"
+    fi
+    if [ -f "$CAP/failed_staged_boot_kmsg.txt" ]; then
+        echo "  kernel log of the last update boot that did not finish ($(stat -c %y "$CAP/failed_staged_boot_kmsg.txt" | cut -c 1-16)):"
+        grep -a -E "bpfloader|netbpfload|NetBpfLoad|LibBpfLoader|updatable|apexd|reboot:|init: .*(netd|system_server)|avc: +denied" \
+            "$CAP/failed_staged_boot_kmsg.txt" | tail -n 25 | cut -c 1-220 | sed 's/^/    /'
+    fi
+    for p in $(sed -n 's|^/sys/fs/bpf/||p' "$T/live.pins"); do
+        [ -e "/sys/fs/bpf/$p" ] || echo "  not pinned on this kernel: $p (fine if it is a 5.10+ only map, e.g. sk_storage)"
+    done | head -n 20
+fi
+if [ "$ROOT" = 1 ]; then
+    echo
+    echo "== apexd state (/metadata/apex)"
+    echo "  sessions dir: $(ls /metadata/apex/sessions 2> /dev/null | wc -l) entries $(ls /metadata/apex/sessions 2> /dev/null | tr '\n' ' ')"
+    [ -s /metadata/staged-install/failure_reason.txt ] && echo "  failure_reason.txt: $(cat /metadata/staged-install/failure_reason.txt)"
+    echo "  active pinned images: $(strings -n 6 /metadata/apex/images/active 2> /dev/null | grep -c '_0\.apex$') listed, $(ls /data/apex/images 2> /dev/null | grep -c '\.apex$') in /data/apex/images"
+    ls /data/app-staging 2> /dev/null | sed 's/^/  staged dir: /'
+    echo
+    echo "== SELinux denials (apexd / update path)"
+    dmesg 2> /dev/null | grep "avc: *denied" | grep -E "apexd|apex_|odrefresh|odsign|derive_|bpfloader|netd|staging" | tail -n 15 | cut -c 1-240
+fi
+echo
+echo "== log lines (current boot)"
+logcat -d -b all 2> /dev/null | grep -E "apexd|StagingManager|PackageInstallerSession|RollbackManager|RollbackPackageHealth|PackageWatchdog|RescueParty|NetBpfLoad|LibBpfLoader|bpfloader" | \
+    grep -v "adbd service requested" | tail -n 40 | cut -c 1-240
+} | tee "$T/details.txt"
+
+if [ "$SAVE" = 1 ]; then
+    pm list packages --apex-only --show-versioncode > "$T/apex_versions.txt" 2>&1
+    dumpsys rollback > "$T/rollback.txt" 2>&1
+    getprop > "$T/getprop.txt" 2>&1
+    logcat -d -b all > "$T/logcat.txt" 2>&1
+    cp /apex/apex-info-list.xml "$T/" 2> /dev/null
+    if [ "$ROOT" = 1 ]; then
+        abx2xml /data/system/install_sessions.xml "$T/install_sessions.xml" 2> /dev/null
+        cp -r "$CAP" "$T/cache_k4_mainline" 2> /dev/null
+        cat /sys/fs/pstore/console-ramoops-0 > "$T/pstore_console_prev_boot.txt" 2> /dev/null
+        ls -laR /metadata/apex /data/apex > "$T/apex_dirs.txt" 2>&1
+        dmesg > "$T/dmesg.txt" 2>&1
+    fi
+    chmod -R a+rX "$T" 2> /dev/null
+    echo
+    echo "saved: $T  (adb pull $T)"
+fi

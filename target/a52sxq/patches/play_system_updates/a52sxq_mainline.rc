@@ -1,0 +1,33 @@
+# Google Play system update evidence (target/a52sxq/patches/play_system_updates). Only init builtins, no new domain.
+#
+# A failed update boot is rolled back by apexd/vold: /data returns to its pre-boot checkpoint, so its logs, tombstones
+# and the updated APEX files are gone afterwards. /cache is not checkpointed, so keep the evidence there (root only):
+#   staged_tethering_netd.o       the netd.o of the Tethering APEX that update boot activated (regen.py input)
+#   staged_apex-info-list.xml     every module version active during that boot
+#   staged_apex-updated-list.xml  what apexd updated in that boot
+#   failed_staged_boot_kmsg.txt   kernel log of the last update boot that never reached boot_completed
+# k4-mainline-diag -v reads them.
+
+# apexd sets apexd.packages.updated=true at the end of its start when it activated new APEXes in this boot (it resets
+# it to false once boot completes), i.e. before load-bpf-programs, and this file sorts before netbpfload.rc, so this
+# runs before the loader that could fail and reboot.
+on load-bpf-programs && property:apexd.packages.updated=true
+    mkdir /cache/k4_mainline 0700 root root
+    mkdir /cache/k4_mainline/staged_boot_running 0700 root root
+    copy /apex/apex-info-list.xml /cache/k4_mainline/staged_apex-info-list.xml
+    copy /apex/apex-updated-list.xml /cache/k4_mainline/staged_apex-updated-list.xml
+    copy /apex/com.android.tethering/etc/bpf/mainline/netd.o /cache/k4_mainline/staged_tethering_netd.o
+    setprop sys.k4.mainline.staged_boot 1
+
+# The update boot finished: nothing to keep from it.
+on property:sys.boot_completed=1 && property:sys.k4.mainline.staged_boot=1
+    rmdir /cache/k4_mainline/staged_boot_running
+
+# The previous boot was an update boot that never finished (staged_boot_running is still there): pstore holds its
+# kernel log. Keep a copy outside the marker dir and drop the marker. On a normal boot the marker dir does not exist,
+# so these four commands fail with ENOENT and do nothing (init logs one line each).
+on post-fs-data
+    copy /sys/fs/pstore/console-ramoops-0 /cache/k4_mainline/staged_boot_running/kmsg
+    copy /cache/k4_mainline/staged_boot_running/kmsg /cache/k4_mainline/failed_staged_boot_kmsg.txt
+    rm /cache/k4_mainline/staged_boot_running/kmsg
+    rmdir /cache/k4_mainline/staged_boot_running

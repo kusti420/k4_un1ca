@@ -13,7 +13,7 @@
 # Two modes (TARGET_TETHERING_RESIGN_APEX, scripts/internal/gen_config_file.sh):
 # - false (default): Google's ORIGINAL, Google-signed com.google.android.tethering_compressed.apex stays untouched, so
 #   Google Play system update trains can update Tethering. Needs a kernel with BPF_MAP_TYPE_RINGBUF (bone-machine k4
-#   patch 0006, checked below): /system/etc/bpf/a52_netd.o is netd_a52rb.o, i.e. the netd.o above plus
+#   patch 0006, checked below): /system/etc/bpf/a52_netd.o was netd_a52rb.o, i.e. the netd.o above plus
 #   * the maps only the Play train Tethering 372038420's netd.o defines (regen.py extra input, bpf_union.py; programs
 #     untouched), so that train's userspace finds its pins too - it aborts system_server without
 #       /sys/fs/bpf/netd_shared/map_netd_loopback_permission_enabled_map   ARRAY u32->bool  root:net_bw_acct 0460
@@ -21,7 +21,8 @@
 #     while the factory userspace keeps its five maps that 372038420 dropped (uid_permission_map, uid_migration_enabled,
 #     permission_propagation_enabled, local_net_blocked_uid, loopback_checks_enabled). Under the train's userspace the
 #     factory programs take their legacy branches: INTERNET-permission / local-network checks fail open (on 5.4 no
-#     program does loopback checks). netd_a52rb_train.o (regen.py --train-progs, NOT installed here) is the reverse:
+#     program does loopback checks). netd_a52rb_train.o (regen.py --train-progs; INSTALLED since 2026-10-10, user
+#     decision, see NETD_O below) is the reverse:
 #     the train's programs + the factory maps, INTERNET enforced under both userspaces, no local-network filtering;
 #   * all ringbuf maps' min_kver lowered 5.10 -> 5.4 (see regen.py). The loader then creates and pins them itself like
 #     on a 5.10 device, before bpf.progs_loaded=1 and therefore before netd/system_server start:
@@ -48,13 +49,22 @@
 # name-specific (a newer netd.o may rename the variants or add its own 5.4 ones, which would then collide on the same
 # pin path) and a newer object may need a newer loader (bpfloader_min_ver). After every Tethering train: check
 # `logcat -b all | grep -iE "netbpfload|LibBpfLoader|bpf map|ringbuf"` and the stats/maps pins; when Google's netd.o
-# changes, rerun regen.py on the updated APEX (pull it from /data/apex/active) and rebuild.
-# Recovery if a Tethering train breaks boot (init normally reverts a crashing staged APEX session by itself; if it
-# does not): boot TWRP, mount /data, then
-#     rm -rf /data/apex/active/com.android.tethering* /data/apex/active/com.google.android.tethering* \
-#            /data/apex/sessions/* /data/apex/backup/com.*tethering*
-#     rm -rf /data/app-staging/session_*      # optional: drops every staged Play train
-# and reboot: apexd falls back to the pre-installed /system Tethering APEX that matches our loader and a52_netd.o.
+# changes, rerun regen.py on the updated APEX's netd.o (Android 17 keeps updated APEXes as pinned images that cannot be
+# copied as files: pull /apex/com.android.tethering/etc/bpf/mainline/netd.o, or /cache/k4_mainline/staged_tethering_netd.o
+# after a rolled-back update boot, see play_system_updates), add it to tethering_trains/known/ and rebuild; the
+# tethering_trains patch aborts the build while a52_netd.o does not cover every known train.
+# Recovery if a Tethering train breaks boot. A fresh update boot is reverted automatically (netd is `updatable`, so
+# its crash loop makes apexd revert; a boot that never completes is reverted by apexd's boot timeout; a bpfloader
+# reboot loop by the vold checkpoint). The unprotected case is a ROM flashed under an already active train that the
+# new a52_netd.o does not cover (tethering_trains prevents building such a ROM). If it happens anyway: Android 17
+# keeps updated APEXes as pinned images listed in /metadata/apex/images/active (/data/apex/active is unused), so
+# boot TWRP, make sure /metadata is mounted, and either drop just Tethering from that list with
+# tethering_trains/drop_active_apex.py (usage in its header) or, bluntly,
+#     rm /metadata/apex/images/active           # ALL Play-updated modules fall back to their /system versions
+#     rm -rf /metadata/apex/sessions/* /data/app-staging/session_*   # optional: drops pending/old update sessions
+# and reboot: apexd activates the pre-installed /system Tethering APEX that matches our loader and a52_netd.o and
+# frees the unreferenced images. The blunt variant downgrades every module without restoring its data snapshot
+# (Play reinstalls the updates later). Not tested on a device yet.
 TETH_RESIGN="${TARGET_TETHERING_RESIGN_APEX:-false}"
 TETH_SRC="$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/apex/com.google.android.tethering_compressed.apex"
 [ "$(sha256sum "$TETH_SRC" | cut -d " " -f 1)" = "540ee27099939f2d1e698228ced265b2505dca1f82af2d785c43b37e0c2b652d" ] || \
