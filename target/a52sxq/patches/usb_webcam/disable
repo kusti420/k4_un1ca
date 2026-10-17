@@ -1,0 +1,1 @@
+Webcam hidden in 9.3.48: stopping a stream panics the 5.4 UVC gadget (uvcg_video_pump NULL deref after -ESHUTDOWN). Remove this file once the kernel fix (uvc3) is in.
