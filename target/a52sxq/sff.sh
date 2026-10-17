@@ -22,3 +22,7 @@ SEC_FLOATING_FEATURE_LCD_CONFIG_AOD_FULLSCREEN=1
 # regular photos (FaceOffWrapper.checkRequirement_genImage = "human face in near images"), it is not a generative model.
 # Gallery offers it only when the remaster detector reports BEST_FACE (detection type 31). Test 2026-10-16 TRACKER S2.
 SEC_FLOATING_FEATURE_GALLERY_CONFIG_BEST_FACE_MODE=GENIMAGE
+
+# One UI Home animation tier: Mass instead of the S26U's HighEnd (owner's call 2026-10-17, "slightly simpler but faster").
+# HighEnd app-open home/wallpaper zoom runs ~800 ms; Mass ~200 ms, shorter close/drawer/recents and no icon morph.
+SEC_FLOATING_FEATURE_LAUNCHER_CONFIG_ANIMATION_TYPE=Mass
