@@ -1,0 +1,52 @@
+From: kusti420 <virtuaalnepannkook@gmail.com>
+Subject: [PATCH] usb: dwc3-msm: don't log the DBM update-transfer lookup for non-DBM endpoints
+
+dwc3_stop_active_transfer() notifies DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER on
+every End Transfer, and dwc3_msm_dbm_disable_updxfer() logs its entry and,
+through find_matching_dbm_ep(), "No DBM EP matches USB EP n" for any endpoint
+that is not a DBM endpoint. The stock Samsung dwc3-msm.c maps dev_dbg to
+dev_err ("#undef dev_dbg / #define dev_dbg dev_err"), so both lines reach the
+kernel log at error level.
+
+The isochronous UVC streaming endpoint ends its transfer after every frame
+(dwc3 stops an isochronous transfer once its request list is empty), so
+"Use phone as webcam" logged 2 lines per frame, about 54 per second at 30 fps
+(3377 pairs in a 3-mode, 60 s per mode capture), pushing everything else out
+of the ring buffer.
+
+Look the endpoint up without logging in dwc3_msm_dbm_disable_updxfer() and log
+the entry only for DBM endpoints. DBM endpoints behave exactly as before
+(same lookup, same register write); for other endpoints the function still
+returns -ENODEV, which the notifier ignores, as before. find_matching_dbm_ep()
+and its other callers (DBM endpoint configuration) are unchanged.
+
+Used by MonsterROM target/a52sxq/patches/usb_webcam.
+---
+diff --git a/drivers/usb/dwc3/dwc3-msm.c b/drivers/usb/dwc3/dwc3-msm.c
+index 8fe793df8..cadc40bbf 100755
+--- a/drivers/usb/dwc3/dwc3-msm.c
++++ b/drivers/usb/dwc3/dwc3-msm.c
+@@ -831,11 +831,19 @@ static int dwc3_msm_dbm_disable_updxfer(struct dwc3 *dwc, u8 usb_ep)
+ 	u32 data;
+ 	int dbm_ep;
+ 
+-	dev_dbg(mdwc->dev, "%s\n", __func__);
++	/*
++	 * Called for every End Transfer (dwc3_stop_active_transfer()), e.g.
++	 * once per frame on the isochronous UVC endpoint. Only DBM endpoints
++	 * have an update-transfer bit to disable: look the endpoint up quietly
++	 * (dev_dbg is dev_err in this file) and log only for DBM endpoints.
++	 */
++	for (dbm_ep = 0; dbm_ep < mdwc->dbm_num_eps; dbm_ep++)
++		if (mdwc->dbm_ep_num_mapping[dbm_ep] == usb_ep)
++			break;
++	if (dbm_ep == mdwc->dbm_num_eps)
++		return -ENODEV;
+ 
+-	dbm_ep = find_matching_dbm_ep(mdwc, usb_ep);
+-	if (dbm_ep < 0)
+-		return dbm_ep;
++	dev_dbg(mdwc->dev, "%s\n", __func__);
+ 
+ 	data = msm_dbm_read_reg(mdwc, DBM_DISABLE_UPDXFER);
+ 	data |= (0x1 << dbm_ep);
