@@ -1,0 +1,13 @@
+# Kernel compatibility check (target/a52sxq/patches/kernel_feature_check): once per boot, after boot_completed,
+# /system/bin/k4-kernel-diag --boot logs one line (logcat tag K4KernelCheck) and sets sys.k4.kernel.ok / .missing /
+# .minor / .id. Read-only probes of /proc, /sys and /config in its own domain k4kcheck (plat_sepolicy.cil).
+service k4_kernel_check /system/bin/sh /system/bin/k4-kernel-diag --boot
+    user system
+    group system
+    seclabel u:r:k4kcheck:s0
+    priority 10
+    oneshot
+    disabled
+
+on property:sys.boot_completed=1
+    start k4_kernel_check

@@ -1,0 +1,4 @@
+(allow k4kcheck sysfs_battery (dir (getattr search)))
+(allow k4kcheck sysfs_battery (file (getattr)))
+(allow k4kcheck vendor_sysfs_kgsl (dir (getattr search)))
+(allow k4kcheck vendor_sysfs_kgsl (file (read getattr open)))

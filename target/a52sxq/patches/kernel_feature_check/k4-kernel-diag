@@ -1,0 +1,239 @@
+#!/system/bin/sh
+# k4-kernel-diag - does the running kernel have what this K4_UN1CA build expects?
+# Installed by target/a52sxq/patches/kernel_feature_check. Read-only: it only looks at /proc, /sys and /config.
+#
+#   adb shell k4-kernel-diag        one line: kernel OK, or what is MISSING and what that breaks
+#   adb shell k4-kernel-diag -v     + every check with its evidence (best as root: su -c k4-kernel-diag -v)
+#
+# At boot (sys.boot_completed=1) init runs it once with --boot: same line to logcat (tag K4KernelCheck) and
+#   sys.k4.kernel.ok=1|0  sys.k4.kernel.missing=<critical/feature list|none>  sys.k4.kernel.minor=<list|none>
+#   sys.k4.kernel.id=<uname -r>
+# Testing: K4KC_ROOT=/some/dir prefixes every probed path (fake /proc /sys /config trees); --boot then only
+# prints what it would log and set.
+
+VERBOSE=0
+BOOT=0
+for a in "$@"; do
+    case "$a" in
+        -v) VERBOSE=1 ;;
+        --boot) BOOT=1 ;;
+        *) sed -n '2,13s/^# \{0,1\}//p' "$0"; exit 0 ;;
+    esac
+done
+R="$K4KC_ROOT"
+
+MISSING=""   # critical + feature: sys.k4.kernel.ok=0
+MISSING_IDS=""
+MINOR=""     # works, but not the k4 kernel's behaviour
+UNKNOWN=""
+TAGS=""
+DETAIL=""
+
+add() { # add <var> <word>
+    eval "[ -z \"\$$1\" ] && $1=\"\$2\" || $1=\"\$$1, \$2\""
+}
+# result <name> <present|missing|unknown> <level: crit|feat|minor> <what breaks> <evidence>
+result() {
+    case "$2" in
+        present) S="ok     " ;;
+        missing)
+            S="MISSING"
+            if [ "$3" = minor ]; then add MINOR "$1"; else add MISSING "$1 ($4)"; add MISSING_IDS "$1"; fi ;;
+        *) S="unknown"; add UNKNOWN "$1" ;;
+    esac
+    DETAIL="$DETAIL
+  $S  $(printf '%-17s %-5s' "$1" "$3") $5
+                                  without it: $4"
+}
+# exists <path>: 0 present, 1 absent, 2 cannot tell (permission)
+exists() {
+    [ -e "$R$1" ] && return 0
+    case "$(ls -d "$R$1" 2>&1)" in *"No such file"*) return 1 ;; esac
+    return 2
+}
+st() { case "$1" in 0) echo present ;; 1) echo missing ;; *) echo unknown ;; esac; }
+
+# --- identity ------------------------------------------------------------------------------------------------------
+if [ -n "$K4KC_UNAME" ]; then KREL="$K4KC_UNAME"; else KREL="$(uname -r 2> /dev/null)"; fi
+KVER="$(head -n 1 "$R/proc/version" 2> /dev/null)"
+case "$KREL" in
+    *bone-machine*) KIND="bone-machine" ;;
+    "") KIND="unknown kernel" ;;
+    *) KIND="foreign kernel" ;;
+esac
+
+# --- one pass over kallsyms and config.gz (both optional in a kernel) ----------------------------------------------
+SYMS=""
+SYMS_OK=0
+if [ -r "$R/proc/kallsyms" ]; then
+    SYMS="$(grep -o -w -F -e ringbuf_map_alloc -e __arm64_sys_close_range -e ksu_handle_stat -e uvc_v4l2_enum_format \
+        "$R/proc/kallsyms" 2> /dev/null | sort -u)"
+    # empty result: readable but none of them (SYMS_OK=1), or SELinux refused the read (SYMS_OK=0)
+    [ -n "$SYMS" ] || [ -n "$(head -n 1 "$R/proc/kallsyms" 2> /dev/null)" ] && SYMS_OK=1
+fi
+sym() { # sym <name>: 0 present, 1 absent, 2 kallsyms unreadable
+    [ "$SYMS_OK" = 1 ] || return 2
+    echo "$SYMS" | grep -q -x "$1" && return 0
+    return 1
+}
+CFG=""
+CFG_OK=0
+if [ -r "$R/proc/config.gz" ]; then
+    CFG="$(zcat "$R/proc/config.gz" 2> /dev/null | grep -E '^(# )?CONFIG_(USB_CONFIGFS_F_UVC|DEBUG_INFO_BTF|KSU|QCOM_KGSL_IDLE_TIMEOUT)[= ]')"
+    [ -n "$CFG" ] && CFG_OK=1
+fi
+cfg() { # cfg <CONFIG_X>: 0 =y, 1 not set, 2 no config.gz
+    [ "$CFG_OK" = 1 ] || return 2
+    echo "$CFG" | grep -q "^$1=y" && return 0
+    return 1
+}
+
+# --- critical: the build does not boot or a core service dies without these -----------------------------------------
+# BPF ring buffer maps (k4 0006): our a52_netd.o pins *_ringbuf maps; a kernel that cannot create them fails the whole
+# bpfloader run (reboot_on_failure -> reboot loop) and Tethering's LocalNetEventListener aborts system_server.
+NEED_RB=1
+if [ -r /system/etc/bpf/a52_netd.o ] && ! grep -q -a "_ringbuf" /system/etc/bpf/a52_netd.o; then NEED_RB=0; fi
+sym ringbuf_map_alloc; RC=$?
+if [ "$NEED_RB" = 1 ]; then LVL=crit; else LVL=minor; fi
+result bpf_ringbuf "$(st $RC)" $LVL "Tethering BPF maps fail: bpfloader reboot loop / system_server abort" \
+    "kallsyms ringbuf_map_alloc (a52_netd.o pins ringbuf maps: $([ "$NEED_RB" = 1 ] && echo yes || echo no))"
+[ "$RC" = 0 ] && add TAGS ringbuf
+
+# cgroup v1 controllers the cgroups patch requires (target/a52sxq/patches/cgroups KERNEL_CGROUPS)
+CG_MISS=""
+if [ -r "$R/proc/cgroups" ]; then
+    for c in cpuset cpu cpuacct blkio memory freezer; do
+        grep -q -E "^$c[[:space:]]+[0-9]+[[:space:]]+[0-9]+[[:space:]]+1\$" "$R/proc/cgroups" || CG_MISS="$CG_MISS $c"
+    done
+    [ -z "$CG_MISS" ] && RC=0 || RC=1
+else
+    RC=2
+fi
+result cgroups "$(st $RC)" crit "Android cgroup setup fails, ueventd/apexd die" \
+    "/proc/cgroups cpuset cpu cpuacct blkio memory freezer${CG_MISS:+ (missing:$CG_MISS)}"
+
+# --- features: one ROM feature is broken without these ---------------------------------------------------------------
+# BTF (k4 0005): bpfloader loads the CO-RE timeInState.bpf only with /sys/kernel/btf/vmlinux
+exists /sys/kernel/btf/vmlinux; RC=$?
+[ "$RC" = 2 ] && { cfg CONFIG_DEBUG_INFO_BTF; RC=$?; }
+result btf "$(st $RC)" feat "no per-app CPU time / battery usage, timeInState.bpf not loaded" "/sys/kernel/btf/vmlinux"
+[ "$RC" = 0 ] && add TAGS btf
+
+# UVC gadget (usb_webcam kernel 0009-0016). The ROM offers "Webcam" when ro.usb.uvc.enabled=true (set at build time
+# from the kernel it shipped with); /config/.../uvc.0 exists only when the kernel has CONFIG_USB_CONFIGFS_F_UVC.
+UVC_ON="$(getprop ro.usb.uvc.enabled 2> /dev/null)"
+[ "$UVC_ON" = true ] && LVL=feat || LVL=minor
+cfg CONFIG_USB_CONFIGFS_F_UVC; RC=$?
+if [ "$RC" = 2 ]; then
+    exists /config/usb_gadget/g1/functions; RC=$?
+    if [ "$RC" = 0 ]; then exists /config/usb_gadget/g1/functions/uvc.0; RC=$?; else RC=2; fi
+fi
+result uvc_gadget "$(st $RC)" $LVL "USB Webcam option is shown but cannot work" \
+    "CONFIG_USB_CONFIGFS_F_UVC / /config/usb_gadget/g1/functions/uvc.0 (ro.usb.uvc.enabled=${UVC_ON:-unset})"
+UVC=$RC
+if [ "$UVC" = 0 ]; then
+    add TAGS uvc
+    # 0009: VIDIOC_ENUM_FMT/FRAMESIZES/FRAMEINTERVALS on the gadget node (DeviceAsWebcam enumerates with them)
+    sym uvc_v4l2_enum_format; RC=$?
+    result uvc_enum_formats "$(st $RC)" $LVL "DeviceAsWebcam cannot list formats, webcam does not start" \
+        "kallsyms uvc_v4l2_enum_format (k4 0009)"
+    # 0012 (num_requests, drop_missed) and 0015/0016 (128 requests, inband_err): stream quality only
+    exists /sys/module/usb_f_uvc/parameters/num_requests; RC=$?
+    result uvc_stream "$(st $RC)" minor "webcam stutters, missed frames are sent broken" \
+        "usb_f_uvc num_requests/drop_missed (k4 0012)"
+    exists /sys/module/usb_f_uvc/parameters/inband_err; RC=$?
+    result uvc_inband_err "$(st $RC)" minor "older UVC stream: 64 requests, no in-band frame error flag" \
+        "usb_f_uvc inband_err (k4 0015/0016, the uvc8 kernel)"
+    [ "$RC" = 0 ] && TAGS="${TAGS}8"
+fi
+
+# Pass-through charging (k4 0008): One UI's "Pause USB Power Delivery" writes battery/pass_through; the ROM enables the
+# switch when it was built with the bone-machine kernel (SEC_FLOATING_FEATURE_BATTERY_SUPPORT_PASS_THROUGH)
+grep -q "SUPPORT_PASS_THROUGH>TRUE<" /system/etc/floating_feature.xml 2> /dev/null && LVL=feat || LVL=minor
+exists /sys/class/power_supply/battery/pass_through; RC=$?
+result pass_through "$(st $RC)" $LVL "Pause USB Power Delivery does nothing, the battery keeps charging" \
+    "/sys/class/power_supply/battery/pass_through"
+[ "$RC" = 0 ] && add TAGS pt
+
+# fast_charging_pd: the Fast charging switch writes battery/pd_disable (SM5714 PD driver, stock has it too)
+exists /sys/class/power_supply/battery/pd_disable; RC=$?
+result pd_disable "$(st $RC)" feat "Fast charging off still charges at 25 W on USB PD/PPS" \
+    "/sys/class/power_supply/battery/pd_disable"
+
+# --- minor: works, but differs from the kernel this ROM is built and tested with ---------------------------------------
+# k4 0001: capabilities 38-40. zygote_next_kernel54 clamps zygote_next's cap drop to 0-37, so this is not fatal.
+CAP="$(cat "$R/proc/sys/kernel/cap_last_cap" 2> /dev/null)"
+case "$CAP" in ''|*[!0-9]*) RC=2 ;; *) [ "$CAP" -ge 40 ] && RC=0 || RC=1 ;; esac
+result caps "$(st $RC)" minor "no CAP_PERFMON/CAP_BPF/CAP_CHECKPOINT_RESTORE, zygote_next needs its 0-37 clamp" \
+    "/proc/sys/kernel/cap_last_cap=${CAP:-?} (want 40)"
+[ "$RC" = 0 ] && TAGS="caps${TAGS:+, $TAGS}"
+
+# KernelSU (ReSukiSU, manager preinstalled by knox_kernel_compat; 0007 adds the native newfstatat/statx su hooks,
+# which cannot be probed read-only)
+cfg CONFIG_KSU; RC=$?
+[ "$RC" = 2 ] && { sym ksu_handle_stat; RC=$?; }
+result kernelsu "$(st $RC)" minor "no root; the bundled ReSukiSU manager shows 'not installed'" \
+    "CONFIG_KSU / kallsyms ksu_handle_stat"
+[ "$RC" = 0 ] && add TAGS su
+
+# close_range (5.9; bone-machine backport): Android 17 posix_spawn uses it, __desixtification tolerates its absence
+sym __arm64_sys_close_range; RC=$?
+result close_range "$(st $RC)" minor "spawned children inherit open fds" "kallsyms __arm64_sys_close_range"
+
+# GPU (k4 0002-0004): NAP off (qcom,no-nap), stock voltages without the 180 MHz step, 80 ms idle timer
+G=/sys/class/kgsl/kgsl-3d0
+GT="$(cat "$R$G/idle_timer" 2> /dev/null)"
+GF="$(cat "$R$G/gpu_available_frequencies" 2> /dev/null)"
+exists /sys/firmware/devicetree/base/soc/qcom,kgsl-3d0@3d00000/qcom,no-nap; NN=$?
+if [ -z "$GT$GF" ] || [ "$NN" = 2 ]; then
+    RC=2
+elif [ "$GT" = 80 ] && [ "$NN" = 0 ] && ! echo " $GF " | grep -q " 180000000 "; then
+    RC=0
+else
+    RC=1
+fi
+result gpu_k4_tuning "$(st $RC)" minor "upstream GPU NAP/undervolt/180 MHz tuning, which k4 reverts for stability" \
+    "idle_timer=${GT:-?} (want 80), no-nap $([ "$NN" = 0 ] && echo set || echo unset), freqs: ${GF:-?}"
+[ "$RC" = 0 ] && add TAGS gpu
+
+# --- summary --------------------------------------------------------------------------------------------------------
+SHORT="${KREL%%-*}"
+if [ "$KIND" = bone-machine ]; then ID="bone-machine $SHORT k4${TAGS:+ $TAGS}"; else ID="$KIND ${KREL:-?}"; fi
+ID="$(echo "$ID" | sed 's/, / /g')"
+if [ -z "$MISSING" ]; then
+    LINE="kernel OK ($ID)"
+    [ "$KIND" = bone-machine ] || LINE="kernel OK, but not bone-machine ($ID)"
+    OK=1
+else
+    LINE="kernel MISSING: $MISSING - running $ID"
+    OK=0
+fi
+[ -n "$MINOR" ] && LINE="$LINE; differs: $MINOR"
+[ -n "$UNKNOWN" ] && LINE="$LINE; not checked: $UNKNOWN"
+
+if [ "$BOOT" = 1 ]; then
+    if [ "$OK" = 1 ]; then PRI=i; else PRI=w; fi
+    if [ -n "$R" ]; then
+        echo "[test] log -t K4KernelCheck -p $PRI \"$LINE\""
+        echo "[test] sys.k4.kernel.ok=$OK sys.k4.kernel.missing=$(echo "${MISSING_IDS:-none}" | sed 's/, /,/g') sys.k4.kernel.minor=$(echo "${MINOR:-none}" | sed 's/, /,/g') sys.k4.kernel.id=$KREL"
+    else
+        log -t K4KernelCheck -p $PRI "$LINE"
+        setprop sys.k4.kernel.id "$KREL"
+        setprop sys.k4.kernel.missing "$(echo "${MISSING_IDS:-none}" | sed 's/, /,/g' | cut -c 1-91)"
+        setprop sys.k4.kernel.minor "$(echo "${MINOR:-none}" | sed 's/, /,/g' | cut -c 1-91)"
+        setprop sys.k4.kernel.ok "$OK"
+    fi
+    exit 0
+fi
+
+echo "$LINE"
+if [ "$VERBOSE" = 1 ]; then
+    echo
+    echo "kernel: ${KVER:-?}"
+    echo "levels: crit = boot or a core service fails, feat = one ROM feature broken, minor = works, differs from k4"
+    echo "$DETAIL" | sed '1d'
+    [ "$SYMS_OK" = 1 ] || echo "  (kallsyms not readable here: run as root, su -c k4-kernel-diag -v)"
+    B="$(getprop sys.k4.kernel.ok)"
+    [ -n "$B" ] && echo "boot check: sys.k4.kernel.ok=$B missing=$(getprop sys.k4.kernel.missing) minor=$(getprop sys.k4.kernel.minor)"
+fi
+[ "$OK" = 1 ]
