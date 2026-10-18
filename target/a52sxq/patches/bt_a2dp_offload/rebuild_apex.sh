@@ -61,7 +61,12 @@ python3 - "$W/mnt/etc/permissions/com.android.bluetooth.xml" <<'PY'
 import sys
 p = sys.argv[1]; s = open(p).read()
 add = ["android.permission.CAPTURE_AUDIO_OUTPUT", "android.permission.STATUS_BAR", "android.permission.BATTERY_STATS",
-       "android.permission.ACCESS_CONTEXT_HUB", "android.permission.MMS_SEND_OUTBOX_MSG"]
+       "android.permission.ACCESS_CONTEXT_HUB", "android.permission.MMS_SEND_OUTBOX_MSG",
+       # Samsung signature|privileged ones the stock (platform-signed) app also holds: media key dispatch, sensor
+       # service, in-app sound, S Pen BLE lookup, Wi-Fi factory test
+       "com.samsung.android.permission.ACCESS_SYSTEM_KEY_DISPATCHING", "com.samsung.permission.SSENSOR",
+       "com.sec.android.permission.IN_APP_SOUND", "com.samsung.android.permission.EXTRACT_SMARTCLIP_DATA",
+       "com.samsung.permission.WIFI_FACTORY_TEST"]
 import re
 m = re.findall(r'<permission name="android.permission.BLUETOOTH_PRIVILEGED"\s*/>', s)
 assert len(m) == 1, "allowlist anchor not found"
