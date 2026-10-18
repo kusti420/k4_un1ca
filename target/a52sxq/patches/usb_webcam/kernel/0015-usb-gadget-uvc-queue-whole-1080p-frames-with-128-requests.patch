@@ -1,0 +1,66 @@
+From: kusti420 <virtuaalnepannkook@gmail.com>
+Subject: [PATCH] usb: gadget: uvc: queue whole 1080p frames of bright scenes, 128 requests by default
+
+0012 queues each frame in one go with up to 64 requests (3 x 1024-byte
+payloads at high speed, 192 KiB). 1080p MJPEG frames of a bright, detailed
+scene are 150-200 KiB: 54 payloads median, 67 at most in the measured
+streams, so some of them are larger than the request pool. The rest of
+those frames is continued from the completion handler, one request per
+completion, with 63 requests (7.9 ms) queued ahead.
+
+The dwc3 bottom half (dwc3_bh_work on the unbound WQ_HIGHPRI ordered
+workqueue dwc_wq, a CFS kworker) handles events late now and then. Measured
+with ftrace (dwc3_event Transfer In Progress against the microframe of its
+TRB) over 3 minutes of 1080p streaming: p99 1.6 ms, p99.9 3.6 ms, worst
+5.9 ms; another run had 7.6 ms. That is within a few hundred microseconds
+of the 7.9 ms margin. A refill that comes later than that is past its
+interval and is missed.
+
+Default to 128 requests (384 KiB, module parameter usb_f_uvc.num_requests,
+4..192), so that a whole frame is queued up front and none of its payloads
+depends on completion latency. The dwc3 ring has 255 usable TRBs, so 128
+requests plus an error payload fit. Queueing 128 requests takes about
+0.45 ms (3.4 us per request measured), well inside the 16 microframes
+(2 ms) before dwc3 starts the transfer.
+
+Used by MonsterROM target/a52sxq/patches/usb_webcam (on top of 0012).
+---
+diff --git a/drivers/usb/gadget/function/uvc.h b/drivers/usb/gadget/function/uvc.h
+--- a/drivers/usb/gadget/function/uvc.h
++++ b/drivers/usb/gadget/function/uvc.h
+@@ -68,7 +68,8 @@
+  */
+ 
+ #define UVC_MIN_NUM_REQUESTS			4
+-#define UVC_MAX_NUM_REQUESTS			64
++#define UVC_MAX_NUM_REQUESTS			192
++#define UVC_DEF_NUM_REQUESTS			128
+ #define UVC_MAX_REQUEST_SIZE			64
+ #define UVC_MAX_EVENTS				4
+ 
+diff --git a/drivers/usb/gadget/function/uvc_video.c b/drivers/usb/gadget/function/uvc_video.c
+--- a/drivers/usb/gadget/function/uvc_video.c
++++ b/drivers/usb/gadget/function/uvc_video.c
+@@ -23,14 +23,16 @@
+ 
+ /*
+  * Number of USB requests per stream. With high-bandwidth isochronous
+- * endpoints (3 x 1024 bytes per microframe) 64 requests hold 192 KiB, i.e. a
+- * whole MJPEG frame is handed to the controller at once and the controller
+- * has several milliseconds of data queued while the completion handler
+- * refills it. Read when the stream is enabled.
++ * endpoints (3 x 1024 bytes per microframe) 128 requests hold 384 KiB, i.e.
++ * a whole MJPEG frame is handed to the controller at once (1080p frames of
++ * bright, detailed scenes reach 200 KiB, 67 payloads), so no payload of it
++ * depends on how fast completions are handled. Larger frames are continued
++ * from the completion handler, with num_requests - 1 requests queued ahead.
++ * Read when the stream is enabled.
+  */
+-static unsigned int uvc_num_requests = UVC_MAX_NUM_REQUESTS;
++static unsigned int uvc_num_requests = UVC_DEF_NUM_REQUESTS;
+ module_param_named(num_requests, uvc_num_requests, uint, 0644);
+-MODULE_PARM_DESC(num_requests, "USB requests per video stream (4-64)");
++MODULE_PARM_DESC(num_requests, "USB requests per video stream (4-192)");
+ 
+ /*
+  * Diagnostics only: with drop_missed=0, a frame that lost a payload to a
