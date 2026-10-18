@@ -52,7 +52,26 @@ java -jar "$T/signapk.jar" "$ROOT/security/aosp_platform.x509.pem" "$ROOT/securi
 "$H/avbtool" erase_footer --image "$W/apex_payload.img"
 e2fsck -fy -E unshare_blocks "$W/apex_payload.img" >/dev/null || true
 resize2fs "$W/apex_payload.img" 40M >/dev/null
-"$T/fuse2fs" -o rw,fakeroot "$W/apex_payload.img" "$W/mnt"; cat "$W/Bluetooth_patched.apk" > "$W/mnt/$REL"; fusermount3 -u "$W/mnt"
+"$T/fuse2fs" -o rw,fakeroot "$W/apex_payload.img" "$W/mnt"; cat "$W/Bluetooth_patched.apk" > "$W/mnt/$REL"
+# The re-signed Bluetooth.apk no longer matches Samsung's platform key, so the signature|privileged framework
+# permissions it got by signature on stock must be allowlisted instead (privapp allowlist inside the APEX):
+# CAPTURE_AUDIO_OUTPUT is what Music Share (host) needs to record the remote submix - without it AudioRecord fails
+# with EX_SECURITY and com.samsung.bt.bluetoothcast crashes the whole Bluetooth process.
+python3 - "$W/mnt/etc/permissions/com.android.bluetooth.xml" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p).read()
+add = ["android.permission.CAPTURE_AUDIO_OUTPUT", "android.permission.STATUS_BAR", "android.permission.BATTERY_STATS",
+       "android.permission.ACCESS_CONTEXT_HUB", "android.permission.MMS_SEND_OUTBOX_MSG"]
+import re
+m = re.findall(r'<permission name="android.permission.BLUETOOTH_PRIVILEGED"\s*/>', s)
+assert len(m) == 1, "allowlist anchor not found"
+anchor = m[0]
+for perm in add:
+    if 'name="%s"' % perm not in s:
+        s = s.replace(anchor, anchor + '\n        <permission name="%s" />' % perm, 1)
+open(p, "w").write(s)
+PY
+fusermount3 -u "$W/mnt"
 e2fsck -fy "$W/apex_payload.img" >/dev/null || true
 "$H/avbtool" add_hashtree_footer --image "$W/apex_payload.img" --key "$K/payload.pem" --algorithm SHA256_RSA4096 --hash_algorithm sha256 --do_not_generate_fec --partition_name com.android.bt
 "$H/avbtool" extract_public_key --key "$K/payload.pem" --output "$W/apex_pubkey"
