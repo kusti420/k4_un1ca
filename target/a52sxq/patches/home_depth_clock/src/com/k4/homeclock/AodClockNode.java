@@ -164,7 +164,7 @@ final class AodClockNode extends DepthClock {
         opt(v, "setFontColorType", new Class<?>[] {int.class}, fontColorType);
         String c = item.colorType;
         if (c.startsWith("Adaptive")) {
-            int adaptive = item.color != null ? item.color
+            int adaptive = item.color != null ? item.color : item.adaptiveColor != null ? item.adaptiveColor
                     : a.getColor(fontColorType == 1 ? android.R.color.system_accent1_800 : android.R.color.system_accent1_100);
             call(v, "setColorThemeAdaptiveColor", new Class<?>[] {int.class}, adaptive);
             if (item.hasShadow) {

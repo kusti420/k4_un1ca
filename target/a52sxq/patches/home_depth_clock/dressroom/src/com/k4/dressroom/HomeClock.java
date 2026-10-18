@@ -1003,8 +1003,23 @@ public final class HomeClock {
                     }
                 } catch (Throwable ignored) {
                 }
+                // the adaptive colour the editor computed from the wallpaper (ClockColorData.getAdaptiveColor), which
+                // the saved item doesn't carry: without it the home engine falls back to the theme accent (white-ish)
+                String adaptive = "";
+                try {
+                    for (java.lang.reflect.Method m : data.getClass().getMethods()) {
+                        if (m.getParameterTypes().length == 0 && m.getReturnType().getName().endsWith(".ClockColorData")) {
+                            Object cd = m.invoke(data);
+                            if (cd != null && Boolean.TRUE.equals(call(cd, "isAdaptiveColor"))) {
+                                adaptive = Integer.toString((Integer) call(cd, "getAdaptiveColor"));
+                            }
+                            break;
+                        }
+                    }
+                } catch (Throwable ignored) {
+                }
                 android.provider.Settings.System.putString(c.getContentResolver(), KEY_ITEM + "_rect",
-                        r.left + "," + r.top + "," + r.right + "," + r.bottom + "," + sc + "," + colorType);
+                        r.left + "," + r.top + "," + r.right + "," + r.bottom + "," + sc + "," + colorType + "," + adaptive);
             } catch (Throwable t) {
                 Log.w(TAG, "home apply: clock rect", t);
             }

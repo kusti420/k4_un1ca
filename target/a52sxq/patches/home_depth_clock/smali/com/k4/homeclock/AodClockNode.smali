@@ -447,7 +447,7 @@
 
     move-result v0
 
-    if-eqz v0, :cond_29b
+    if-eqz v0, :cond_2a6
 
     .line 126
     sget-object v0, Ljava/lang/Boolean;->TYPE:Ljava/lang/Class;
@@ -932,7 +932,7 @@
 
     move-result v2
 
-    if-eqz v2, :cond_256
+    if-eqz v2, :cond_261
 
     .line 167
     iget-object v0, p0, Lcom/k4/homeclock/AodClockNode;->item:Lcom/k4/homeclock/HomeClockItem;
@@ -945,36 +945,50 @@
 
     iget-object v0, v0, Lcom/k4/homeclock/HomeClockItem;->color:Ljava/lang/Integer;
 
+    :goto_1d0
     invoke-virtual {v0}, Ljava/lang/Integer;->intValue()I
 
     move-result v0
 
-    goto :goto_1e7
+    goto :goto_1f2
+
+    :cond_1d5
+    iget-object v0, p0, Lcom/k4/homeclock/AodClockNode;->item:Lcom/k4/homeclock/HomeClockItem;
+
+    iget-object v0, v0, Lcom/k4/homeclock/HomeClockItem;->adaptiveColor:Ljava/lang/Integer;
+
+    if-eqz v0, :cond_1e0
+
+    iget-object v0, p0, Lcom/k4/homeclock/AodClockNode;->item:Lcom/k4/homeclock/HomeClockItem;
+
+    iget-object v0, v0, Lcom/k4/homeclock/HomeClockItem;->adaptiveColor:Ljava/lang/Integer;
+
+    goto :goto_1d0
 
     .line 168
-    :cond_1d5
+    :cond_1e0
     iget-object v0, p0, Lcom/k4/homeclock/AodClockNode;->a:Landroid/content/Context;
 
     iget v2, p0, Lcom/k4/homeclock/AodClockNode;->fontColorType:I
 
     const/4 v3, 0x1
 
-    if-ne v2, v3, :cond_1e0
+    if-ne v2, v3, :cond_1eb
 
     const v2, 0x1060041
 
-    goto :goto_1e3
+    goto :goto_1ee
 
-    :cond_1e0
+    :cond_1eb
     const v2, 0x106003a
 
-    :goto_1e3
+    :goto_1ee
     invoke-virtual {v0, v2}, Landroid/content/Context;->getColor(I)I
 
     move-result v0
 
     .line 169
-    :goto_1e7
+    :goto_1f2
     sget-object v2, Ljava/lang/Integer;->TYPE:Ljava/lang/Class;
 
     filled-new-array {v2}, [Ljava/lang/Class;
@@ -998,7 +1012,7 @@
 
     iget-boolean v0, v0, Lcom/k4/homeclock/HomeClockItem;->hasShadow:Z
 
-    if-eqz v0, :cond_255
+    if-eqz v0, :cond_260
 
     .line 171
     iget-object v0, p0, Lcom/k4/homeclock/AodClockNode;->host:Lcom/k4/homeclock/AodHost;
@@ -1088,23 +1102,23 @@
     invoke-static {p1, v2, v0, v1}, Lcom/k4/homeclock/AodClockNode;->opt(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Class;[Ljava/lang/Object;)V
 
     .line 179
-    :cond_255
-    goto :goto_297
+    :cond_260
+    goto :goto_2a2
 
-    :cond_256
+    :cond_261
     const-string v2, "StaticColorImpl"
 
     invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v2
 
-    if-eqz v2, :cond_278
+    if-eqz v2, :cond_283
 
     iget-object v2, p0, Lcom/k4/homeclock/AodClockNode;->item:Lcom/k4/homeclock/HomeClockItem;
 
     iget-object v2, v2, Lcom/k4/homeclock/HomeClockItem;->color:Ljava/lang/Integer;
 
-    if-eqz v2, :cond_278
+    if-eqz v2, :cond_283
 
     .line 180
     sget-object v0, Ljava/lang/Integer;->TYPE:Ljava/lang/Class;
@@ -1125,10 +1139,10 @@
 
     invoke-static {p1, v2, v0, v1}, Lcom/k4/homeclock/AodClockNode;->call(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Class;[Ljava/lang/Object;)Ljava/lang/Object;
 
-    goto :goto_297
+    goto :goto_2a2
 
     .line 182
-    :cond_278
+    :cond_283
     sget-object v2, Ljava/lang/Integer;->TYPE:Ljava/lang/Class;
 
     filled-new-array {v2}, [Ljava/lang/Class;
@@ -1141,13 +1155,13 @@
 
     move-result v0
 
-    if-eqz v0, :cond_28a
+    if-eqz v0, :cond_295
 
     iget-object v0, p0, Lcom/k4/homeclock/AodClockNode;->item:Lcom/k4/homeclock/HomeClockItem;
 
     iget v1, v0, Lcom/k4/homeclock/HomeClockItem;->presetIndex:I
 
-    :cond_28a
+    :cond_295
     invoke-static {v1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 
     move-result-object v0
@@ -1161,14 +1175,14 @@
     invoke-static {p1, v1, v2, v0}, Lcom/k4/homeclock/AodClockNode;->call(Ljava/lang/Object;Ljava/lang/String;[Ljava/lang/Class;[Ljava/lang/Object;)Ljava/lang/Object;
 
     .line 184
-    :goto_297
+    :goto_2a2
     invoke-static {p1}, Lcom/k4/homeclock/AodClockNode;->noSecondHand(Landroid/view/View;)V
 
     .line 185
     return-void
 
     .line 123
-    :cond_29b
+    :cond_2a6
     new-instance v0, Ljava/lang/IllegalStateException;
 
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;

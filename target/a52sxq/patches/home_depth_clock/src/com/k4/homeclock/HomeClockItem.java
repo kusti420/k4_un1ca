@@ -26,6 +26,8 @@ final class HomeClockItem {
     java.util.List<Float> fontHeights;
     /** The editor's ClockData.fontColorType: 0 = white text, 1 = black; null when not saved (older config). */
     Integer fontColorType;
+    /** The editor's ClockColorData adaptive colour (ARGB); null when not saved or not adaptive. */
+    Integer adaptiveColor;
     Integer fontRounded;
     /** Colour: the simple name of the ClockItem colour impl (ClockPresetColorImpl, StaticColorImpl, Adaptive*). */
     String colorType = "";
@@ -158,6 +160,9 @@ final class HomeClockItem {
         }
         if (p.length > 5 && !p[5].isEmpty()) {
             it.fontColorType = Integer.parseInt(p[5].trim()); // the editor's colour analysis of the clock area
+        }
+        if (p.length > 6 && !p[6].trim().isEmpty()) {
+            it.adaptiveColor = Integer.parseInt(p[6].trim()); // the editor's adaptive clock colour (ClockColorData)
         }
         return it;
     }
