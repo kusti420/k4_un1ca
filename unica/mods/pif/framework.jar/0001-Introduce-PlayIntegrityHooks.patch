@@ -153,7 +153,7 @@ new file mode 100644
 index 00000000..dc87c586
 --- /dev/null
 +++ b/smali_classes6/io/mesalabs/unica/PlayIntegrityHooks.smali
-@@ -0,0 +1,1052 @@
+@@ -0,0 +1,1082 @@
 +.class public final Lio/mesalabs/unica/PlayIntegrityHooks;
 +.super Ljava/lang/Object;
 +.source "PlayIntegrityHooks.java"
@@ -788,6 +788,36 @@ index 00000000..dc87c586
 +    return v1
 +
 +    :cond_0
++
++    # k4: no spoofing while the device is not provisioned (setup wizard / FRP account verification), so a real
++    # Google sign-in there is not rejected ("unable to sign in due to an unknown error")
++    invoke-static {}, Landroid/app/ActivityThread;->currentApplication()Landroid/app/Application;
++
++    move-result-object v2
++
++    if-eqz v2, :cond_k4_prov
++
++    invoke-virtual {v2}, Landroid/app/Application;->getContentResolver()Landroid/content/ContentResolver;
++
++    move-result-object v2
++
++    const-string v3, "device_provisioned"
++
++    const/4 v0, 0x1
++
++    invoke-static {v2, v3, v0}, Landroid/provider/Settings$Global;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I
++
++    move-result v2
++
++    if-nez v2, :cond_k4_prov
++
++    const-string v3, "Skip spoofing build for GMS, because the device is not provisioned (setup)"
++
++    invoke-static {v3}, Lio/mesalabs/unica/PlayIntegrityHooks;->dlog(Ljava/lang/String;)V
++
++    return v1
++
++    :cond_k4_prov
 +    invoke-static {}, Lio/mesalabs/unica/PlayIntegrityHooks;->isGmsAddAccountActivityOnTop()Z
 +
 +    move-result v0
