@@ -64,6 +64,8 @@ f = one("f3/a.smali")
 s = open(f).read()
 assert s.startswith(".class public final Lf3/a;\n.super Lcom/samsung/android/wallpaper/live/sdk/service/switchable/d;"), "f3.a: not the LayeredEngine"
 assert ".field public final g:Lh3/a;" in s and "->b(Landroid/view/SurfaceHolder;)V" in s, "f3.a: presenter field / draw method changed"
+assert re.search(r"^\.method public final d\(\)Z$", s, re.M) and "updateDarkModeFilter: DarkMode " in s, "f3.a.d (updateDarkModeFilter) changed"
+assert ".field public final j:Li3/e;" in s and ".field public final h:Li3/k;" in s, "f3.a: DarkModeNode / root node list fields changed"
 sw = open(one("com/samsung/android/wallpaper/live/sdk/service/switchable/d.smali")).read()
 for m_ in ("stopSelf()V", "getDisplayState()LB2/a;", "getWhich()I", "getAppContext()Landroid/content/Context;"):
     assert re.search(r"^\.method public %s$" % re.escape(m_), sw, re.M), "switchable.d." + m_

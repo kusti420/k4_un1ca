@@ -36,7 +36,7 @@
 .method static luminance(Landroid/graphics/Bitmap;IIII)F
     .registers 15
 
-    .line 69
+    .line 73
     const/high16 v0, -0x40800000    # -1.0f
 
     if-eqz p0, :cond_81
@@ -57,7 +57,7 @@
 
     goto/16 :goto_81
 
-    .line 72
+    .line 76
     :cond_14
     const/4 v1, 0x0
 
@@ -65,12 +65,12 @@
 
     move-result p1
 
-    .line 73
+    .line 77
     invoke-static {v1, p2}, Ljava/lang/Math;->max(II)I
 
     move-result p2
 
-    .line 74
+    .line 78
     invoke-virtual {p0}, Landroid/graphics/Bitmap;->getWidth()I
 
     move-result v2
@@ -81,7 +81,7 @@
 
     move-result p3
 
-    .line 75
+    .line 79
     invoke-virtual {p0}, Landroid/graphics/Bitmap;->getHeight()I
 
     move-result v2
@@ -92,21 +92,21 @@
 
     move-result p4
 
-    .line 76
+    .line 80
     if-le p3, p1, :cond_80
 
     if-gt p4, p2, :cond_36
 
     goto :goto_80
 
-    .line 79
+    .line 83
     :cond_36
     nop
 
-    .line 80
+    .line 84
     nop
 
-    .line 81
+    .line 85
     const/4 v0, 0x0
 
     move v2, v1
@@ -118,7 +118,7 @@
 
     if-ge v2, v4, :cond_7d
 
-    .line 82
+    .line 86
     sub-int v4, p4, p2
 
     mul-int/2addr v4, v2
@@ -127,7 +127,7 @@
 
     add-int/2addr v4, p2
 
-    .line 83
+    .line 87
     move v5, v1
 
     :goto_46
@@ -135,7 +135,7 @@
 
     if-ge v5, v6, :cond_7a
 
-    .line 84
+    .line 88
     sub-int v6, p3, p1
 
     mul-int/2addr v6, v5
@@ -148,7 +148,7 @@
 
     move-result v6
 
-    .line 85
+    .line 89
     invoke-static {v6}, Landroid/graphics/Color;->red(I)I
 
     move-result v7
@@ -189,21 +189,21 @@
 
     add-float/2addr v0, v7
 
-    .line 86
+    .line 90
     add-int/lit8 v3, v3, 0x1
 
-    .line 83
+    .line 87
     add-int/lit8 v5, v5, 0x1
 
     goto :goto_46
 
-    .line 81
+    .line 85
     :cond_7a
     add-int/lit8 v2, v2, 0x1
 
     goto :goto_3b
 
-    .line 89
+    .line 93
     :cond_7d
     int-to-float p0, v3
 
@@ -211,12 +211,12 @@
 
     return v0
 
-    .line 77
+    .line 81
     :cond_80
     :goto_80
     return v0
 
-    .line 70
+    .line 74
     :cond_81
     :goto_81
     return v0
@@ -225,7 +225,7 @@
 .method static meanColor(Landroid/graphics/Bitmap;IIII)I
     .registers 22
 
-    .line 94
+    .line 98
     move-object/from16 v0, p0
 
     const/4 v1, 0x0
@@ -250,7 +250,7 @@
 
     goto/16 :goto_9a
 
-    .line 97
+    .line 101
     :cond_17
     move/from16 v2, p1
 
@@ -258,14 +258,14 @@
 
     move-result v2
 
-    .line 98
+    .line 102
     move/from16 v3, p2
 
     invoke-static {v1, v3}, Ljava/lang/Math;->max(II)I
 
     move-result v3
 
-    .line 99
+    .line 103
     invoke-virtual {v0}, Landroid/graphics/Bitmap;->getWidth()I
 
     move-result v4
@@ -278,7 +278,7 @@
 
     move-result v4
 
-    .line 100
+    .line 104
     invoke-virtual {v0}, Landroid/graphics/Bitmap;->getHeight()I
 
     move-result v5
@@ -291,7 +291,7 @@
 
     move-result v5
 
-    .line 101
+    .line 105
     if-le v4, v2, :cond_95
 
     if-gt v5, v3, :cond_42
@@ -300,14 +300,14 @@
 
     goto :goto_97
 
-    .line 104
+    .line 108
     :cond_42
     nop
 
-    .line 105
+    .line 109
     nop
 
-    .line 106
+    .line 110
     const-wide/16 v6, 0x0
 
     move v12, v1
@@ -323,7 +323,7 @@
 
     if-ge v12, v14, :cond_89
 
-    .line 107
+    .line 111
     sub-int v14, v5, v3
 
     mul-int/2addr v14, v12
@@ -332,7 +332,7 @@
 
     add-int/2addr v14, v3
 
-    .line 108
+    .line 112
     move v15, v1
 
     :goto_55
@@ -342,7 +342,7 @@
 
     if-ge v15, v1, :cond_82
 
-    .line 109
+    .line 113
     sub-int v1, v4, v2
 
     mul-int/2addr v1, v15
@@ -355,7 +355,7 @@
 
     move-result v1
 
-    .line 110
+    .line 114
     invoke-static {v1}, Landroid/graphics/Color;->red(I)I
 
     move-result v0
@@ -366,7 +366,7 @@
 
     add-long/2addr v6, v0
 
-    .line 111
+    .line 115
     invoke-static/range {p1 .. p1}, Landroid/graphics/Color;->green(I)I
 
     move-result v0
@@ -375,7 +375,7 @@
 
     add-long/2addr v8, v0
 
-    .line 112
+    .line 116
     invoke-static/range {p1 .. p1}, Landroid/graphics/Color;->blue(I)I
 
     move-result v0
@@ -384,10 +384,10 @@
 
     add-long/2addr v10, v0
 
-    .line 113
+    .line 117
     add-int/lit8 v13, v13, 0x1
 
-    .line 108
+    .line 112
     add-int/lit8 v15, v15, 0x1
 
     move-object/from16 v0, p0
@@ -396,7 +396,7 @@
 
     goto :goto_55
 
-    .line 106
+    .line 110
     :cond_82
     add-int/lit8 v12, v12, 0x1
 
@@ -406,7 +406,7 @@
 
     goto :goto_4a
 
-    .line 116
+    .line 120
     :cond_89
     int-to-long v0, v13
 
@@ -428,19 +428,19 @@
 
     return v0
 
-    .line 101
+    .line 105
     :cond_95
     move/from16 v16, v1
 
-    .line 102
+    .line 106
     :goto_97
     return v16
 
-    .line 94
+    .line 98
     :cond_98
     move/from16 v16, v1
 
-    .line 95
+    .line 99
     :goto_9a
     return v16
 .end method
@@ -472,6 +472,13 @@
 
 .method release()V
     .registers 1
+
+    .line 63
+    return-void
+.end method
+
+.method retryWeather(Ljava/lang/String;)V
+    .registers 2
 
     .line 59
     return-void
@@ -592,7 +599,7 @@
 .method zoom()F
     .registers 4
 
-    .line 63
+    .line 67
     iget-object v0, p0, Lcom/k4/homeclock/DepthClock;->scaleRef:Li3/c;
 
     const/high16 v1, 0x3f800000    # 1.0f
@@ -608,7 +615,7 @@
     :cond_b
     move v0, v1
 
-    .line 64
+    .line 68
     :goto_c
     const/4 v2, 0x0
 

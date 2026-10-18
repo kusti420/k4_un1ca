@@ -181,6 +181,33 @@ final class AodClockNode extends DepthClock {
         } else {
             call(v, "setPaletteIndex", new Class<?>[] {int.class}, c.equals("ClockPresetColorImpl") ? item.presetIndex : 0);
         }
+        noSecondHand(v);
+    }
+
+    /**
+     * The analogue lock clock (AnalogClockView) has a second hand that ticks while it is attached to a window. The home
+     * clock is redrawn once a minute, so that hand stood still at whatever second the last redraw happened (12 after a
+     * minute tick). Hidden the way the AOD does it: setLiveClockState(LIVE_CLOCK_DISABLED) shows the hour and minute
+     * hands only, and only setLiveClockState shows the second hand again (setDozing is not changed after configure).
+     */
+    private static void noSecondHand(View v) {
+        if (!v.getClass().getName().endsWith(".AnalogClockView")) {
+            return;
+        }
+        try {
+            for (Method m : v.getClass().getMethods()) {
+                Class<?>[] p = m.getParameterTypes();
+                if (m.getName().equals("setLiveClockState") && p.length == 1 && p[0].isEnum()) {
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    Object disabled = Enum.valueOf((Class) p[0], "LIVE_CLOCK_DISABLED");
+                    m.invoke(v, disabled);
+                    return;
+                }
+            }
+            Log.w(HomeDepthClock.TAG, "AOD clock: no setLiveClockState, the second hand stays");
+        } catch (Throwable t) {
+            Log.w(HomeDepthClock.TAG, "AOD clock: second hand: " + t);
+        }
     }
 
     /** Gives the view the latest WeatherInfo from the plugin's weather manager, if it is newer than what it has. */
@@ -276,6 +303,14 @@ final class AodClockNode extends DepthClock {
             release();
             fallback.a(canvas);
             lastDrawn = fallback.lastDrawn;
+        }
+    }
+
+    @Override
+    void retryWeather(String why) {
+        AodHost h = host;
+        if (weather && !failed && h != null) {
+            h.retryWeather(why);
         }
     }
 

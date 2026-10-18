@@ -54,6 +54,10 @@ abstract class DepthClock extends i3.j {
         return showing() ? text() : "";
     }
 
+    /** Minute tick / shown while visible: fetch weather again if this clock shows weather and has none yet. */
+    void retryWeather(String why) {
+    }
+
     /** The presenter is gone (or rebuilt): drop what this clock holds outside its own fields. */
     void release() {
     }

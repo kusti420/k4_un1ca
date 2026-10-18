@@ -88,6 +88,8 @@
 
 .field private static sRestored:Z
 
+.field private static sSavedStretch:Ljava/lang/Boolean;
+
 .field private static sStore:Ljava/lang/ref/WeakReference;
     .annotation system Ldalvik/annotation/Signature;
         value = {
@@ -97,6 +99,10 @@
         }
     .end annotation
 .end field
+
+.field private static sStretchHeld:Z
+
+.field private static sStretchWanted:Ljava/lang/Boolean;
 
 .field static sSubjectView:Ljava/lang/ref/WeakReference;
     .annotation system Ldalvik/annotation/Signature;
@@ -180,6 +186,52 @@
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
+.end method
+
+.method static activity(Lp8/a;)Landroid/app/Activity;
+    .locals 2
+
+    iget-object p0, p0, Lp8/a;->g:Landroid/view/View;
+
+    const/4 v0, 0x0
+
+    if-nez p0, :cond_0
+
+    return-object v0
+
+    :cond_0
+    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
+
+    move-result-object p0
+
+    :goto_0
+    instance-of v1, p0, Landroid/content/ContextWrapper;
+
+    if-eqz v1, :cond_1
+
+    instance-of v1, p0, Landroid/app/Activity;
+
+    if-nez v1, :cond_1
+
+    check-cast p0, Landroid/content/ContextWrapper;
+
+    invoke-virtual {p0}, Landroid/content/ContextWrapper;->getBaseContext()Landroid/content/Context;
+
+    move-result-object p0
+
+    goto :goto_0
+
+    :cond_1
+    instance-of v1, p0, Landroid/app/Activity;
+
+    if-eqz v1, :cond_2
+
+    check-cast p0, Landroid/app/Activity;
+
+    return-object p0
+
+    :cond_2
+    return-object v0
 .end method
 
 .method public static addMenu(Lo6/e0;[Lk6/m;)V
@@ -538,6 +590,12 @@
 
     sput-boolean v1, Lcom/k4/dressroom/HomeClock;->sRestored:Z
 
+    sput-object v2, Lcom/k4/dressroom/HomeClock;->sSavedStretch:Ljava/lang/Boolean;
+
+    sput-boolean v1, Lcom/k4/dressroom/HomeClock;->sStretchHeld:Z
+
+    sput-object v2, Lcom/k4/dressroom/HomeClock;->sStretchWanted:Ljava/lang/Boolean;
+
     sput-boolean v3, Lcom/k4/dressroom/HomeClock;->sDepth:Z
 
     sget-object v2, Lcom/k4/dressroom/HomeClock;->sPut:Ljava/util/Map;
@@ -639,26 +697,30 @@
 .end method
 
 .method public static bundle(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;
-    .locals 7
+    .locals 10
 
-    const-string v0, "editor starts from the saved home clock place: "
+    const-string v0, "saved clock stretch unreadable, Samsung decides it: "
 
-    sget-boolean v1, Lcom/k4/dressroom/HomeClock;->active:Z
+    const-string v1, "editor starts from the saved home clock place: "
 
-    if-nez v1, :cond_0
+    invoke-static {}, Lcom/k4/dressroom/HomeClock;->live()Z
+
+    move-result v2
+
+    if-nez v2, :cond_0
 
     goto/16 :goto_3
 
     :cond_0
     :try_start_0
-    sget-object v1, Lcom/k4/dressroom/HomeClock;->sPut:Ljava/util/Map;
+    sget-object v2, Lcom/k4/dressroom/HomeClock;->sPut:Ljava/util/Map;
 
-    monitor-enter v1
+    monitor-enter v2
     :try_end_0
-    .catchall {:try_start_0 .. :try_end_0} :catchall_1
+    .catchall {:try_start_0 .. :try_end_0} :catchall_2
 
     :try_start_1
-    invoke-interface {v1, p0}, Ljava/util/Map;->get(Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-interface {v2, p0}, Ljava/util/Map;->get(Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object p0
 
@@ -676,21 +738,21 @@
 
     if-eqz p0, :cond_1
 
-    monitor-exit v1
+    monitor-exit v2
 
     return-object p2
 
     :cond_1
-    monitor-exit v1
+    monitor-exit v2
     :try_end_1
-    .catchall {:try_start_1 .. :try_end_1} :catchall_0
+    .catchall {:try_start_1 .. :try_end_1} :catchall_1
 
     :try_start_2
     sget-boolean p0, Lcom/k4/dressroom/HomeClock;->sBundleRead:Z
 
     const/4 p1, 0x1
 
-    if-nez p0, :cond_6
+    if-nez p0, :cond_8
 
     sput-boolean p1, Lcom/k4/dressroom/HomeClock;->sBundleRead:Z
 
@@ -700,13 +762,13 @@
 
     move-result-object p0
 
-    const/4 v1, 0x0
+    const/4 v2, 0x0
 
     if-eqz p0, :cond_2
 
-    const-string v2, "a"
+    const-string v3, "a"
 
-    invoke-static {p0, v2}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+    invoke-static {p0, v3}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
 
     move-result-object p0
 
@@ -752,34 +814,36 @@
     goto :goto_0
 
     :cond_3
-    move-object p0, v1
+    move-object p0, v2
 
     :goto_0
     if-nez p0, :cond_4
 
-    move-object v2, v1
+    move-object v3, v2
 
     goto :goto_1
 
     :cond_4
     invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
 
-    move-result-object v2
+    move-result-object v3
 
-    const-string v3, "k4_home_clock_bundle"
+    const-string v4, "k4_home_clock_bundle"
 
-    invoke-static {v2, v3}, Landroid/provider/Settings$System;->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {v3, v4}, Landroid/provider/Settings$System;->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;
 
-    move-result-object v2
+    move-result-object v3
 
     :goto_1
-    if-eqz v2, :cond_5
+    const/4 v4, 0x0
 
-    invoke-virtual {v2}, Ljava/lang/String;->isEmpty()Z
+    if-eqz v3, :cond_7
 
-    move-result v3
+    invoke-virtual {v3}, Ljava/lang/String;->isEmpty()Z
 
-    if-nez v3, :cond_5
+    move-result v5
+
+    if-nez v5, :cond_7
 
     const-class p0, Lcom/k4/dressroom/HomeClock;
 
@@ -787,54 +851,117 @@
 
     move-result-object p0
 
-    const-string v3, "com.google.gson.Gson"
+    const-string v5, "com.google.gson.Gson"
 
-    invoke-static {v3, p1, p0}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;
-
-    move-result-object v3
-
-    invoke-virtual {v3, v1}, Ljava/lang/Class;->getConstructor([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
-
-    move-result-object v3
-
-    invoke-virtual {v3, v1}, Ljava/lang/reflect/Constructor;->newInstance([Ljava/lang/Object;)Ljava/lang/Object;
-
-    move-result-object v1
-
-    invoke-virtual {v1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
-
-    move-result-object v3
-
-    const-string v4, "fromJson"
-
-    const-class v5, Ljava/lang/String;
-
-    const-class v6, Ljava/lang/Class;
-
-    filled-new-array {v5, v6}, [Ljava/lang/Class;
+    invoke-static {v5, p1, p0}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;
 
     move-result-object v5
 
-    invoke-virtual {v3, v4, v5}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+    invoke-virtual {v5, v2}, Ljava/lang/Class;->getConstructor([Ljava/lang/Class;)Ljava/lang/reflect/Constructor;
 
-    move-result-object v3
+    move-result-object v5
 
-    const-string v4, "com.samsung.android.lockscreen.editor.item.domain.entity.item.clock.wallpaperbundle.WallpaperClockBundle"
+    invoke-virtual {v5, v2}, Ljava/lang/reflect/Constructor;->newInstance([Ljava/lang/Object;)Ljava/lang/Object;
 
-    invoke-static {v4, p1, p0}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;
+    move-result-object v5
+
+    invoke-virtual {v5}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v6
+
+    const-string v7, "fromJson"
+
+    const-class v8, Ljava/lang/String;
+
+    const-class v9, Ljava/lang/Class;
+
+    filled-new-array {v8, v9}, [Ljava/lang/Class;
+
+    move-result-object v8
+
+    invoke-virtual {v6, v7, v8}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+
+    move-result-object v6
+
+    const-string v7, "com.samsung.android.lockscreen.editor.item.domain.entity.item.clock.wallpaperbundle.WallpaperClockBundle"
+
+    invoke-static {v7, p1, p0}, Ljava/lang/Class;->forName(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;
 
     move-result-object p0
 
-    filled-new-array {v2, p0}, [Ljava/lang/Object;
+    filled-new-array {v3, p0}, [Ljava/lang/Object;
 
     move-result-object p0
 
-    invoke-virtual {v3, v1, p0}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-virtual {v6, v5, p0}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object p0
 
     sput-object p0, Lcom/k4/dressroom/HomeClock;->sBundle:Ljava/lang/Object;
 
+    const-string v5, "K4HomeClock"
+
+    invoke-static {p0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object p0
+
+    new-instance v6, Ljava/lang/StringBuilder;
+
+    invoke-direct {v6, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v6, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v6}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p0
+
+    invoke-static {v5, p0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_2
+    .catchall {:try_start_2 .. :try_end_2} :catchall_2
+
+    :try_start_3
+    sget-object p0, Lcom/k4/dressroom/HomeClock;->sBundle:Ljava/lang/Object;
+
+    const-string v1, "supportStretch"
+
+    invoke-static {p0, v1}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object p0
+
+    instance-of v1, p0, Ljava/lang/Boolean;
+
+    if-eqz v1, :cond_5
+
+    const-string v1, "\"supportStretch\""
+
+    invoke-virtual {v3, v1}, Ljava/lang/String;->contains(Ljava/lang/CharSequence;)Z
+
+    move-result v1
+
+    if-eqz v1, :cond_5
+
+    move-object v2, p0
+
+    check-cast v2, Ljava/lang/Boolean;
+
+    :cond_5
+    sput-object v2, Lcom/k4/dressroom/HomeClock;->sSavedStretch:Ljava/lang/Boolean;
+
+    if-eqz v2, :cond_6
+
+    move v4, p1
+
+    :cond_6
+    sput-boolean v4, Lcom/k4/dressroom/HomeClock;->sStretchHeld:Z
+    :try_end_3
+    .catchall {:try_start_3 .. :try_end_3} :catchall_0
+
+    goto :goto_2
+
+    :catchall_0
+    move-exception p0
+
+    :try_start_4
     const-string v1, "K4HomeClock"
 
     invoke-static {p0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
@@ -851,47 +978,45 @@
 
     move-result-object p0
 
-    invoke-static {v1, p0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    invoke-static {v1, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
     goto :goto_2
 
-    :cond_5
-    if-nez p0, :cond_6
+    :cond_7
+    if-nez p0, :cond_8
 
-    const/4 p0, 0x0
+    sput-boolean v4, Lcom/k4/dressroom/HomeClock;->sBundleRead:Z
 
-    sput-boolean p0, Lcom/k4/dressroom/HomeClock;->sBundleRead:Z
-
-    :cond_6
+    :cond_8
     :goto_2
     sget-object p0, Lcom/k4/dressroom/HomeClock;->sBundle:Ljava/lang/Object;
 
-    if-eqz p0, :cond_7
+    if-eqz p0, :cond_9
 
     sput-boolean p1, Lcom/k4/dressroom/HomeClock;->sRestored:Z
-    :try_end_2
-    .catchall {:try_start_2 .. :try_end_2} :catchall_1
+    :try_end_4
+    .catchall {:try_start_4 .. :try_end_4} :catchall_2
 
     return-object p0
 
-    :cond_7
+    :cond_9
     :goto_3
     return-object p2
 
-    :catchall_0
+    :catchall_1
     move-exception p0
 
-    :try_start_3
-    monitor-exit v1
-    :try_end_3
-    .catchall {:try_start_3 .. :try_end_3} :catchall_0
+    :try_start_5
+    monitor-exit v2
+    :try_end_5
+    .catchall {:try_start_5 .. :try_end_5} :catchall_1
 
-    :try_start_4
+    :try_start_6
     throw p0
-    :try_end_4
-    .catchall {:try_start_4 .. :try_end_4} :catchall_1
+    :try_end_6
+    .catchall {:try_start_6 .. :try_end_6} :catchall_2
 
-    :catchall_1
+    :catchall_2
     move-exception p0
 
     const-string p1, "K4HomeClock"
@@ -906,7 +1031,9 @@
 .method public static bundlePut(Ljava/lang/Object;Ljava/lang/String;)V
     .locals 2
 
-    sget-boolean v0, Lcom/k4/dressroom/HomeClock;->active:Z
+    invoke-static {}, Lcom/k4/dressroom/HomeClock;->live()Z
+
+    move-result v0
 
     if-nez v0, :cond_0
 
@@ -1398,11 +1525,13 @@
 
     const-string v0, "K4HomeClock"
 
-    sget-boolean v1, Lcom/k4/dressroom/HomeClock;->active:Z
+    if-eqz p0, :cond_4
 
-    if-eqz v1, :cond_4
+    invoke-static {}, Lcom/k4/dressroom/HomeClock;->live()Z
 
-    if-nez p0, :cond_0
+    move-result v1
+
+    if-nez v1, :cond_0
 
     goto :goto_1
 
@@ -1641,6 +1770,85 @@
     move-result p0
 
     return p0
+.end method
+
+.method static live()Z
+    .locals 3
+
+    sget-boolean v0, Lcom/k4/dressroom/HomeClock;->active:Z
+
+    const/4 v1, 0x0
+
+    if-nez v0, :cond_0
+
+    return v1
+
+    :cond_0
+    sget-object v0, Lcom/k4/dressroom/HomeClock;->sMediator:Ljava/lang/ref/WeakReference;
+
+    invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object v0
+
+    check-cast v0, Lp8/a;
+
+    if-eqz v0, :cond_1
+
+    invoke-static {v0}, Lcom/k4/dressroom/HomeClock;->activity(Lp8/a;)Landroid/app/Activity;
+
+    move-result-object v2
+
+    goto :goto_0
+
+    :cond_1
+    const/4 v2, 0x0
+
+    :goto_0
+    if-eqz v0, :cond_5
+
+    if-eqz v2, :cond_2
+
+    invoke-virtual {v2}, Landroid/app/Activity;->isDestroyed()Z
+
+    move-result v0
+
+    if-eqz v0, :cond_2
+
+    goto :goto_2
+
+    :cond_2
+    if-eqz v2, :cond_4
+
+    invoke-virtual {v2}, Landroid/app/Activity;->isFinishing()Z
+
+    move-result v0
+
+    if-nez v0, :cond_3
+
+    goto :goto_1
+
+    :cond_3
+    return v1
+
+    :cond_4
+    :goto_1
+    const/4 v0, 0x1
+
+    return v0
+
+    :cond_5
+    :goto_2
+    sput-boolean v1, Lcom/k4/dressroom/HomeClock;->active:Z
+
+    sput-boolean v1, Lcom/k4/dressroom/HomeClock;->on:Z
+
+    const-string v0, "K4HomeClock"
+
+    const-string v2, "home editor closed: lock clock data for everything else again"
+
+    invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    return v1
 .end method
 
 .method public static menuScrolls()Z
@@ -2413,6 +2621,14 @@
 
     invoke-direct {v1, v2}, Landroid/content/Intent;-><init>(Ljava/lang/String;)V
 
+    const-string v2, "com.k4.homeclock.extra.WALLPAPER_PENDING"
+
+    const/4 v11, 0x1
+
+    invoke-virtual {v1, v2, v11}, Landroid/content/Intent;->putExtra(Ljava/lang/String;Z)Landroid/content/Intent;
+
+    move-result-object v1
+
     const-string v2, "com.samsung.android.wallpaper.live"
 
     invoke-virtual {v1, v2}, Landroid/content/Intent;->setPackage(Ljava/lang/String;)Landroid/content/Intent;
@@ -2999,11 +3215,13 @@
 
     if-nez p0, :cond_1
 
-    sget-boolean p0, Lcom/k4/dressroom/HomeClock;->active:Z
+    sget-boolean p0, Lcom/k4/dressroom/HomeClock;->sRestored:Z
 
     if-eqz p0, :cond_0
 
-    sget-boolean p0, Lcom/k4/dressroom/HomeClock;->sRestored:Z
+    invoke-static {}, Lcom/k4/dressroom/HomeClock;->live()Z
+
+    move-result p0
 
     if-eqz p0, :cond_0
 
@@ -3054,7 +3272,9 @@
 
     const-string v0, "K4HomeClock"
 
-    sget-boolean v1, Lcom/k4/dressroom/HomeClock;->active:Z
+    invoke-static {}, Lcom/k4/dressroom/HomeClock;->live()Z
+
+    move-result v1
 
     if-nez v1, :cond_0
 
@@ -3300,6 +3520,226 @@
     sput-object v0, Lcom/k4/dressroom/HomeClock;->sStore:Ljava/lang/ref/WeakReference;
 
     return-void
+.end method
+
+.method public static stretchReset(Ljava/lang/Object;)V
+    .locals 6
+
+    const-string v0, "K4HomeClock"
+
+    const-string v1, "clock changed: stretch "
+
+    sget-boolean v2, Lcom/k4/dressroom/HomeClock;->sStretchHeld:Z
+
+    if-nez v2, :cond_0
+
+    goto :goto_1
+
+    :cond_0
+    const/4 v2, 0x0
+
+    sput-boolean v2, Lcom/k4/dressroom/HomeClock;->sStretchHeld:Z
+
+    :try_start_0
+    sget-object v2, Lcom/k4/dressroom/HomeClock;->sStretchWanted:Ljava/lang/Boolean;
+
+    if-eqz v2, :cond_3
+
+    sget-object v3, Lcom/k4/dressroom/HomeClock;->sSavedStretch:Ljava/lang/Boolean;
+
+    invoke-virtual {v2, v3}, Ljava/lang/Boolean;->equals(Ljava/lang/Object;)Z
+
+    move-result v3
+
+    if-nez v3, :cond_3
+
+    invoke-static {}, Lcom/k4/dressroom/HomeClock;->live()Z
+
+    move-result v3
+
+    if-nez v3, :cond_1
+
+    goto :goto_1
+
+    :cond_1
+    const-string v3, "a"
+
+    invoke-static {p0, v3}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object p0
+
+    const-string v3, "getData"
+
+    invoke-static {p0, v3}, Lcom/k4/dressroom/HomeClock;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object p0
+
+    if-eqz p0, :cond_3
+
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v3
+
+    const-string v4, "setSupportStretch"
+
+    sget-object v5, Ljava/lang/Boolean;->TYPE:Ljava/lang/Class;
+
+    filled-new-array {v5}, [Ljava/lang/Class;
+
+    move-result-object v5
+
+    invoke-virtual {v3, v4, v5}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+
+    move-result-object v3
+
+    filled-new-array {v2}, [Ljava/lang/Object;
+
+    move-result-object v4
+
+    invoke-virtual {v3, p0, v4}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+
+    invoke-virtual {v2}, Ljava/lang/Boolean;->booleanValue()Z
+
+    move-result p0
+
+    if-eqz p0, :cond_2
+
+    const-string p0, "on"
+
+    goto :goto_0
+
+    :cond_2
+    const-string p0, "off"
+
+    :goto_0
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-direct {v2, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string p0, " from the wallpaper check again"
+
+    invoke-virtual {v2, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v2}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p0
+
+    invoke-static {v0, p0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    return-void
+
+    :catchall_0
+    move-exception p0
+
+    const-string v1, "stretchReset"
+
+    invoke-static {v0, v1, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    :cond_3
+    :goto_1
+    return-void
+.end method
+
+.method public static stretchable(Z)Z
+    .locals 5
+
+    const-string v0, "K4HomeClock"
+
+    const-string v1, "clock stretch kept "
+
+    :try_start_0
+    sget-object v2, Lcom/k4/dressroom/HomeClock;->sSavedStretch:Ljava/lang/Boolean;
+
+    sget-boolean v3, Lcom/k4/dressroom/HomeClock;->sStretchHeld:Z
+
+    if-eqz v3, :cond_3
+
+    if-eqz v2, :cond_3
+
+    sget-boolean v3, Lcom/k4/dressroom/HomeClock;->sRestored:Z
+
+    if-eqz v3, :cond_3
+
+    invoke-static {}, Lcom/k4/dressroom/HomeClock;->live()Z
+
+    move-result v3
+
+    if-nez v3, :cond_0
+
+    goto :goto_1
+
+    :cond_0
+    invoke-static {p0}, Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;
+
+    move-result-object v3
+
+    sput-object v3, Lcom/k4/dressroom/HomeClock;->sStretchWanted:Ljava/lang/Boolean;
+
+    invoke-virtual {v2}, Ljava/lang/Boolean;->booleanValue()Z
+
+    move-result v3
+
+    if-eq p0, v3, :cond_2
+
+    invoke-virtual {v2}, Ljava/lang/Boolean;->booleanValue()Z
+
+    move-result v3
+
+    if-eqz v3, :cond_1
+
+    const-string v3, "on"
+
+    goto :goto_0
+
+    :cond_1
+    const-string v3, "off"
+
+    :goto_0
+    new-instance v4, Ljava/lang/StringBuilder;
+
+    invoke-direct {v4, v1}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v4, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, " as saved (wallpaper check: "
+
+    invoke-virtual {v4, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v4, p0}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+
+    const-string v1, ")"
+
+    invoke-virtual {v4, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v4}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    :cond_2
+    invoke-virtual {v2}, Ljava/lang/Boolean;->booleanValue()Z
+
+    move-result p0
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    :cond_3
+    :goto_1
+    return p0
+
+    :catchall_0
+    move-exception v1
+
+    const-string v2, "stretchable"
+
+    invoke-static {v0, v2, v1}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    return p0
 .end method
 
 .method static toggle(Lo6/e0;)V

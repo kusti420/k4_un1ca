@@ -36,7 +36,8 @@ import java.lang.reflect.Proxy;
  * packages (SystemUI, ...), but SystemUI's copy of this very weather manager then writes the new temperature to
  * Settings.System clock_weather_temperature / clock_weather_location_exist. A ContentObserver on those two is the
  * trigger, so there is no polling, no alarm and no wakeup of our own: a fetch happens only after the system's own
- * weather update changed what is shown.
+ * weather update changed what is shown. While a clock still has no weather (the fetch at boot, before the first unlock,
+ * finds none) a visible clock also asks on its minute tick ({@link #retryWeather}).
  */
 final class AodHost {
     static final String AOD = "com.samsung.android.app.aodservice";
@@ -268,8 +269,7 @@ final class AodHost {
             // fetch first, listen a moment later: registering delivers what the manager has at that time and stores it
             // in Settings (as SystemUI's and the editor's copies do), which should be the fetched weather, not the empty
             // start value (a read takes some 30 ms)
-            resume(false);
-            resume(true);
+            fetch();
             weatherManager = wm;
             weatherListener = l;
             main().postDelayed(new Runnable() {
@@ -322,11 +322,58 @@ final class AodHost {
         }
         Log.i(HomeDepthClock.TAG, "AOD clock weather: " + why + " (" + t + ", location " + exists + "), fetching");
         try {
-            resume(false);
-            resume(true);
+            retries = 0; // the system has new weather: fetch now, and retry at the fast rate again if it is not ours yet
+            fetch();
         } catch (Throwable e) {
             Log.w(HomeDepthClock.TAG, "AOD clock weather: fetch failed: " + e);
         }
+    }
+
+    private static final long RETRY_MS = 55_000; // under a minute, so every minute tick may ask
+    private static final long RETRY_SLOW_MS = 15 * 60_000;
+    private static final int RETRY_FAST = 10;
+    private long lastFetch;
+    private int retries;
+
+    /**
+     * A visible clock that shows weather asks on each minute tick (and when shown) while what it has is no weather:
+     * none delivered yet, or a WeatherInfo with isEnabled = false. That is what the fetch at boot gets: the Weather
+     * app's data is credential encrypted, so before the first unlock the plugin reads "AppDisabled" (SystemUI's copy
+     * too), and the settings observer only fires once SystemUI's own weather update writes new values, minutes later.
+     * At most one fetch a minute (one read of the Weather app's data on the plugin's thread), every 15 minutes after
+     * ten in a row (no weather location at all); it stops once weather arrives. Nothing is scheduled of its own: it
+     * only runs on the visible-only minute tick, so the screen off or another app in front means no fetch at all.
+     */
+    void retryWeather(String why) {
+        if (weatherManager == null || !weatherRegistered) {
+            return;
+        }
+        if (weatherInfo != null && weatherEnabled) {
+            retries = 0;
+            return;
+        }
+        long now = SystemClock.elapsedRealtime();
+        if (lastFetch != 0 && now - lastFetch < (retries < RETRY_FAST ? RETRY_MS : RETRY_SLOW_MS)) {
+            return;
+        }
+        try {
+            android.os.UserManager um = hostContext.getSystemService(android.os.UserManager.class);
+            if (um != null && !um.isUserUnlocked()) {
+                return; // the Weather app's data is not readable yet
+            }
+            retries++;
+            Log.i(HomeDepthClock.TAG, "AOD clock weather: none yet (" + why + ", try " + retries + "), fetching");
+            fetch();
+        } catch (Throwable e) {
+            Log.w(HomeDepthClock.TAG, "AOD clock weather: retry failed: " + e);
+        }
+    }
+
+    /** One fetch: the plugin reads the Weather app's data and its weather manager tells the listener. */
+    private void fetch() throws Exception {
+        lastFetch = SystemClock.elapsedRealtime();
+        resume(false);
+        resume(true);
     }
 
     /** Plugin.onResume: true starts the plugin's weather fetch (one read on its own background thread). */
@@ -351,6 +398,9 @@ final class AodHost {
                     + Integer.toHexString(System.identityHashCode(state != null ? state : icon)));
             weatherInfo = info;
             weatherEnabled = enabled;
+            if (enabled) {
+                retries = 0;
+            }
             weatherTemperature = temp == null ? "" : temp.toString();
             if (!key.equals(weatherKey)) {
                 Log.i(HomeDepthClock.TAG, "AOD clock weather: " + info);

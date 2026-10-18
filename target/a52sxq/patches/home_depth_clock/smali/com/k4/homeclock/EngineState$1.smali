@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 30
+    .line 31
     iput-object p1, p0, Lcom/k4/homeclock/EngineState$1;->this$0:Lcom/k4/homeclock/EngineState;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,7 +46,7 @@
 .method public run()V
     .registers 7
 
-    .line 33
+    .line 34
     iget-object v0, p0, Lcom/k4/homeclock/EngineState$1;->this$0:Lcom/k4/homeclock/EngineState;
 
     invoke-static {v0}, Lcom/k4/homeclock/EngineState;->-$$Nest$fgetengine(Lcom/k4/homeclock/EngineState;)Ljava/lang/ref/WeakReference;
@@ -59,13 +59,13 @@
 
     check-cast v0, Lf3/a;
 
-    .line 34
+    .line 35
     if-nez v0, :cond_f
 
-    .line 35
+    .line 36
     return-void
 
-    .line 37
+    .line 38
     :cond_f
     invoke-static {}, Lcom/k4/homeclock/HomeDepthClock;->enabled()Z
 
@@ -99,7 +99,7 @@
     :cond_27
     move v1, v2
 
-    .line 38
+    .line 39
     :goto_28
     invoke-static {v0}, Lcom/k4/homeclock/HomeDepthClock;->clockOf(Lf3/a;)Lcom/k4/homeclock/DepthClock;
 
@@ -116,16 +116,16 @@
     :cond_34
     move v2, v3
 
-    .line 39
+    .line 40
     :cond_35
     if-nez v1, :cond_3a
 
     if-nez v2, :cond_3a
 
-    .line 40
+    .line 41
     return-void
 
-    .line 42
+    .line 43
     :cond_3a
     invoke-virtual {v0}, Lf3/a;->getWhich()I
 
@@ -179,9 +179,9 @@
 
     invoke-static {v2, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 43
+    .line 44
     invoke-virtual {v0}, Lf3/a;->stopSelf()V
 
-    .line 44
+    .line 45
     return-void
 .end method

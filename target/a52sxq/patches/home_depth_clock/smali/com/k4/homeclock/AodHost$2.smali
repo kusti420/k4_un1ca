@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 84
+    .line 85
     iput-object p1, p0, Lcom/k4/homeclock/AodHost$2;->this$0:Lcom/k4/homeclock/AodHost;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,13 +46,13 @@
 .method public run()V
     .registers 3
 
-    .line 87
+    .line 88
     iget-object v0, p0, Lcom/k4/homeclock/AodHost$2;->this$0:Lcom/k4/homeclock/AodHost;
 
     const-string v1, "settings changed"
 
     invoke-static {v0, v1}, Lcom/k4/homeclock/AodHost;->-$$Nest$mrefetchWeather(Lcom/k4/homeclock/AodHost;Ljava/lang/String;)V
 
-    .line 88
+    .line 89
     return-void
 .end method

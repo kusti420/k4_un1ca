@@ -33,7 +33,7 @@
         }
     .end annotation
 
-    .line 240
+    .line 241
     iput-object p1, p0, Lcom/k4/homeclock/AodHost$3;->this$0:Lcom/k4/homeclock/AodHost;
 
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
@@ -46,7 +46,7 @@
 .method public invoke(Ljava/lang/Object;Ljava/lang/reflect/Method;[Ljava/lang/Object;)Ljava/lang/Object;
     .registers 7
 
-    .line 243
+    .line 244
     invoke-virtual {p2}, Ljava/lang/reflect/Method;->getName()Ljava/lang/String;
 
     move-result-object p2
@@ -124,16 +124,16 @@
 
     packed-switch p2, :pswitch_data_90
 
-    .line 264
+    .line 265
     return-object v0
 
-    .line 262
+    .line 263
     :pswitch_3c
     const-string p1, "K4HomeClockWeatherListener"
 
     return-object p1
 
-    .line 260
+    .line 261
     :pswitch_3f
     invoke-static {p1}, Ljava/lang/System;->identityHashCode(Ljava/lang/Object;)I
 
@@ -145,7 +145,7 @@
 
     return-object p1
 
-    .line 258
+    .line 259
     :pswitch_48
     if-eqz p3, :cond_52
 
@@ -169,7 +169,7 @@
 
     return-object p1
 
-    .line 245
+    .line 246
     :pswitch_58
     if-eqz p3, :cond_60
 
@@ -184,7 +184,7 @@
     :cond_60
     move-object p1, v0
 
-    .line 246
+    .line 247
     :goto_61
     invoke-static {}, Landroid/os/Looper;->myLooper()Landroid/os/Looper;
 
@@ -196,14 +196,14 @@
 
     if-ne p2, p3, :cond_71
 
-    .line 247
+    .line 248
     iget-object p2, p0, Lcom/k4/homeclock/AodHost$3;->this$0:Lcom/k4/homeclock/AodHost;
 
     invoke-static {p2, p1}, Lcom/k4/homeclock/AodHost;->-$$Nest$monWeather(Lcom/k4/homeclock/AodHost;Ljava/lang/Object;)V
 
     goto :goto_7d
 
-    .line 249
+    .line 250
     :cond_71
     invoke-static {}, Lcom/k4/homeclock/AodHost;->-$$Nest$smmain()Landroid/os/Handler;
 
@@ -215,7 +215,7 @@
 
     invoke-virtual {p2, p3}, Landroid/os/Handler;->post(Ljava/lang/Runnable;)Z
 
-    .line 256
+    .line 257
     :goto_7d
     return-object v0
 

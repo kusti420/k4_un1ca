@@ -222,6 +222,43 @@ def hq(body):
     assert body.count(a) == 1, "suggestion policy: isReeditCase"
     return body.replace(a, a + "\n    invoke-static {v7}, %s->reedit(Z)Z\n\n    move-result v7\n" % HC, 1)
 patch(f, "public final a(Lke/e;)V", hq, "ClockPositionSuggestion reedit check -> HomeClock.reedit")
+# ... and the stretch on/off Samsung's subject detection sets ~2 s after the editor opens: the WallpaperObjectData
+#     collector's EnableClockStretchedUseCase.r(isStretchableWallpaper == true) -> HomeClock.stretchable (the restored
+#     home clock keeps its saved stretch on/off), released at the first ResetStretchDataUseCase.a (mf.c2, clock changed)
+ecs = cls(by_text('"EnableClockStretchedUseCase"'))
+assert re.search(r"^\.method public r\(Z\)V$", open(by_text('"EnableClockStretchedUseCase"')).read(), re.M), "EnableClockStretchedUseCase.r(Z)"
+assert re.search(r"^\.method public final setSupportStretch\(Z\)V$", open(glob.glob(root + "/smali*/com/samsung/android/lockscreen/editor/item/domain/entity/item/clock/ClockData.smali")[0]).read(), re.M), "ClockData.setSupportStretch"
+ANCH = (r"    invoke-virtual \{\w+\}, Lcom/samsung/android/lockscreen/editor/item/domain/entity/wallpaper/WallpaperObjectData;->isStretchableWallpaper\(\)Ljava/lang/Boolean;\n"
+        r"(?:\n|    [^\n]*\n){1,12}?"
+        r"    invoke-static \{\w+, \w+\}, Lkotlin/jvm/internal/Intrinsics;->areEqual\(Ljava/lang/Object;Ljava/lang/Object;\)Z\n\n"
+        r"    move-result (\w+)\n\n"
+        r"    invoke-virtual \{(\w+), \1\}, %s->r\(Z\)V\n" % re.escape(ecs))
+done = [x for x in glob.glob(root + "/smali*/**/*.smali", recursive=True) if HC + "->stretchable(Z)Z" in open(x).read()]
+hits = done or [x for x in glob.glob(root + "/smali*/**/*.smali", recursive=True) if re.search(ANCH, open(x).read())]
+assert len(hits) == 1, "WallpaperObjectData collector -> EnableClockStretchedUseCase.r: %d" % len(hits)
+def hst(body):
+    m = re.search(ANCH, body)
+    assert m and len(re.findall(ANCH, body)) == 1 and low(body, m.group(1)), "stretch collector call"
+    call = "    invoke-virtual {%s, %s}, %s->r(Z)V\n" % (m.group(2), m.group(1), ecs)
+    i = m.end() - len(call)
+    assert body[i:m.end()] == call
+    return body[:i] + "    invoke-static {%s}, %s->stretchable(Z)Z\n\n    move-result %s\n\n" % (m.group(1), HC, m.group(1)) + body[i:]
+if done:
+    print("  - %s collector already hooked" % cls(hits[0]))
+else:
+    s_ = open(hits[0]).read()
+    sig = [mm.group(1) for mm in re.finditer(r"^\.method (.*)\n", s_, re.M) if re.search(ANCH, method(s_, mm.group(1)))]
+    assert len(sig) == 1, "stretch collector method: %d" % len(sig)
+    patch(hits[0], sig[0], hst, "%s collector -> HomeClock.stretchable" % cls(hits[0]))
+f = by_text('"ResetStretchDataUseCase"')
+def hrs(body):
+    n = nlocals(body)
+    hdr = "    .locals %d\n\n" % n
+    assert body.count(hdr) == 1 and n + 1 <= 16, "ResetStretchDataUseCase.a locals"
+    return body.replace(hdr, hdr + "    invoke-static {p0}, %s->stretchReset(Ljava/lang/Object;)V\n\n" % HC, 1)
+assert re.search(r"^\.field public final a:Lpe/d;$", open(f).read(), re.M), "ResetStretchDataUseCase.a (clock data repository)"
+patch(f, "public final a(Lcom/samsung/android/lockscreen/editor/item/domain/entity/item/clock/positionsuggestion/SuggestionState;)V", hrs,
+      "ResetStretchDataUseCase.a -> HomeClock.stretchReset")
 yb = open(glob.glob(root + "/smali*/yc/b0.smali")[0]).read()
 assert re.search(r"^\.method public static b\(Lcom/samsung/android/lockscreen/editor/item/domain/entity/item/clock/ClockData;\)%s$" % re.escape(WCB), yb, re.M), "yc.b0.b (bundle from ClockData)"
 

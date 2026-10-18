@@ -28,6 +28,12 @@
 
 .field private static final REGISTER_DELAY_MS:J = 0x190L
 
+.field private static final RETRY_FAST:I = 0xa
+
+.field private static final RETRY_MS:J = 0xd6d8L
+
+.field private static final RETRY_SLOW_MS:J = 0xdbba0L
+
 .field private static final SETTING_LOCATION:Ljava/lang/String; = "clock_weather_location_exist"
 
 .field private static final SETTING_TEMPERATURE:Ljava/lang/String; = "clock_weather_temperature"
@@ -42,6 +48,8 @@
 
 .field private final hostContext:Landroid/content/Context;
 
+.field private lastFetch:J
+
 .field final loader:Ljava/lang/ClassLoader;
 
 .field private final plugin:Landroid/content/Context;
@@ -51,6 +59,8 @@
 .field private final refetch:Ljava/lang/Runnable;
 
 .field private refs:I
+
+.field private retries:I
 
 .field private final sourceDir:Ljava/lang/String;
 
@@ -183,7 +193,7 @@
 .method static constructor <clinit>()V
     .registers 1
 
-    .line 50
+    .line 51
     new-instance v0, Lcom/k4/homeclock/AodHost$1;
 
     invoke-direct {v0}, Lcom/k4/homeclock/AodHost$1;-><init>()V
@@ -201,30 +211,30 @@
         }
     .end annotation
 
-    .line 134
+    .line 135
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
-    .line 81
+    .line 82
     const-string v0, ""
 
     iput-object v0, p0, Lcom/k4/homeclock/AodHost;->weatherKey:Ljava/lang/String;
 
-    .line 83
+    .line 84
     iput-object v0, p0, Lcom/k4/homeclock/AodHost;->weatherTemperature:Ljava/lang/String;
 
-    .line 84
+    .line 85
     new-instance v0, Lcom/k4/homeclock/AodHost$2;
 
     invoke-direct {v0, p0}, Lcom/k4/homeclock/AodHost$2;-><init>(Lcom/k4/homeclock/AodHost;)V
 
     iput-object v0, p0, Lcom/k4/homeclock/AodHost;->refetch:Ljava/lang/Runnable;
 
-    .line 135
+    .line 136
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
     move-result-wide v0
 
-    .line 136
+    .line 137
     const/4 v2, 0x3
 
     const-string v3, "com.samsung.android.app.aodservice"
@@ -235,7 +245,7 @@
 
     iput-object v2, p0, Lcom/k4/homeclock/AodHost;->aod:Landroid/content/Context;
 
-    .line 137
+    .line 138
     iget-object v2, p0, Lcom/k4/homeclock/AodHost;->aod:Landroid/content/Context;
 
     invoke-virtual {v2}, Landroid/content/Context;->getClassLoader()Ljava/lang/ClassLoader;
@@ -244,7 +254,7 @@
 
     iput-object v2, p0, Lcom/k4/homeclock/AodHost;->loader:Ljava/lang/ClassLoader;
 
-    .line 138
+    .line 139
     iget-object v2, p0, Lcom/k4/homeclock/AodHost;->aod:Landroid/content/Context;
 
     invoke-virtual {v2}, Landroid/content/Context;->getApplicationInfo()Landroid/content/pm/ApplicationInfo;
@@ -255,12 +265,12 @@
 
     iput-object v2, p0, Lcom/k4/homeclock/AodHost;->sourceDir:Ljava/lang/String;
 
-    .line 139
+    .line 140
     invoke-virtual {p1}, Landroid/content/Context;->getApplicationContext()Landroid/content/Context;
 
     move-result-object v2
 
-    .line 140
+    .line 141
     if-eqz v2, :cond_36
 
     move-object p1, v2
@@ -268,7 +278,7 @@
     :cond_36
     iput-object p1, p0, Lcom/k4/homeclock/AodHost;->hostContext:Landroid/content/Context;
 
-    .line 141
+    .line 142
     new-instance p1, Lcom/k4/homeclock/AodHost$PluginContext;
 
     iget-object v2, p0, Lcom/k4/homeclock/AodHost;->aod:Landroid/content/Context;
@@ -281,7 +291,7 @@
 
     iput-object p1, p0, Lcom/k4/homeclock/AodHost;->plugin:Landroid/content/Context;
 
-    .line 142
+    .line 143
     const/4 p1, 0x1
 
     iget-object v2, p0, Lcom/k4/homeclock/AodHost;->loader:Ljava/lang/ClassLoader;
@@ -292,7 +302,7 @@
 
     move-result-object p1
 
-    .line 143
+    .line 144
     const/4 v2, 0x0
 
     new-array v4, v2, [Ljava/lang/Class;
@@ -309,7 +319,7 @@
 
     iput-object v4, p0, Lcom/k4/homeclock/AodHost;->provider:Ljava/lang/Object;
 
-    .line 144
+    .line 145
     const-class v4, Landroid/content/Context;
 
     const-class v5, Landroid/content/Context;
@@ -336,12 +346,12 @@
 
     invoke-virtual {p1, v4, v5}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
 
-    .line 145
+    .line 146
     iget-object p1, p0, Lcom/k4/homeclock/AodHost;->sourceDir:Ljava/lang/String;
 
     iget-object v4, p0, Lcom/k4/homeclock/AodHost;->aod:Landroid/content/Context;
 
-    .line 146
+    .line 147
     invoke-virtual {v4}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;
 
     move-result-object v4
@@ -352,7 +362,7 @@
 
     iget-object v2, v2, Landroid/content/pm/PackageInfo;->versionName:Ljava/lang/String;
 
-    .line 147
+    .line 148
     invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
 
     move-result-wide v3
@@ -403,12 +413,12 @@
 
     move-result-object p1
 
-    .line 145
+    .line 146
     const-string v0, "K4HomeClock"
 
     invoke-static {v0, p1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 148
+    .line 149
     return-void
 .end method
 
@@ -420,7 +430,7 @@
         }
     .end annotation
 
-    .line 151
+    .line 152
     invoke-static {}, Landroid/os/Looper;->myLooper()Landroid/os/Looper;
 
     move-result-object v0
@@ -431,7 +441,7 @@
 
     if-ne v0, v1, :cond_3f
 
-    .line 154
+    .line 155
     invoke-static {}, Lcom/k4/homeclock/AodHost;->main()Landroid/os/Handler;
 
     move-result-object v0
@@ -440,10 +450,10 @@
 
     invoke-virtual {v0, v1}, Landroid/os/Handler;->removeCallbacks(Ljava/lang/Runnable;)V
 
-    .line 155
+    .line 156
     sget-object v0, Lcom/k4/homeclock/AodHost;->sHost:Lcom/k4/homeclock/AodHost;
 
-    .line 156
+    .line 157
     if-eqz v0, :cond_2f
 
     invoke-direct {v0, p0}, Lcom/k4/homeclock/AodHost;->current(Landroid/content/Context;)Z
@@ -452,43 +462,43 @@
 
     if-nez v1, :cond_2f
 
-    .line 157
+    .line 158
     const-string v1, "K4HomeClock"
 
     const-string v2, "AOD clock plugin: AODService was updated, reloading"
 
     invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 158
+    .line 159
     const/4 v1, 0x0
 
     sput-object v1, Lcom/k4/homeclock/AodHost;->sHost:Lcom/k4/homeclock/AodHost;
 
-    .line 159
+    .line 160
     iget v2, v0, Lcom/k4/homeclock/AodHost;->refs:I
 
     if-nez v2, :cond_2e
 
-    .line 160
+    .line 161
     invoke-direct {v0}, Lcom/k4/homeclock/AodHost;->destroy()V
 
-    .line 162
+    .line 163
     :cond_2e
     move-object v0, v1
 
-    .line 164
+    .line 165
     :cond_2f
     if-nez v0, :cond_38
 
-    .line 165
+    .line 166
     new-instance v0, Lcom/k4/homeclock/AodHost;
 
     invoke-direct {v0, p0}, Lcom/k4/homeclock/AodHost;-><init>(Landroid/content/Context;)V
 
-    .line 166
+    .line 167
     sput-object v0, Lcom/k4/homeclock/AodHost;->sHost:Lcom/k4/homeclock/AodHost;
 
-    .line 168
+    .line 169
     :cond_38
     iget p0, v0, Lcom/k4/homeclock/AodHost;->refs:I
 
@@ -496,10 +506,10 @@
 
     iput p0, v0, Lcom/k4/homeclock/AodHost;->refs:I
 
-    .line 169
+    .line 170
     return-object v0
 
-    .line 152
+    .line 153
     :cond_3f
     new-instance p0, Ljava/lang/IllegalStateException;
 
@@ -513,7 +523,7 @@
 .method private current(Landroid/content/Context;)Z
     .registers 5
 
-    .line 195
+    .line 196
     const/4 v0, 0x0
 
     :try_start_1
@@ -539,23 +549,23 @@
 
     return p1
 
-    .line 196
+    .line 197
     :catchall_14
     move-exception p1
 
-    .line 197
+    .line 198
     return v0
 .end method
 
 .method private destroy()V
     .registers 6
 
-    .line 392
+    .line 442
     const-string v0, "K4HomeClock"
 
     invoke-direct {p0}, Lcom/k4/homeclock/AodHost;->stopWeather()V
 
-    .line 394
+    .line 444
     :try_start_5
     iget-object v1, p0, Lcom/k4/homeclock/AodHost;->provider:Ljava/lang/Object;
 
@@ -579,27 +589,56 @@
 
     invoke-virtual {v1, v2, v3}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
 
-    .line 395
+    .line 445
     const-string v1, "AOD clock plugin destroyed"
 
     invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
     :try_end_20
     .catchall {:try_start_5 .. :try_end_20} :catchall_21
 
-    .line 398
+    .line 448
     goto :goto_27
 
-    .line 396
+    .line 446
     :catchall_21
     move-exception v1
 
-    .line 397
+    .line 447
     const-string v2, "AOD clock plugin onDestroy"
 
     invoke-static {v0, v2, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    .line 399
+    .line 449
     :goto_27
+    return-void
+.end method
+
+.method private fetch()V
+    .registers 3
+    .annotation system Ldalvik/annotation/Throws;
+        value = {
+            Ljava/lang/Exception;
+        }
+    .end annotation
+
+    .line 374
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+
+    move-result-wide v0
+
+    iput-wide v0, p0, Lcom/k4/homeclock/AodHost;->lastFetch:J
+
+    .line 375
+    const/4 v0, 0x0
+
+    invoke-direct {p0, v0}, Lcom/k4/homeclock/AodHost;->resume(Z)V
+
+    .line 376
+    const/4 v0, 0x1
+
+    invoke-direct {p0, v0}, Lcom/k4/homeclock/AodHost;->resume(Z)V
+
+    .line 377
     return-void
 .end method
 
@@ -610,13 +649,13 @@
 
     monitor-enter v0
 
-    .line 173
+    .line 174
     :try_start_3
     sget-object v1, Lcom/k4/homeclock/AodHost;->sMain:Landroid/os/Handler;
 
     if-nez v1, :cond_12
 
-    .line 174
+    .line 175
     new-instance v1, Landroid/os/Handler;
 
     invoke-static {}, Landroid/os/Looper;->getMainLooper()Landroid/os/Looper;
@@ -627,7 +666,7 @@
 
     sput-object v1, Lcom/k4/homeclock/AodHost;->sMain:Landroid/os/Handler;
 
-    .line 176
+    .line 177
     :cond_12
     sget-object v1, Lcom/k4/homeclock/AodHost;->sMain:Landroid/os/Handler;
     :try_end_14
@@ -637,7 +676,7 @@
 
     return-object v1
 
-    .line 172
+    .line 173
     :catchall_16
     move-exception v1
 
@@ -650,29 +689,29 @@
 .end method
 
 .method private onWeather(Ljava/lang/Object;)V
-    .registers 10
+    .registers 11
 
-    .line 340
+    .line 387
     const-string v0, "|"
 
     const-string v1, "K4HomeClock"
 
-    if-eqz p1, :cond_102
+    if-eqz p1, :cond_106
 
     iget-object v2, p0, Lcom/k4/homeclock/AodHost;->weatherManager:Ljava/lang/Object;
 
     if-nez v2, :cond_c
 
-    goto/16 :goto_102
+    goto/16 :goto_106
 
-    .line 344
+    .line 391
     :cond_c
     :try_start_c
     invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
     move-result-object v2
 
-    .line 345
+    .line 392
     sget-object v3, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
 
     const-string v4, "isEnabled"
@@ -695,7 +734,7 @@
 
     move-result v3
 
-    .line 346
+    .line 393
     const-string v4, "getTemperature"
 
     new-array v6, v5, [Ljava/lang/Class;
@@ -710,7 +749,7 @@
 
     move-result-object v4
 
-    .line 347
+    .line 394
     const-string v6, "getWeatherIconDrawable"
 
     new-array v7, v5, [Ljava/lang/Class;
@@ -719,36 +758,36 @@
 
     move-result-object v2
 
-    new-array v5, v5, [Ljava/lang/Object;
+    new-array v6, v5, [Ljava/lang/Object;
 
-    invoke-virtual {v2, p1, v5}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-virtual {v2, p1, v6}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
 
     move-result-object v2
 
-    .line 348
-    instance-of v5, v2, Landroid/graphics/drawable/Drawable;
+    .line 395
+    instance-of v6, v2, Landroid/graphics/drawable/Drawable;
 
-    if-eqz v5, :cond_4d
+    if-eqz v6, :cond_4d
 
-    .line 349
-    move-object v5, v2
+    .line 396
+    move-object v6, v2
 
-    check-cast v5, Landroid/graphics/drawable/Drawable;
+    check-cast v6, Landroid/graphics/drawable/Drawable;
 
-    invoke-virtual {v5}, Landroid/graphics/drawable/Drawable;->getConstantState()Landroid/graphics/drawable/Drawable$ConstantState;
+    invoke-virtual {v6}, Landroid/graphics/drawable/Drawable;->getConstantState()Landroid/graphics/drawable/Drawable$ConstantState;
 
-    move-result-object v5
+    move-result-object v6
 
     goto :goto_4e
 
     :cond_4d
-    const/4 v5, 0x0
+    const/4 v6, 0x0
 
-    .line 350
+    .line 397
     :goto_4e
     invoke-static {v4}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
-    move-result-object v6
+    move-result-object v7
 
     if-nez v2, :cond_57
 
@@ -756,23 +795,23 @@
 
     goto :goto_82
 
-    .line 351
+    .line 398
     :cond_57
     nop
 
-    .line 350
+    .line 397
     invoke-virtual {v2}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
-    move-result-object v7
+    move-result-object v8
 
-    invoke-virtual {v7}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
+    invoke-virtual {v8}, Ljava/lang/Class;->getSimpleName()Ljava/lang/String;
 
-    move-result-object v7
+    move-result-object v8
 
-    .line 351
-    if-eqz v5, :cond_63
+    .line 398
+    if-eqz v6, :cond_63
 
-    move-object v2, v5
+    move-object v2, v6
 
     :cond_63
     invoke-static {v2}, Ljava/lang/System;->identityHashCode(Ljava/lang/Object;)I
@@ -783,21 +822,21 @@
 
     move-result-object v2
 
-    new-instance v5, Ljava/lang/StringBuilder;
+    new-instance v6, Ljava/lang/StringBuilder;
 
-    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-direct {v6}, Ljava/lang/StringBuilder;-><init>()V
 
-    invoke-virtual {v5, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v6, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object v5
+    move-result-object v6
 
-    const-string v7, "@"
+    const-string v8, "@"
 
-    invoke-virtual {v5, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v6, v8}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object v5
+    move-result-object v6
 
-    invoke-virtual {v5, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v6, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v2
 
@@ -806,23 +845,23 @@
     move-result-object v2
 
     :goto_82
-    new-instance v5, Ljava/lang/StringBuilder;
+    new-instance v6, Ljava/lang/StringBuilder;
 
-    invoke-direct {v5}, Ljava/lang/StringBuilder;-><init>()V
+    invoke-direct {v6}, Ljava/lang/StringBuilder;-><init>()V
 
-    invoke-virtual {v5, v3}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+    invoke-virtual {v6, v3}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
 
-    move-result-object v5
+    move-result-object v6
 
-    invoke-virtual {v5, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v6, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object v5
+    move-result-object v6
 
-    invoke-virtual {v5, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v6, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object v5
+    move-result-object v6
 
-    invoke-virtual {v5, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v6, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v0
 
@@ -834,37 +873,44 @@
 
     move-result-object v0
 
-    .line 352
+    .line 399
     iput-object p1, p0, Lcom/k4/homeclock/AodHost;->weatherInfo:Ljava/lang/Object;
 
-    .line 353
+    .line 400
     iput-boolean v3, p0, Lcom/k4/homeclock/AodHost;->weatherEnabled:Z
 
-    .line 354
-    if-nez v4, :cond_a8
+    .line 401
+    if-eqz v3, :cond_a7
+
+    .line 402
+    iput v5, p0, Lcom/k4/homeclock/AodHost;->retries:I
+
+    .line 404
+    :cond_a7
+    if-nez v4, :cond_ac
 
     const-string v2, ""
 
-    goto :goto_ac
+    goto :goto_b0
 
-    :cond_a8
+    :cond_ac
     invoke-virtual {v4}, Ljava/lang/Object;->toString()Ljava/lang/String;
 
     move-result-object v2
 
-    :goto_ac
+    :goto_b0
     iput-object v2, p0, Lcom/k4/homeclock/AodHost;->weatherTemperature:Ljava/lang/String;
 
-    .line 355
+    .line 405
     iget-object v2, p0, Lcom/k4/homeclock/AodHost;->weatherKey:Ljava/lang/String;
 
     invoke-virtual {v0, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v2
 
-    if-nez v2, :cond_d7
+    if-nez v2, :cond_db
 
-    .line 356
+    .line 406
     invoke-static {p1}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
     move-result-object v2
@@ -889,25 +935,25 @@
 
     invoke-static {v1, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 357
+    .line 407
     iput-object v0, p0, Lcom/k4/homeclock/AodHost;->weatherKey:Ljava/lang/String;
 
-    .line 358
+    .line 408
     const-string v0, "weather"
 
     invoke-static {v0}, Lcom/k4/homeclock/HomeDepthClock;->redrawStale(Ljava/lang/String;)V
-    :try_end_d7
-    .catchall {:try_start_c .. :try_end_d7} :catchall_d8
+    :try_end_db
+    .catchall {:try_start_c .. :try_end_db} :catchall_dc
 
-    .line 362
-    :cond_d7
-    goto :goto_101
+    .line 412
+    :cond_db
+    goto :goto_105
 
-    .line 360
-    :catchall_d8
+    .line 410
+    :catchall_dc
     move-exception v0
 
-    .line 361
+    .line 411
     invoke-static {p1}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
     move-result-object p1
@@ -946,29 +992,29 @@
 
     invoke-static {v1, p1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 363
-    :goto_101
+    .line 413
+    :goto_105
     return-void
 
-    .line 341
-    :cond_102
-    :goto_102
+    .line 388
+    :cond_106
+    :goto_106
     return-void
 .end method
 
 .method private refetchWeather(Ljava/lang/String;)V
-    .registers 8
+    .registers 7
 
     .line 314
     iget-object v0, p0, Lcom/k4/homeclock/AodHost;->weatherManager:Ljava/lang/Object;
 
-    if-eqz v0, :cond_8f
+    if-eqz v0, :cond_8d
 
     iget-boolean v0, p0, Lcom/k4/homeclock/AodHost;->weatherRegistered:Z
 
     if-nez v0, :cond_a
 
-    goto/16 :goto_8f
+    goto/16 :goto_8d
 
     .line 317
     :cond_a
@@ -997,54 +1043,52 @@
     .line 320
     iget-object v2, p0, Lcom/k4/homeclock/AodHost;->weatherInfo:Ljava/lang/Object;
 
-    const/4 v4, 0x1
+    if-eqz v2, :cond_39
 
-    if-eqz v2, :cond_3a
+    if-eqz v0, :cond_25
 
-    if-eqz v0, :cond_26
+    const/4 v2, 0x1
 
-    move v2, v4
+    goto :goto_26
 
-    goto :goto_27
-
-    :cond_26
+    :cond_25
     move v2, v3
 
-    :goto_27
-    iget-boolean v5, p0, Lcom/k4/homeclock/AodHost;->weatherEnabled:Z
+    :goto_26
+    iget-boolean v4, p0, Lcom/k4/homeclock/AodHost;->weatherEnabled:Z
 
-    if-ne v2, v5, :cond_3a
+    if-ne v2, v4, :cond_39
 
-    if-nez v1, :cond_30
+    if-nez v1, :cond_2f
 
     const-string v2, ""
 
-    goto :goto_31
+    goto :goto_30
 
-    :cond_30
+    :cond_2f
     move-object v2, v1
 
-    :goto_31
-    iget-object v5, p0, Lcom/k4/homeclock/AodHost;->weatherTemperature:Ljava/lang/String;
+    :goto_30
+    iget-object v4, p0, Lcom/k4/homeclock/AodHost;->weatherTemperature:Ljava/lang/String;
 
-    invoke-virtual {v2, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v2, v4}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
 
     move-result v2
 
-    if-eqz v2, :cond_3a
+    if-eqz v2, :cond_39
 
     .line 321
     return-void
 
     .line 323
-    :cond_3a
+    :cond_39
     new-instance v2, Ljava/lang/StringBuilder;
 
     invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
 
-    const-string v5, "AOD clock weather: "
+    const-string v4, "AOD clock weather: "
 
-    invoke-virtual {v2, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v2, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v2
 
@@ -1087,19 +1131,19 @@
     invoke-static {v0, p1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
     .line 325
-    :try_start_6c
-    invoke-direct {p0, v3}, Lcom/k4/homeclock/AodHost;->resume(Z)V
+    :try_start_6b
+    iput v3, p0, Lcom/k4/homeclock/AodHost;->retries:I
 
     .line 326
-    invoke-direct {p0, v4}, Lcom/k4/homeclock/AodHost;->resume(Z)V
-    :try_end_72
-    .catchall {:try_start_6c .. :try_end_72} :catchall_73
+    invoke-direct {p0}, Lcom/k4/homeclock/AodHost;->fetch()V
+    :try_end_70
+    .catchall {:try_start_6b .. :try_end_70} :catchall_71
 
     .line 329
-    goto :goto_8e
+    goto :goto_8c
 
     .line 327
-    :catchall_73
+    :catchall_71
     move-exception p1
 
     .line 328
@@ -1128,12 +1172,12 @@
     invoke-static {v0, p1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
     .line 330
-    :goto_8e
+    :goto_8c
     return-void
 
     .line 315
-    :cond_8f
-    :goto_8f
+    :cond_8d
+    :goto_8d
     return-void
 .end method
 
@@ -1145,7 +1189,7 @@
         }
     .end annotation
 
-    .line 334
+    .line 381
     const-string v0, "com.samsung.android.clockpack.plugins.Plugin"
 
     invoke-virtual {p0, v0}, Lcom/k4/homeclock/AodHost;->cls(Ljava/lang/String;)Ljava/lang/Class;
@@ -1166,7 +1210,7 @@
 
     iget-object v1, p0, Lcom/k4/homeclock/AodHost;->provider:Ljava/lang/Object;
 
-    .line 335
+    .line 382
     invoke-static {p1}, Ljava/lang/Boolean;->valueOf(Z)Ljava/lang/Boolean;
 
     move-result-object p1
@@ -1177,14 +1221,14 @@
 
     invoke-virtual {v0, v1, p1}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
 
-    .line 336
+    .line 383
     return-void
 .end method
 
 .method private stopWeather()V
     .registers 6
 
-    .line 366
+    .line 416
     invoke-static {}, Lcom/k4/homeclock/AodHost;->main()Landroid/os/Handler;
 
     move-result-object v0
@@ -1193,18 +1237,18 @@
 
     invoke-virtual {v0, v1}, Landroid/os/Handler;->removeCallbacks(Ljava/lang/Runnable;)V
 
-    .line 367
+    .line 417
     iget-object v0, p0, Lcom/k4/homeclock/AodHost;->weatherObserver:Landroid/database/ContentObserver;
 
-    .line 368
+    .line 418
     const/4 v1, 0x0
 
     iput-object v1, p0, Lcom/k4/homeclock/AodHost;->weatherObserver:Landroid/database/ContentObserver;
 
-    .line 369
+    .line 419
     if-eqz v0, :cond_1b
 
-    .line 371
+    .line 421
     :try_start_10
     iget-object v2, p0, Lcom/k4/homeclock/AodHost;->hostContext:Landroid/content/Context;
 
@@ -1216,43 +1260,43 @@
     :try_end_19
     .catchall {:try_start_10 .. :try_end_19} :catchall_1a
 
-    .line 373
+    .line 423
     goto :goto_1b
 
-    .line 372
+    .line 422
     :catchall_1a
     move-exception v0
 
-    .line 375
+    .line 425
     :cond_1b
     :goto_1b
     iget-object v0, p0, Lcom/k4/homeclock/AodHost;->weatherManager:Ljava/lang/Object;
 
-    .line 376
+    .line 426
     iget-object v2, p0, Lcom/k4/homeclock/AodHost;->weatherListener:Ljava/lang/Object;
 
-    .line 377
+    .line 427
     iget-boolean v3, p0, Lcom/k4/homeclock/AodHost;->weatherRegistered:Z
 
-    .line 378
+    .line 428
     iput-object v1, p0, Lcom/k4/homeclock/AodHost;->weatherManager:Ljava/lang/Object;
 
-    .line 379
+    .line 429
     iput-object v1, p0, Lcom/k4/homeclock/AodHost;->weatherListener:Ljava/lang/Object;
 
-    .line 380
+    .line 430
     const/4 v1, 0x0
 
     iput-boolean v1, p0, Lcom/k4/homeclock/AodHost;->weatherRegistered:Z
 
-    .line 381
+    .line 431
     if-eqz v0, :cond_69
 
     if-eqz v2, :cond_69
 
     if-eqz v3, :cond_69
 
-    .line 383
+    .line 433
     :try_start_2e
     const-string v1, "com.samsung.android.clockpack.plugins.clock.IWeatherManager"
 
@@ -1280,19 +1324,19 @@
 
     move-result-object v2
 
-    .line 384
+    .line 434
     invoke-virtual {v1, v0, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
     :try_end_4b
     .catchall {:try_start_2e .. :try_end_4b} :catchall_4c
 
-    .line 387
+    .line 437
     goto :goto_69
 
-    .line 385
+    .line 435
     :catchall_4c
     move-exception v0
 
-    .line 386
+    .line 436
     invoke-static {v0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
     move-result-object v0
@@ -1319,7 +1363,7 @@
 
     invoke-static {v1, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 389
+    .line 439
     :cond_69
     :goto_69
     return-void
@@ -1335,7 +1379,7 @@
         }
     .end annotation
 
-    .line 203
+    .line 204
     iget-object v0, p0, Lcom/k4/homeclock/AodHost;->provider:Ljava/lang/Object;
 
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
@@ -1358,7 +1402,7 @@
 
     iget-object v1, p0, Lcom/k4/homeclock/AodHost;->provider:Ljava/lang/Object;
 
-    .line 204
+    .line 205
     invoke-static {p1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 
     move-result-object v2
@@ -1377,17 +1421,17 @@
 
     move-result-object v0
 
-    .line 205
+    .line 206
     instance-of v1, v0, Landroid/view/View;
 
     if-eqz v1, :cond_2e
 
-    .line 208
+    .line 209
     check-cast v0, Landroid/view/View;
 
     return-object v0
 
-    .line 206
+    .line 207
     :cond_2e
     new-instance v0, Ljava/lang/IllegalStateException;
 
@@ -1432,7 +1476,7 @@
         }
     .end annotation
 
-    .line 212
+    .line 213
     const/4 v0, 0x0
 
     iget-object v1, p0, Lcom/k4/homeclock/AodHost;->loader:Ljava/lang/ClassLoader;
@@ -1447,30 +1491,30 @@
 .method release()V
     .registers 5
 
-    .line 180
+    .line 181
     iget v0, p0, Lcom/k4/homeclock/AodHost;->refs:I
 
     if-lez v0, :cond_a
 
-    .line 181
+    .line 182
     iget v0, p0, Lcom/k4/homeclock/AodHost;->refs:I
 
     add-int/lit8 v0, v0, -0x1
 
     iput v0, p0, Lcom/k4/homeclock/AodHost;->refs:I
 
-    .line 183
+    .line 184
     :cond_a
     iget v0, p0, Lcom/k4/homeclock/AodHost;->refs:I
 
     if-nez v0, :cond_2a
 
-    .line 184
+    .line 185
     sget-object v0, Lcom/k4/homeclock/AodHost;->sHost:Lcom/k4/homeclock/AodHost;
 
     if-ne v0, p0, :cond_27
 
-    .line 185
+    .line 186
     invoke-static {}, Lcom/k4/homeclock/AodHost;->main()Landroid/os/Handler;
 
     move-result-object v0
@@ -1479,7 +1523,7 @@
 
     invoke-virtual {v0, v1}, Landroid/os/Handler;->removeCallbacks(Ljava/lang/Runnable;)V
 
-    .line 186
+    .line 187
     invoke-static {}, Lcom/k4/homeclock/AodHost;->main()Landroid/os/Handler;
 
     move-result-object v0
@@ -1492,213 +1536,403 @@
 
     goto :goto_2a
 
-    .line 188
+    .line 189
     :cond_27
     invoke-direct {p0}, Lcom/k4/homeclock/AodHost;->destroy()V
 
-    .line 191
+    .line 192
     :cond_2a
     :goto_2a
     return-void
 .end method
 
-.method startWeather()V
+.method retryWeather(Ljava/lang/String;)V
     .registers 9
 
-    .line 231
+    .line 348
     const-string v0, "K4HomeClock"
 
     iget-object v1, p0, Lcom/k4/homeclock/AodHost;->weatherManager:Ljava/lang/Object;
 
-    if-nez v1, :cond_9e
+    if-eqz v1, :cond_9a
+
+    iget-boolean v1, p0, Lcom/k4/homeclock/AodHost;->weatherRegistered:Z
+
+    if-nez v1, :cond_c
+
+    goto/16 :goto_9a
+
+    .line 351
+    :cond_c
+    iget-object v1, p0, Lcom/k4/homeclock/AodHost;->weatherInfo:Ljava/lang/Object;
+
+    if-eqz v1, :cond_18
+
+    iget-boolean v1, p0, Lcom/k4/homeclock/AodHost;->weatherEnabled:Z
+
+    if-eqz v1, :cond_18
+
+    .line 352
+    const/4 p1, 0x0
+
+    iput p1, p0, Lcom/k4/homeclock/AodHost;->retries:I
+
+    .line 353
+    return-void
+
+    .line 355
+    :cond_18
+    invoke-static {}, Landroid/os/SystemClock;->elapsedRealtime()J
+
+    move-result-wide v1
+
+    .line 356
+    iget-wide v3, p0, Lcom/k4/homeclock/AodHost;->lastFetch:J
+
+    const-wide/16 v5, 0x0
+
+    cmp-long v3, v3, v5
+
+    if-eqz v3, :cond_39
+
+    iget-wide v3, p0, Lcom/k4/homeclock/AodHost;->lastFetch:J
+
+    sub-long/2addr v1, v3
+
+    iget v3, p0, Lcom/k4/homeclock/AodHost;->retries:I
+
+    const/16 v4, 0xa
+
+    if-ge v3, v4, :cond_31
+
+    const-wide/32 v3, 0xd6d8
+
+    goto :goto_34
+
+    :cond_31
+    const-wide/32 v3, 0xdbba0
+
+    :goto_34
+    cmp-long v1, v1, v3
+
+    if-gez v1, :cond_39
+
+    .line 357
+    return-void
+
+    .line 360
+    :cond_39
+    :try_start_39
+    iget-object v1, p0, Lcom/k4/homeclock/AodHost;->hostContext:Landroid/content/Context;
+
+    const-class v2, Landroid/os/UserManager;
+
+    invoke-virtual {v1, v2}, Landroid/content/Context;->getSystemService(Ljava/lang/Class;)Ljava/lang/Object;
+
+    move-result-object v1
+
+    check-cast v1, Landroid/os/UserManager;
+
+    .line 361
+    if-eqz v1, :cond_4c
+
+    invoke-virtual {v1}, Landroid/os/UserManager;->isUserUnlocked()Z
+
+    move-result v1
+
+    if-nez v1, :cond_4c
+
+    .line 362
+    return-void
+
+    .line 364
+    :cond_4c
+    iget v1, p0, Lcom/k4/homeclock/AodHost;->retries:I
+
+    add-int/lit8 v1, v1, 0x1
+
+    iput v1, p0, Lcom/k4/homeclock/AodHost;->retries:I
+
+    .line 365
+    iget v1, p0, Lcom/k4/homeclock/AodHost;->retries:I
+
+    new-instance v2, Ljava/lang/StringBuilder;
+
+    invoke-direct {v2}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v3, "AOD clock weather: none yet ("
+
+    invoke-virtual {v2, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v2
+
+    invoke-virtual {v2, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p1
+
+    const-string v2, ", try "
+
+    invoke-virtual {p1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p1
+
+    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    move-result-object p1
+
+    const-string v1, "), fetching"
+
+    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p1
+
+    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p1
+
+    invoke-static {v0, p1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    .line 366
+    invoke-direct {p0}, Lcom/k4/homeclock/AodHost;->fetch()V
+    :try_end_7d
+    .catchall {:try_start_39 .. :try_end_7d} :catchall_7e
+
+    .line 369
+    goto :goto_99
+
+    .line 367
+    :catchall_7e
+    move-exception p1
+
+    .line 368
+    invoke-static {p1}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object p1
+
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v2, "AOD clock weather: retry failed: "
+
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
+
+    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object p1
+
+    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p1
+
+    invoke-static {v0, p1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
+
+    .line 370
+    :goto_99
+    return-void
+
+    .line 349
+    :cond_9a
+    :goto_9a
+    return-void
+.end method
+
+.method startWeather()V
+    .registers 8
+
+    .line 232
+    const-string v0, "K4HomeClock"
+
+    iget-object v1, p0, Lcom/k4/homeclock/AodHost;->weatherManager:Ljava/lang/Object;
+
+    if-nez v1, :cond_9b
 
     iget-boolean v1, p0, Lcom/k4/homeclock/AodHost;->weatherFailed:Z
 
     if-eqz v1, :cond_c
 
-    goto/16 :goto_9e
+    goto/16 :goto_9b
 
-    .line 235
+    .line 236
     :cond_c
-    const/4 v1, 0x1
+    :try_start_c
+    const-string v1, "com.samsung.android.clockpack.plugins.clock.ClockProvider"
 
-    :try_start_d
-    const-string v2, "com.samsung.android.clockpack.plugins.clock.ClockProvider"
+    invoke-virtual {p0, v1}, Lcom/k4/homeclock/AodHost;->cls(Ljava/lang/String;)Ljava/lang/Class;
+
+    move-result-object v1
+
+    const-string v2, "getWeatherManager"
+
+    const/4 v3, 0x0
+
+    new-array v4, v3, [Ljava/lang/Class;
+
+    invoke-virtual {v1, v2, v4}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+
+    move-result-object v1
+
+    iget-object v2, p0, Lcom/k4/homeclock/AodHost;->provider:Ljava/lang/Object;
+
+    new-array v4, v3, [Ljava/lang/Object;
+
+    invoke-virtual {v1, v2, v4}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+
+    move-result-object v1
+
+    .line 237
+    if-eqz v1, :cond_78
+
+    .line 240
+    const-string v2, "com.samsung.android.clockpack.plugins.clock.IWeatherManager$Listener"
 
     invoke-virtual {p0, v2}, Lcom/k4/homeclock/AodHost;->cls(Ljava/lang/String;)Ljava/lang/Class;
 
     move-result-object v2
 
-    const-string v3, "getWeatherManager"
+    .line 241
+    iget-object v4, p0, Lcom/k4/homeclock/AodHost;->loader:Ljava/lang/ClassLoader;
 
-    const/4 v4, 0x0
-
-    new-array v5, v4, [Ljava/lang/Class;
-
-    invoke-virtual {v2, v3, v5}, Ljava/lang/Class;->getMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
-
-    move-result-object v2
-
-    iget-object v3, p0, Lcom/k4/homeclock/AodHost;->provider:Ljava/lang/Object;
-
-    new-array v5, v4, [Ljava/lang/Object;
-
-    invoke-virtual {v2, v3, v5}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
-
-    move-result-object v2
-
-    .line 236
-    if-eqz v2, :cond_7c
-
-    .line 239
-    const-string v3, "com.samsung.android.clockpack.plugins.clock.IWeatherManager$Listener"
-
-    invoke-virtual {p0, v3}, Lcom/k4/homeclock/AodHost;->cls(Ljava/lang/String;)Ljava/lang/Class;
-
-    move-result-object v3
-
-    .line 240
-    iget-object v5, p0, Lcom/k4/homeclock/AodHost;->loader:Ljava/lang/ClassLoader;
-
-    filled-new-array {v3}, [Ljava/lang/Class;
-
-    move-result-object v6
-
-    new-instance v7, Lcom/k4/homeclock/AodHost$3;
-
-    invoke-direct {v7, p0}, Lcom/k4/homeclock/AodHost$3;-><init>(Lcom/k4/homeclock/AodHost;)V
-
-    invoke-static {v5, v6, v7}, Ljava/lang/reflect/Proxy;->newProxyInstance(Ljava/lang/ClassLoader;[Ljava/lang/Class;Ljava/lang/reflect/InvocationHandler;)Ljava/lang/Object;
+    filled-new-array {v2}, [Ljava/lang/Class;
 
     move-result-object v5
 
-    .line 271
-    invoke-direct {p0, v4}, Lcom/k4/homeclock/AodHost;->resume(Z)V
+    new-instance v6, Lcom/k4/homeclock/AodHost$3;
+
+    invoke-direct {v6, p0}, Lcom/k4/homeclock/AodHost$3;-><init>(Lcom/k4/homeclock/AodHost;)V
+
+    invoke-static {v4, v5, v6}, Ljava/lang/reflect/Proxy;->newProxyInstance(Ljava/lang/ClassLoader;[Ljava/lang/Class;Ljava/lang/reflect/InvocationHandler;)Ljava/lang/Object;
+
+    move-result-object v4
 
     .line 272
-    invoke-direct {p0, v1}, Lcom/k4/homeclock/AodHost;->resume(Z)V
+    invoke-direct {p0}, Lcom/k4/homeclock/AodHost;->fetch()V
 
     .line 273
-    iput-object v2, p0, Lcom/k4/homeclock/AodHost;->weatherManager:Ljava/lang/Object;
+    iput-object v1, p0, Lcom/k4/homeclock/AodHost;->weatherManager:Ljava/lang/Object;
 
     .line 274
-    iput-object v5, p0, Lcom/k4/homeclock/AodHost;->weatherListener:Ljava/lang/Object;
+    iput-object v4, p0, Lcom/k4/homeclock/AodHost;->weatherListener:Ljava/lang/Object;
 
     .line 275
     invoke-static {}, Lcom/k4/homeclock/AodHost;->main()Landroid/os/Handler;
 
-    move-result-object v6
+    move-result-object v5
 
-    new-instance v7, Lcom/k4/homeclock/AodHost$4;
+    new-instance v6, Lcom/k4/homeclock/AodHost$4;
 
-    invoke-direct {v7, p0, v2, v5, v3}, Lcom/k4/homeclock/AodHost$4;-><init>(Lcom/k4/homeclock/AodHost;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Class;)V
+    invoke-direct {v6, p0, v1, v4, v2}, Lcom/k4/homeclock/AodHost$4;-><init>(Lcom/k4/homeclock/AodHost;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Class;)V
 
-    const-wide/16 v2, 0x190
+    const-wide/16 v1, 0x190
 
-    invoke-virtual {v6, v7, v2, v3}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
+    invoke-virtual {v5, v6, v1, v2}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
 
     .line 292
-    new-instance v2, Lcom/k4/homeclock/AodHost$5;
+    new-instance v1, Lcom/k4/homeclock/AodHost$5;
 
     invoke-static {}, Lcom/k4/homeclock/AodHost;->main()Landroid/os/Handler;
 
-    move-result-object v3
+    move-result-object v2
 
-    invoke-direct {v2, p0, v3}, Lcom/k4/homeclock/AodHost$5;-><init>(Lcom/k4/homeclock/AodHost;Landroid/os/Handler;)V
+    invoke-direct {v1, p0, v2}, Lcom/k4/homeclock/AodHost$5;-><init>(Lcom/k4/homeclock/AodHost;Landroid/os/Handler;)V
 
     .line 299
-    iget-object v3, p0, Lcom/k4/homeclock/AodHost;->hostContext:Landroid/content/Context;
+    iget-object v2, p0, Lcom/k4/homeclock/AodHost;->hostContext:Landroid/content/Context;
 
-    invoke-virtual {v3}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
-
-    move-result-object v3
-
-    .line 300
-    const-string v5, "clock_weather_temperature"
-
-    invoke-static {v5}, Landroid/provider/Settings$System;->getUriFor(Ljava/lang/String;)Landroid/net/Uri;
-
-    move-result-object v5
-
-    invoke-virtual {v3, v5, v4, v2}, Landroid/content/ContentResolver;->registerContentObserver(Landroid/net/Uri;ZLandroid/database/ContentObserver;)V
-
-    .line 301
-    const-string v5, "clock_weather_location_exist"
-
-    invoke-static {v5}, Landroid/provider/Settings$System;->getUriFor(Ljava/lang/String;)Landroid/net/Uri;
-
-    move-result-object v5
-
-    invoke-virtual {v3, v5, v4, v2}, Landroid/content/ContentResolver;->registerContentObserver(Landroid/net/Uri;ZLandroid/database/ContentObserver;)V
-
-    .line 302
-    iput-object v2, p0, Lcom/k4/homeclock/AodHost;->weatherObserver:Landroid/database/ContentObserver;
-
-    .line 303
-    const-string v2, "AOD clock weather: listening to the plugin\'s weather manager"
-
-    invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-
-    .line 309
-    goto :goto_9d
-
-    .line 237
-    :cond_7c
-    new-instance v2, Ljava/lang/IllegalStateException;
-
-    const-string v3, "no weather manager"
-
-    invoke-direct {v2, v3}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
-
-    throw v2
-    :try_end_84
-    .catchall {:try_start_d .. :try_end_84} :catchall_84
-
-    .line 304
-    :catchall_84
-    move-exception v2
-
-    .line 305
-    instance-of v3, v2, Ljava/lang/reflect/InvocationTargetException;
-
-    if-eqz v3, :cond_93
-
-    invoke-virtual {v2}, Ljava/lang/Throwable;->getCause()Ljava/lang/Throwable;
-
-    move-result-object v3
-
-    if-eqz v3, :cond_93
-
-    invoke-virtual {v2}, Ljava/lang/Throwable;->getCause()Ljava/lang/Throwable;
+    invoke-virtual {v2}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
 
     move-result-object v2
 
-    .line 306
-    :cond_93
-    const-string v3, "AOD clock weather unavailable, date line without weather"
+    .line 300
+    const-string v4, "clock_weather_temperature"
 
-    invoke-static {v0, v3, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+    invoke-static {v4}, Landroid/provider/Settings$System;->getUriFor(Ljava/lang/String;)Landroid/net/Uri;
+
+    move-result-object v4
+
+    invoke-virtual {v2, v4, v3, v1}, Landroid/content/ContentResolver;->registerContentObserver(Landroid/net/Uri;ZLandroid/database/ContentObserver;)V
+
+    .line 301
+    const-string v4, "clock_weather_location_exist"
+
+    invoke-static {v4}, Landroid/provider/Settings$System;->getUriFor(Ljava/lang/String;)Landroid/net/Uri;
+
+    move-result-object v4
+
+    invoke-virtual {v2, v4, v3, v1}, Landroid/content/ContentResolver;->registerContentObserver(Landroid/net/Uri;ZLandroid/database/ContentObserver;)V
+
+    .line 302
+    iput-object v1, p0, Lcom/k4/homeclock/AodHost;->weatherObserver:Landroid/database/ContentObserver;
+
+    .line 303
+    const-string v1, "AOD clock weather: listening to the plugin\'s weather manager"
+
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    .line 309
+    goto :goto_9a
+
+    .line 238
+    :cond_78
+    new-instance v1, Ljava/lang/IllegalStateException;
+
+    const-string v2, "no weather manager"
+
+    invoke-direct {v1, v2}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
+
+    throw v1
+    :try_end_80
+    .catchall {:try_start_c .. :try_end_80} :catchall_80
+
+    .line 304
+    :catchall_80
+    move-exception v1
+
+    .line 305
+    instance-of v2, v1, Ljava/lang/reflect/InvocationTargetException;
+
+    if-eqz v2, :cond_8f
+
+    invoke-virtual {v1}, Ljava/lang/Throwable;->getCause()Ljava/lang/Throwable;
+
+    move-result-object v2
+
+    if-eqz v2, :cond_8f
+
+    invoke-virtual {v1}, Ljava/lang/Throwable;->getCause()Ljava/lang/Throwable;
+
+    move-result-object v1
+
+    .line 306
+    :cond_8f
+    const-string v2, "AOD clock weather unavailable, date line without weather"
+
+    invoke-static {v0, v2, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
     .line 307
-    iput-boolean v1, p0, Lcom/k4/homeclock/AodHost;->weatherFailed:Z
+    const/4 v0, 0x1
+
+    iput-boolean v0, p0, Lcom/k4/homeclock/AodHost;->weatherFailed:Z
 
     .line 308
     invoke-direct {p0}, Lcom/k4/homeclock/AodHost;->stopWeather()V
 
     .line 310
-    :goto_9d
+    :goto_9a
     return-void
 
-    .line 232
-    :cond_9e
-    :goto_9e
+    .line 233
+    :cond_9b
+    :goto_9b
     return-void
 .end method
 
 .method supportsWeather(I)Z
     .registers 7
 
-    .line 218
+    .line 219
     :try_start_0
     const-string v0, "com.samsung.android.clockpack.plugins.Category"
 
@@ -1706,7 +1940,7 @@
 
     move-result-object v0
 
-    .line 219
+    .line 220
     const-string v1, "LOCK_SCREEN"
 
     invoke-virtual {v0, v1}, Ljava/lang/Class;->getField(Ljava/lang/String;)Ljava/lang/reflect/Field;
@@ -1719,7 +1953,7 @@
 
     move-result-object v1
 
-    .line 220
+    .line 221
     const-string v2, "com.samsung.android.clockpack.plugins.clock.ClockProvider"
 
     invoke-virtual {p0, v2}, Lcom/k4/homeclock/AodHost;->cls(Ljava/lang/String;)Ljava/lang/Class;
@@ -1740,7 +1974,7 @@
 
     iget-object v2, p0, Lcom/k4/homeclock/AodHost;->provider:Ljava/lang/Object;
 
-    .line 221
+    .line 222
     invoke-static {p1}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 
     move-result-object p1
@@ -1753,7 +1987,7 @@
 
     move-result-object p1
 
-    .line 222
+    .line 223
     sget-object v0, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
 
     invoke-virtual {v0, p1}, Ljava/lang/Boolean;->equals(Ljava/lang/Object;)Z
@@ -1764,11 +1998,11 @@
 
     return p1
 
-    .line 223
+    .line 224
     :catchall_38
     move-exception p1
 
-    .line 224
+    .line 225
     invoke-static {p1}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
     move-result-object p1
@@ -1795,7 +2029,7 @@
 
     invoke-static {v0, p1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 225
+    .line 226
     const/4 p1, 0x0
 
     return p1

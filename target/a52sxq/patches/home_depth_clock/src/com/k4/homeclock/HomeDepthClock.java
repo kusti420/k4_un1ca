@@ -22,7 +22,9 @@ import java.util.WeakHashMap;
  *    is not replaced; the clock is drawn only while the keyguard is gone and the display is ON.
  *  - f3.a (LayeredEngine) onCreate / onVisibilityChanged / onDestroy: {@link EngineState} (reload receiver, minute ticker).
  *    onCreate also appends {@link PostDim} to the engine's root node list, after its DarkModeNode, for a
- *    HomeClockPresenter: the clock is drawn above the dark mode wallpaper dim, like the editor's and the lock screen's.
+ *    HomeClockPresenter: the clock is drawn above the dark mode wallpaper dim, like the editor's and the lock screen's;
+ *    and it reads the current dim (f3.a.d, updateDarkModeFilter) at once, so a clock engine created while the home
+ *    screen shows is dimmed from its first frame.
  *
  * Switch: persist.sys.k4.home_depth_clock (1 = on). Settings writes it and sends {@link #ACTION_RELOAD}; the engine
  * then rebuilds its own sub engine in-process (switchable.d.stopSelf -> UnifiedEngine.onSubEngineDestroyRequested ->
@@ -33,6 +35,8 @@ public final class HomeDepthClock {
     static final String TAG = "K4HomeClock";
     static final String PROP = "persist.sys.k4.home_depth_clock";
     public static final String ACTION_RELOAD = "com.k4.homeclock.action.RELOAD";
+    /** RELOAD extra (boolean): the sender is about to apply a new wallpaper, whose new engine reads the settings itself. */
+    public static final String EXTRA_WALLPAPER_PENDING = "com.k4.homeclock.extra.WALLPAPER_PENDING";
     /** Only senders holding this permission (Settings, shell) are heard. */
     static final String RELOAD_PERMISSION = "android.permission.WRITE_SECURE_SETTINGS";
 
@@ -222,7 +226,19 @@ public final class HomeDepthClock {
             if (!homeCapable(engine.getWhich())) {
                 return;
             }
+            for (EngineState other : states()) {
+                other.newEngine();
+            }
             if (engine.g instanceof HomeClockPresenter) {
+                try {
+                    // The engine sets its dark mode dim (DarkModeNode, and so PostDim's subject dim) only on a
+                    // configuration change or when it turns invisible. A clock engine is often created while the home
+                    // screen is showing (a reload from the editor or Settings): set it now, before the first frame,
+                    // instead of drawing undimmed until the home screen is hidden once.
+                    engine.d();
+                } catch (Throwable t) {
+                    Log.w(TAG, "dark mode dim", t);
+                }
                 try {
                     if (engine.h != null && engine.h.c != null && engine.j != null && engine.h.c.contains(engine.j)) {
                         engine.h.c.add(new PostDim(engine));

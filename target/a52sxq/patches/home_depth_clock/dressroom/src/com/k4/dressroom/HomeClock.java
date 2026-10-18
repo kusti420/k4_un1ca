@@ -65,6 +65,42 @@ public final class HomeClock {
         }
     }
 
+    /**
+     * {@link #active}, and the Home editor that set it is still open. active stays true after that editor is closed,
+     * and this process also serves the Wallpaper and style page, whose lock screen preview goes through the same clock
+     * store and bundle repository: without this check that preview showed the home clock (and its place) instead of
+     * the lock screen's own clock until another editor opened. Used by the hooks that also run outside an editor.
+     * A finishing editor (Done: "Save done. Finish the Activity", or Back) already counts as closed: the page behind it
+     * resumes and may load its lock preview before the editor's onDestroy. Its save has run by then (onHomeSave).
+     */
+    static boolean live() {
+        if (!active) {
+            return false;
+        }
+        p8.a m = sMediator.get();
+        Activity a = m != null ? activity(m) : null;
+        if (m == null || (a != null && a.isDestroyed())) {
+            active = false;
+            on = false;
+            Log.i(TAG, "home editor closed: lock clock data for everything else again");
+            return false;
+        }
+        return a == null || !a.isFinishing();
+    }
+
+    /** The editor activity of a ComponentMediator (through its lock layer view's context), or null. */
+    static Activity activity(p8.a m) {
+        View g = m.g;
+        if (g == null) {
+            return null;
+        }
+        Context c = g.getContext();
+        while (c instanceof android.content.ContextWrapper && !(c instanceof Activity)) {
+            c = ((android.content.ContextWrapper) c).getBaseContext();
+        }
+        return c instanceof Activity ? (Activity) c : null;
+    }
+
     /** p8.a.<init>, once which (h) and isCover (j) are parsed. */
     public static void begin(p8.a m) {
         try {
@@ -74,6 +110,9 @@ public final class HomeClock {
             sBundle = null;
             sBundleRead = false;
             sRestored = false;
+            sSavedStretch = null;
+            sStretchHeld = false;
+            sStretchWanted = null;
             sDepth = true;
             synchronized (sPut) {
                 sPut.clear();
@@ -88,7 +127,7 @@ public final class HomeClock {
 
     /** po.y / qo.b constructors: only the clock item in a Home editor. */
     public static Set filter(Set items) {
-        if (!active || items == null) {
+        if (items == null || !live()) {
             return items;
         }
         try {
@@ -551,7 +590,7 @@ public final class HomeClock {
      * home clock (Settings.System k4_home_clock_item) instead of the lock clock.
      */
     public static Object seedItem(Object lockItem) {
-        if (!active) {
+        if (!live()) {
             return lockItem;
         }
         try {
@@ -616,7 +655,7 @@ public final class HomeClock {
      * (ManageLifeCycleClockData / ApplyWallpaperClockBundleData / GetWallpaperClockBundle).
      */
     public static Object bundle(Object repo, String id, Object samsung) {
-        if (!active) {
+        if (!live()) {
             return samsung;
         }
         try {
@@ -642,6 +681,14 @@ public final class HomeClock {
                     sBundle = g.getClass().getMethod("fromJson", String.class, Class.class)
                             .invoke(g, json, Class.forName(BUNDLE_CLASS, true, cl));
                     Log.i(TAG, "editor starts from the saved home clock place: " + sBundle);
+                    try {
+                        Object st = field(sBundle, "supportStretch");
+                        // only a bundle that carries the key (Gson leaves a missing one false, not "unknown")
+                        sSavedStretch = st instanceof Boolean && json.contains("\"supportStretch\"") ? (Boolean) st : null;
+                        sStretchHeld = sSavedStretch != null;
+                    } catch (Throwable t) {
+                        Log.w(TAG, "saved clock stretch unreadable, Samsung decides it: " + t);
+                    }
                 } else if (c == null) {
                     sBundleRead = false; // too early, try again on the next lookup
                 }
@@ -659,7 +706,7 @@ public final class HomeClock {
 
     /** WallpaperClockBundleRepository.put(sceneId, bundle) (cd.c.l): from now on Samsung's own bundle for that id wins. */
     public static void bundlePut(Object repo, String id) {
-        if (!active) {
+        if (!live()) {
             return;
         }
         synchronized (sPut) {
@@ -679,7 +726,66 @@ public final class HomeClock {
      * heights stay as they were left.
      */
     public static boolean reedit(boolean reedit) {
-        return reedit || (active && sRestored);
+        return reedit || (sRestored && live());
+    }
+
+    /** supportStretch of the restored home clock bundle (null: nothing restored or unreadable). */
+    private static Boolean sSavedStretch;
+    /** The restored stretch on/off is kept until the user changes the clock (see stretchReset). */
+    private static boolean sStretchHeld;
+    /** What Samsung's wallpaper check asked for while held (applied when the hold ends). */
+    private static Boolean sStretchWanted;
+
+    /**
+     * EnableClockStretchedUseCase.r(stretchable) as called from the editor's WallpaperObjectData collector (dc.u):
+     * Samsung turns the clock's stretch (ClockData.supportStretch) on when its subject detection, some 2 s after the
+     * editor opens, finds a stretchable wallpaper, and off when it finds none. A lock re-edit gets that from the saved
+     * wallpaper; a Home editor that restored the saved home clock (bundle()) would instead flip a saved non-stretched
+     * clock to stretched (ApplyStretchResultUseCase then fits the digits to the subject), or the other way round. While
+     * the restored clock is unchanged its saved on/off is kept, so the saved heights (the bundle's fontHeights, already
+     * applied by ApplyWallpaperClockBundleData) round-trip; Samsung's own value takes over at the first clock change.
+     */
+    public static boolean stretchable(boolean stretchable) {
+        try {
+            Boolean saved = sSavedStretch;
+            if (!sStretchHeld || saved == null || !sRestored || !live()) {
+                return stretchable;
+            }
+            sStretchWanted = stretchable;
+            if (stretchable != saved) {
+                Log.i(TAG, "clock stretch kept " + (saved ? "on" : "off") + " as saved (wallpaper check: " + stretchable + ")");
+            }
+            return saved;
+        } catch (Throwable t) {
+            Log.e(TAG, "stretchable", t);
+            return stretchable;
+        }
+    }
+
+    /**
+     * ResetStretchDataUseCase.a start (mf.c2): Samsung resets the clock's stretch data when the user changes the clock
+     * (clock type, font), when an editor closes, and after a save. The hold ends there: in an open editor the latest
+     * value Samsung's wallpaper check asked for is written into the ClockData that this reset stores right after,
+     * exactly as if it had not been held (the stretch suggestion for the new clock then runs as stock).
+     */
+    public static void stretchReset(Object resetUseCase) {
+        if (!sStretchHeld) {
+            return;
+        }
+        sStretchHeld = false;
+        try {
+            Boolean wanted = sStretchWanted;
+            if (wanted == null || wanted.equals(sSavedStretch) || !live()) {
+                return;
+            }
+            Object data = call(field(resetUseCase, "a"), "getData");
+            if (data != null) {
+                data.getClass().getMethod("setSupportStretch", boolean.class).invoke(data, wanted);
+                Log.i(TAG, "clock changed: stretch " + (wanted ? "on" : "off") + " from the wallpaper check again");
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "stretchReset", t);
+        }
     }
 
     /** dc.p.Y, Home-only apply (Samsung skips the lock save): store the clock and the switch, tell the wallpaper. */
@@ -762,7 +868,11 @@ public final class HomeClock {
             String json = (String) g.getClass().getMethod("toJson", Object.class, java.lang.reflect.Type.class).invoke(g, item, base);
             android.provider.Settings.System.putString(c.getContentResolver(), KEY_ITEM, json);
             android.os.SemSystemProperties.set(PROP, on ? "1" : "0");
+            // the wallpaper is applied right after this (its new engine reads the clock settings itself): the engine
+            // showing the old wallpaper waits for that instead of rebuilding with the old layers first, and rebuilds
+            // only if no new wallpaper engine arrives (an apply that failed)
             c.sendBroadcast(new android.content.Intent("com.k4.homeclock.action.RELOAD")
+                    .putExtra("com.k4.homeclock.extra.WALLPAPER_PENDING", true)
                     .setPackage("com.samsung.android.wallpaper.live").addFlags(android.content.Intent.FLAG_RECEIVER_FOREGROUND));
             Log.i(TAG, "home apply: clock " + (on ? "on" : "off") + ", item=" + json);
         } catch (Throwable t) {

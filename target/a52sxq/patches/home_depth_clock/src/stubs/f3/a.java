@@ -6,4 +6,6 @@ public final class a extends com.samsung.android.wallpaper.live.sdk.service.swit
     /** DarkModeNode: black at alpha(d) over everything while c (dark mode wallpaper dim) is on. */
     public i3.e j;
     public final synchronized void b(android.view.SurfaceHolder h) { throw new RuntimeException(); }
+    /** updateDarkModeFilter: reads the dark mode wallpaper dim into DarkModeNode j; true if it changed. */
+    public final boolean d() { throw new RuntimeException(); }
 }

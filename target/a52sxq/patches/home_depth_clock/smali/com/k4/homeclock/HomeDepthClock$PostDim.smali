@@ -30,7 +30,7 @@
 .method constructor <init>(Lf3/a;)V
     .registers 4
 
-    .line 182
+    .line 186
     invoke-virtual {p1}, Lf3/a;->getAppContext()Landroid/content/Context;
 
     move-result-object v0
@@ -39,14 +39,14 @@
 
     invoke-direct {p0, v0, v1}, Li3/j;-><init>(Landroid/content/Context;Ljava/lang/String;)V
 
-    .line 183
+    .line 187
     new-instance v0, Ljava/lang/ref/WeakReference;
 
     invoke-direct {v0, p1}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
 
     iput-object v0, p0, Lcom/k4/homeclock/HomeDepthClock$PostDim;->engine:Ljava/lang/ref/WeakReference;
 
-    .line 184
+    .line 188
     return-void
 .end method
 
@@ -55,7 +55,7 @@
 .method public a(Landroid/graphics/Canvas;)V
     .registers 4
 
-    .line 188
+    .line 192
     iget-object v0, p0, Lcom/k4/homeclock/HomeDepthClock$PostDim;->engine:Ljava/lang/ref/WeakReference;
 
     invoke-virtual {v0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
@@ -64,7 +64,7 @@
 
     check-cast v0, Lf3/a;
 
-    .line 189
+    .line 193
     if-eqz v0, :cond_1b
 
     iget-object v1, v0, Lf3/a;->g:Lh3/a;
@@ -73,7 +73,7 @@
 
     if-eqz v1, :cond_1b
 
-    .line 190
+    .line 194
     iget-object v1, v0, Lf3/a;->g:Lh3/a;
 
     check-cast v1, Lcom/k4/homeclock/HomeClockPresenter;
@@ -84,7 +84,7 @@
 
     invoke-virtual {v1, p1, v0}, Lcom/k4/homeclock/HomeClockPresenter;->drawAbove(Landroid/graphics/Canvas;F)V
 
-    .line 192
+    .line 196
     :cond_1b
     return-void
 .end method

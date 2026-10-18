@@ -26,16 +26,16 @@
 .method constructor <init>(Landroid/content/Context;Ljava/lang/ClassLoader;Landroid/content/Context;)V
     .registers 4
 
-    .line 102
+    .line 103
     invoke-direct {p0, p1}, Landroid/content/ContextWrapper;-><init>(Landroid/content/Context;)V
 
-    .line 103
+    .line 104
     iput-object p2, p0, Lcom/k4/homeclock/AodHost$PluginContext;->loader:Ljava/lang/ClassLoader;
 
-    .line 104
+    .line 105
     iput-object p3, p0, Lcom/k4/homeclock/AodHost$PluginContext;->host:Landroid/content/Context;
 
-    .line 105
+    .line 106
     return-void
 .end method
 
@@ -44,7 +44,7 @@
 .method public getApplicationContext()Landroid/content/Context;
     .registers 2
 
-    .line 114
+    .line 115
     invoke-virtual {p0}, Lcom/k4/homeclock/AodHost$PluginContext;->getBaseContext()Landroid/content/Context;
 
     move-result-object v0
@@ -55,7 +55,7 @@
 .method public getClassLoader()Ljava/lang/ClassLoader;
     .registers 2
 
-    .line 119
+    .line 120
     iget-object v0, p0, Lcom/k4/homeclock/AodHost$PluginContext;->loader:Ljava/lang/ClassLoader;
 
     return-object v0
@@ -64,7 +64,7 @@
 .method public getSharedPreferences(Ljava/lang/String;I)Landroid/content/SharedPreferences;
     .registers 6
 
-    .line 109
+    .line 110
     iget-object v0, p0, Lcom/k4/homeclock/AodHost$PluginContext;->host:Landroid/content/Context;
 
     new-instance v1, Ljava/lang/StringBuilder;
@@ -95,7 +95,7 @@
 .method public getSystemService(Ljava/lang/String;)Ljava/lang/Object;
     .registers 3
 
-    .line 124
+    .line 125
     const-string v0, "layout_inflater"
 
     invoke-virtual {v0, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -104,12 +104,12 @@
 
     if-eqz v0, :cond_1d
 
-    .line 125
+    .line 126
     iget-object p1, p0, Lcom/k4/homeclock/AodHost$PluginContext;->inflater:Landroid/view/LayoutInflater;
 
     if-nez p1, :cond_1a
 
-    .line 126
+    .line 127
     invoke-virtual {p0}, Lcom/k4/homeclock/AodHost$PluginContext;->getBaseContext()Landroid/content/Context;
 
     move-result-object p1
@@ -124,13 +124,13 @@
 
     iput-object p1, p0, Lcom/k4/homeclock/AodHost$PluginContext;->inflater:Landroid/view/LayoutInflater;
 
-    .line 128
+    .line 129
     :cond_1a
     iget-object p1, p0, Lcom/k4/homeclock/AodHost$PluginContext;->inflater:Landroid/view/LayoutInflater;
 
     return-object p1
 
-    .line 130
+    .line 131
     :cond_1d
     invoke-virtual {p0}, Lcom/k4/homeclock/AodHost$PluginContext;->getBaseContext()Landroid/content/Context;
 

@@ -21,7 +21,7 @@
 .method constructor <init>()V
     .registers 1
 
-    .line 50
+    .line 51
     invoke-direct {p0}, Ljava/lang/Object;-><init>()V
 
     return-void
@@ -32,12 +32,12 @@
 .method public run()V
     .registers 3
 
-    .line 53
+    .line 54
     invoke-static {}, Lcom/k4/homeclock/AodHost;->-$$Nest$sfgetsHost()Lcom/k4/homeclock/AodHost;
 
     move-result-object v0
 
-    .line 54
+    .line 55
     if-eqz v0, :cond_13
 
     invoke-static {v0}, Lcom/k4/homeclock/AodHost;->-$$Nest$fgetrefs(Lcom/k4/homeclock/AodHost;)I
@@ -46,15 +46,15 @@
 
     if-nez v1, :cond_13
 
-    .line 55
+    .line 56
     const/4 v1, 0x0
 
     invoke-static {v1}, Lcom/k4/homeclock/AodHost;->-$$Nest$sfputsHost(Lcom/k4/homeclock/AodHost;)V
 
-    .line 56
+    .line 57
     invoke-static {v0}, Lcom/k4/homeclock/AodHost;->-$$Nest$mdestroy(Lcom/k4/homeclock/AodHost;)V
 
-    .line 58
+    .line 59
     :cond_13
     return-void
 .end method
