@@ -1,6 +1,7 @@
 package com.k4.dressroom;
 
 import android.animation.ValueAnimator;
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -54,6 +55,17 @@ import java.util.ArrayList;
  * </ul>
  * While two fingers rotate, a level guide (Samsung's align assist line drawable and guide box colour, lit up when level)
  * and an angle badge are drawn on the window overlay; they fade out on release.
+ * <p>
+ * Only the plain layout's main picture (the CropImageView of view type d7.w NONE, CropImageController.l) gets T. Frame
+ * layouts (Frame, and the Suggest results that are frames) hide that view and show Samsung's own frame views instead
+ * (FRAME_BACKGROUND, FRAME_BASE, OBJECT, FRAME_BOTTOM; only one of them takes touches, the frame plates stay put, the
+ * subject is its own view): there the editor stays stock. T is dropped when a frame layout appears ({@link #layout}),
+ * touches on any other view type pass untouched, and nothing is baked.
+ * <p>
+ * A saved transform comes back when the same wallpaper is edited again ({@link #saveRecord}, {@link #tryRestore}):
+ * Samsung re-opens its own copy of the original picture at the crop it saved, so T (and the fill) are stored next to
+ * the home clock (Settings.System k4_home_clock_xf) with the Samsung crop they were applied to, and put back once the
+ * re-edit editor shows exactly that crop of that profile's picture.
  */
 public final class EditXf {
     static final String TAG = HomeClock.TAG;
@@ -88,6 +100,12 @@ public final class EditXf {
         sFill = FILL_COLOR;
         sSwitch = new WeakReference<>(null);
         sKeepStretch = null;
+        sFrameLayout = false;
+        sPending = null;
+        sPendingRead = false;
+        sFixedColor = null;
+        sFixedStyle = null;
+        sLastFillColor = null;
     }
 
     /** The angle shown and saved: level within {@link #SNAP_DEG}. */
@@ -128,6 +146,313 @@ public final class EditXf {
         a[at + 1] = shownDeg();
         a[at + 2] = tx;
         a[at + 3] = ty;
+    }
+
+    // ---- layouts: T belongs to the plain layout's main picture ----
+
+    /** CropImageView.k (d7.w): NONE for the main picture, FRAME_* / OBJECT / STYLE_* for Samsung's layout views. */
+    static String viewType(View v) {
+        try {
+            Object k = HomeClock.field(v, "k");
+            return k instanceof Enum ? ((Enum<?>) k).name() : null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    static boolean isMain(View v) {
+        String t = viewType(v);
+        return t == null || "NONE".equals(t);
+    }
+
+    /** A frame layout is showing (Samsung's FRAME_* views visible); kept up to date every frame of the Home editor. */
+    static volatile boolean sFrameLayout;
+
+    static boolean frameIn(View v) {
+        if (v.getVisibility() != View.VISIBLE) {
+            return false;
+        }
+        if (CROP.equals(v.getClass().getName())) {
+            String t = viewType(v);
+            if (t != null && t.startsWith("FRAME_")) {
+                return true;
+            }
+        }
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                if (frameIn(g.getChildAt(i))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Frame layout check (UI thread): every frame of the Home editor (HomeClock's pre-draw) and at each touch down.
+     * When a frame layout appears (Frame, a frame Suggest, a frame re-edit) the transform is dropped: the editor and the
+     * save are Samsung's own there.
+     */
+    static void layout(View any) {
+        if (any == null) {
+            return;
+        }
+        boolean frame = frameIn(any.getRootView());
+        if (frame == sFrameLayout) {
+            return;
+        }
+        sFrameLayout = frame;
+        Log.i(TAG, frame ? "frame layout: zoom-out / tilt off, stock editor" : "plain layout: zoom-out / tilt available");
+        if (frame) {
+            sPending = null;
+            View crop = sView.get();
+            if (!identity()) {
+                s = 1f;
+                deg = 0f;
+                tx = 0f;
+                ty = 0f;
+                if (crop != null) {
+                    redraw(crop);
+                }
+            }
+            if (sRotating) {
+                sRotating = false;
+                if (crop != null) {
+                    guide(crop, false);
+                }
+            }
+            if (crop != null) {
+                showSwitch(crop, false);
+            }
+        }
+    }
+
+    // ---- saved transform (re-edit) ----
+
+    static final String KEY_XF = "k4_home_clock_xf";
+    private static volatile org.json.JSONObject sPending;
+    private static boolean sPendingRead;
+    private static long sPendingUntil;
+    static volatile Integer sFixedColor;
+    static volatile String sFixedStyle;
+
+    static RectF bounds(View v) {
+        try {
+            return (RectF) call(v, "getDrawableBounds");
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    static float aspect(View v) {
+        Drawable d = ((ImageView) v).getDrawable();
+        return d == null || d.getIntrinsicHeight() <= 0 ? 0f : d.getIntrinsicWidth() / (float) d.getIntrinsicHeight();
+    }
+
+    static Activity activity(View v) {
+        Context c = v.getContext();
+        while (c instanceof android.content.ContextWrapper && !(c instanceof Activity)) {
+            c = ((android.content.ContextWrapper) c).getBaseContext();
+        }
+        return c instanceof Activity ? (Activity) c : null;
+    }
+
+    /** The editor's profile id (EditorData of a re-edit: intent extra profile_id; the save: SaveImageMaker.c). */
+    static String profileOf(Activity a) {
+        try {
+            Object o = a.getIntent().getExtras() != null ? a.getIntent().getExtras().get("profile_id") : null;
+            return o == null ? null : String.valueOf(o);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /**
+     * Home save with T (bakeBackground): T, the fill and the Samsung crop it was applied to (the main picture's drawable
+     * bounds, which T never changes and Samsung saves as drawable_bound and restores on a re-edit), for this profile.
+     */
+    static void saveRecord(View v, Object maker) {
+        try {
+            RectF b = bounds(v);
+            if (b == null) {
+                return;
+            }
+            org.json.JSONObject o = new org.json.JSONObject();
+            o.put("v", 1);
+            o.put("pid", String.valueOf(HomeClock.field(maker, "c")));
+            o.put("db", new org.json.JSONArray().put(b.left).put(b.top).put(b.right).put(b.bottom));
+            o.put("aspect", aspect(v));
+            int[] fp = fingerprint(v);
+            if (fp != null) {
+                org.json.JSONArray a = new org.json.JSONArray();
+                for (int x : fp) {
+                    a.put(x);
+                }
+                o.put("fp", a);
+            }
+            o.put("vw", v.getWidth());
+            o.put("vh", v.getHeight());
+            o.put("s", s);
+            o.put("deg", shownDeg());
+            o.put("tx", tx);
+            o.put("ty", ty);
+            o.put("fill", sFill);
+            Integer col = sLastFillColor;
+            if (sFill == FILL_COLOR && col != null) {
+                o.put("color", col);
+            }
+            String st = HomeClock.styleName();
+            if (st != null) {
+                o.put("style", st);
+            }
+            android.provider.Settings.System.putString(v.getContext().getContentResolver(), KEY_XF, o.toString());
+            Log.i(TAG, "home save: transform saved for the re-edit: " + o);
+        } catch (Throwable t) {
+            Log.e(TAG, "saveRecord", t);
+        }
+    }
+
+    /** Home save without T (or a frame layout): no transform to restore next time. */
+    static void clearRecord(View v, Object maker) {
+        try {
+            Context c = v != null ? v.getContext() : (Context) HomeClock.field(maker, "a");
+            if (c != null && android.provider.Settings.System.getString(c.getContentResolver(), KEY_XF) != null) {
+                android.provider.Settings.System.putString(c.getContentResolver(), KEY_XF, null);
+                Log.i(TAG, "home save: no transform, saved transform cleared");
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "clearRecord", t);
+        }
+    }
+
+    /**
+     * The picture's coarse luminance: 8 x 8 blocks of 4 x 4 samples each, 0..255 (the main picture's own bitmap, layer 0
+     * of Samsung's drawable). Tolerant of re-encoding, scaling and blur, not of another picture.
+     */
+    static int[] fingerprint(View v) {
+        try {
+            Drawable outer = outer(v);
+            Drawable base = ((ImageView) v).getDrawable();
+            if (base == outer && outer instanceof LayerDrawable && ((LayerDrawable) outer).getNumberOfLayers() > 0) {
+                base = ((LayerDrawable) outer).getDrawable(0);
+            }
+            Bitmap b = software(bitmapOf(base));
+            if (b == null) {
+                return null;
+            }
+            int w = b.getWidth(), h = b.getHeight();
+            int[] out = new int[64];
+            for (int by = 0; by < 8; by++) {
+                for (int bx = 0; bx < 8; bx++) {
+                    int sum = 0;
+                    for (int sy = 0; sy < 4; sy++) {
+                        for (int sx = 0; sx < 4; sx++) {
+                            int x = Math.min(w - 1, (int) ((bx * 4 + sx + 0.5f) * w / 32f));
+                            int y = Math.min(h - 1, (int) ((by * 4 + sy + 0.5f) * h / 32f));
+                            int p = b.getPixel(x, y);
+                            sum += (Color.red(p) * 77 + Color.green(p) * 150 + Color.blue(p) * 29) >> 8;
+                        }
+                    }
+                    out[by * 8 + bx] = sum / 16;
+                }
+            }
+            return out;
+        } catch (Throwable t) {
+            Log.w(TAG, "fingerprint", t);
+            return null;
+        }
+    }
+
+    static boolean near(org.json.JSONArray a, RectF b, float tol) throws org.json.JSONException {
+        return Math.abs(a.getDouble(0) - b.left) <= tol && Math.abs(a.getDouble(1) - b.top) <= tol
+                && Math.abs(a.getDouble(2) - b.right) <= tol && Math.abs(a.getDouble(3) - b.bottom) <= tol;
+    }
+
+    /**
+     * MaskImageView.onDraw of the Home editor until settled: a re-edit (intent re_edit_screen) of the profile the saved
+     * transform belongs to gets it back as soon as the main picture shows exactly the crop that transform was saved
+     * with (CropImageController.z restores Samsung's crop right after the picture is set, before the subject
+     * detection). Given up at the first touch, in a frame layout, or after 20 s.
+     */
+    static void tryRestore(View v) {
+        try {
+            if (!sPendingRead) {
+                sPendingRead = true;
+                Activity a = activity(v);
+                boolean reedit = a != null && a.getIntent().getBooleanExtra("re_edit_screen", false);
+                String json = android.provider.Settings.System.getString(v.getContext().getContentResolver(), KEY_XF);
+                if (!reedit || json == null || json.isEmpty()) {
+                    if (json != null && !json.isEmpty()) {
+                        Log.i(TAG, "saved home picture transform not for this editor (not a re-edit)");
+                    }
+                    return;
+                }
+                org.json.JSONObject o = new org.json.JSONObject(json);
+                String pid = profileOf(a), saved = o.optString("pid", null);
+                if (pid != null && saved != null && !"0".equals(saved) && !pid.equals(saved)) {
+                    Log.i(TAG, "saved home picture transform is for profile " + saved + ", this re-edit is " + pid);
+                    return;
+                }
+                sPending = o;
+                sPendingUntil = android.os.SystemClock.uptimeMillis() + 20000;
+                Log.i(TAG, "re-edit of profile " + pid + ": waiting for the saved crop to restore the transform");
+            }
+            org.json.JSONObject o = sPending;
+            if (o == null || !isMain(v) || v.getWidth() == 0 || sFrameLayout || sView.get() != null && sView.get() != v) {
+                return;
+            }
+            if (android.os.SystemClock.uptimeMillis() > sPendingUntil) {
+                sPending = null;
+                Log.i(TAG, "saved home picture transform not restored: the saved crop never showed");
+                return;
+            }
+            RectF b = bounds(v);
+            float asp = aspect(v);
+            if (b == null || asp == 0f || !near(o.getJSONArray("db"), b, 1.5f)
+                    || Math.abs(asp - o.getDouble("aspect")) > 0.005 * asp) {
+                return;
+            }
+            // the same picture (a re-edit decodes Samsung's own copy of it: compared coarsely)
+            org.json.JSONArray fp = o.optJSONArray("fp");
+            int[] now = fingerprint(v);
+            if (fp == null || now == null || fp.length() != now.length) {
+                sPending = null;
+                Log.i(TAG, "saved home picture transform not restored: no picture fingerprint");
+                return;
+            }
+            long sum = 0;
+            int max = 0;
+            for (int i = 0; i < now.length; i++) {
+                int d = Math.abs(now[i] - fp.getInt(i));
+                sum += d;
+                max = Math.max(max, d);
+            }
+            if (sum > 8L * now.length || max > 48) {
+                sPending = null;
+                Log.i(TAG, "saved home picture transform not restored: another picture (fingerprint mean " + (sum / now.length) + ", max " + max + ")");
+                return;
+            }
+            float kx = v.getWidth() / (float) o.getInt("vw"), ky = v.getHeight() / (float) o.getInt("vh");
+            sPending = null;
+            sView = new WeakReference<>(v);
+            s = (float) o.getDouble("s");
+            deg = (float) o.getDouble("deg");
+            tx = (float) o.getDouble("tx") * kx;
+            ty = (float) o.getDouble("ty") * ky;
+            sFill = o.optInt("fill", FILL_COLOR);
+            if (o.has("color")) {
+                sFixedColor = o.getInt("color");
+                sFixedStyle = o.has("style") ? o.getString("style") : null;
+            }
+            Log.i(TAG, String.format(java.util.Locale.US, "re-edit: home picture transform restored: scale %.3f, %.1f deg, offset %.0f,%.0f, fill %s, crop %s",
+                    s, shownDeg(), tx, ty, sFill == FILL_BLUR ? "blur" : "colour", b));
+            redraw(v);
+            showSwitchLater(v);
+        } catch (Throwable t) {
+            sPending = null;
+            Log.e(TAG, "tryRestore", t);
+        }
     }
 
     // ---- touch ----
@@ -205,8 +530,15 @@ public final class EditXf {
             return e;
         }
         try {
-            if (!handles(v)) {
-                return e;
+            if (e.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                layout(v);
+                if (sPending != null) {
+                    Log.i(TAG, "saved home picture transform not restored: the picture was touched first");
+                    sPending = null;
+                }
+            }
+            if (sFrameLayout || !isMain(v) || !handles(v)) {
+                return e; // frame layout views (or the frame layout itself): stock
             }
             noStretch(v);
             if (sView.get() != v) {
@@ -441,7 +773,7 @@ public final class EditXf {
 
     /** CropImageView.N(scaleFactor) start: the factor Samsung's zoom gets. */
     public static float scale(View v, float f) {
-        if (!mine(v) || f == 1f || Float.isNaN(f)) {
+        if (!mine(v) || sFrameLayout || f == 1f || Float.isNaN(f)) {
             return f;
         }
         try {
@@ -478,7 +810,10 @@ public final class EditXf {
 
     /** CropImageView.onDraw start: true when the picture was drawn here (zoomed out or rotated). */
     public static boolean draw(View v, Canvas c) {
-        if (!mine(v) || identity()) {
+        if (HomeClock.active && (sPending != null || !sPendingRead) && v != null && CROP.equals(v.getClass().getName())) {
+            tryRestore(v);
+        }
+        if (!mine(v) || identity() || sFrameLayout) {
             return false;
         }
         try {
@@ -534,6 +869,16 @@ public final class EditXf {
         Bitmap mask = subjectMask();
         if (pic == null) {
             return Color.BLACK;
+        }
+        Integer fixed = sFixedColor;
+        if (fixed != null) {
+            // restored with a saved transform: the colour the saved wallpaper was filled with, while the picture's
+            // Effect is the one it was saved with (a re-edit decodes Samsung's own copy of the picture)
+            if (java.util.Objects.equals(sFixedStyle, HomeClock.styleName())) {
+                return fixed;
+            }
+            sFixedColor = null;
+            Log.i(TAG, "fill colour: Effect changed, from the picture again");
         }
         if (pic == sColorFor && mask == sColorMask) {
             return sColor;
@@ -659,8 +1004,13 @@ public final class EditXf {
                 return;
             }
         }
-        c.drawColor(borderColor(pic));
+        int col = borderColor(pic);
+        sLastFillColor = col;
+        c.drawColor(col);
     }
+
+    /** The colour the last colour fill used (saved with the transform). */
+    static volatile Integer sLastFillColor;
 
     /**
      * The picture through T over the fill ({@link #fill}), then (editor only) Samsung's other layers.
@@ -747,7 +1097,17 @@ public final class EditXf {
      */
     public static void bakeBackground(Object maker, RectF port, RectF land, RectF square) {
         sBaked = new WeakReference<>(null);
-        if (!HomeClock.active || identity() || maker == null || port == null || land == null || square == null) {
+        if (!HomeClock.active || maker == null) {
+            return;
+        }
+        if (sFrameLayout || identity()) {
+            if (sFrameLayout) {
+                Log.i(TAG, "home save: frame layout, saved as Samsung composed it");
+            }
+            clearRecord(sView.get(), maker);
+            return;
+        }
+        if (port == null || land == null || square == null) {
             return;
         }
         try {
@@ -765,6 +1125,20 @@ public final class EditXf {
             set(maker, "h", bg);
             set(maker, "o", 0f);
             set(maker, "p", 0f);
+            // setWallpaper.xml's background node describes the rendered picture, not the original
+            set(maker, "q", (float) w);
+            set(maker, "r", (float) h);
+            set(maker, "w", new RectF(0f, 0f, w, h));
+            try {
+                Object full = HomeClock.field(maker, "v");
+                if (full instanceof RectF) {
+                    ((RectF) full).set(0f, 0f, w, h);
+                    set(maker, "s", (float) w);
+                    set(maker, "t", (float) h);
+                }
+            } catch (Throwable ignored) {
+            }
+            saveRecord(v, maker);
             port.set(0f, 0f, w, h);
             float lh = w * (float) w / h; // landscape crop (h x w screen) out of the portrait picture
             land.set(0f, (h - lh) / 2f, w, (h + lh) / 2f);
@@ -798,22 +1172,22 @@ public final class EditXf {
             int w = size.getWidth(), h = size.getHeight();
             ImageView iv = (ImageView) v;
             Drawable outer = outer(v);
-            Bitmap sb = sv.subject.getBitmap();
-            if (outer == null || sb == null) {
+            Bitmap full = sv.subject.getBitmap(); // full picture size: the frame of reference of Samsung's bounds
+            if (outer == null || full == null || obj == null) {
                 return obj;
             }
-            if (sb.getConfig() == Bitmap.Config.HARDWARE) {
-                sb = sb.copy(Bitmap.Config.ARGB_8888, false);
-            }
+            // Samsung's own subject for the save (ImagePreviewController.Z2: the Effect's colour, grayscale or blurred
+            // variant), cut to its bounds in picture pixels: placed there on the picture, drawn through the same T
+            Bitmap sb = software(obj);
+            Rect pb = outer.getBounds();
+            float kx = pb.width() / (float) full.getWidth(), ky = pb.height() / (float) full.getHeight();
+            RectF dst = new RectF(pb.left + bounds.left * kx, pb.top + bounds.top * ky, pb.left + bounds.right * kx, pb.top + bounds.bottom * ky);
             Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
             Canvas c = new Canvas(out);
             c.scale(w / (float) v.getWidth(), h / (float) v.getHeight());
             c.concat(matrix(v));
             c.concat(imageMatrix(iv));
-            BitmapDrawable d = new BitmapDrawable(v.getResources(), sb);
-            d.setFilterBitmap(true);
-            d.setBounds(outer.getBounds());
-            d.draw(c);
+            c.drawBitmap(sb, null, dst, new Paint(Paint.FILTER_BITMAP_FLAG));
             bounds.set(0, 0, w, h);
             sObjBaked.set(Boolean.TRUE);
             Log.i(TAG, "home save: subject rendered " + w + "x" + h);
@@ -915,7 +1289,17 @@ public final class EditXf {
         }
     }
 
-    /** Every frame of the Home editor (HomeClock's pre-draw): the switch is back once Samsung re-hid its slot. */
+    /** Every frame of the Home editor (HomeClock's pre-draw): layout check, and the fill switch kept shown. */
+    static void frame(View lock) {
+        try {
+            layout(lock);
+        } catch (Throwable t) {
+            Log.w(TAG, "layout", t);
+        }
+        keepSwitch();
+    }
+
+    /** The switch is back once Samsung re-hid its slot. */
     static void keepSwitch() {
         View crop = sView.get();
         View sw = sSwitch.get();

@@ -48,7 +48,7 @@
 
 # virtual methods
 .method public onPreDraw()Z
-    .locals 3
+    .locals 4
 
     sget-boolean v0, Lcom/k4/dressroom/HomeClock;->active:Z
 
@@ -81,11 +81,13 @@
     :cond_0
     iget v0, p0, Lcom/k4/dressroom/HomeClock$1;->val$star:I
 
-    iget p0, p0, Lcom/k4/dressroom/HomeClock$1;->val$clock:I
+    iget v3, p0, Lcom/k4/dressroom/HomeClock$1;->val$clock:I
 
-    invoke-static {v2, v0, p0}, Lcom/k4/dressroom/HomeClock;->clockOnly(Landroid/view/ViewGroup;II)V
+    invoke-static {v2, v0, v3}, Lcom/k4/dressroom/HomeClock;->clockOnly(Landroid/view/ViewGroup;II)V
 
-    invoke-static {}, Lcom/k4/dressroom/EditXf;->keepSwitch()V
+    iget-object p0, p0, Lcom/k4/dressroom/HomeClock$1;->val$g:Landroid/view/ViewGroup;
+
+    invoke-static {p0}, Lcom/k4/dressroom/EditXf;->frame(Landroid/view/View;)V
 
     invoke-static {}, Lcom/k4/dressroom/HomeClock;->-$$Nest$sfgetsMediator()Ljava/lang/ref/WeakReference;
 

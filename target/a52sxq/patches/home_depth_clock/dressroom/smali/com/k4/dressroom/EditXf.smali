@@ -18,6 +18,8 @@
 
 .field static final FILL_COLOR:I = 0x0
 
+.field static final KEY_XF:Ljava/lang/String; = "k4_home_clock_xf"
+
 .field static final MAX_DEG:F = 45.0f
 
 .field static final MIN_S:F = 0.5f
@@ -82,6 +84,12 @@
 
 .field static volatile sFill:I
 
+.field static volatile sFixedColor:Ljava/lang/Integer;
+
+.field static volatile sFixedStyle:Ljava/lang/String;
+
+.field static volatile sFrameLayout:Z
+
 .field private static sFx:F
 
 .field private static sFy:F
@@ -89,6 +97,8 @@
 .field private static sGuide:Lcom/k4/dressroom/EditXf$Guide;
 
 .field private static sKeepStretch:Ljava/lang/Boolean;
+
+.field static volatile sLastFillColor:Ljava/lang/Integer;
 
 .field private static final sObjBaked:Ljava/lang/ThreadLocal;
     .annotation system Ldalvik/annotation/Signature;
@@ -99,6 +109,12 @@
         }
     .end annotation
 .end field
+
+.field private static volatile sPending:Lorg/json/JSONObject;
+
+.field private static sPendingRead:Z
+
+.field private static sPendingUntil:J
 
 .field private static sRotBase:F
 
@@ -232,6 +248,45 @@
     return-void
 .end method
 
+.method static activity(Landroid/view/View;)Landroid/app/Activity;
+    .locals 1
+
+    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
+
+    move-result-object p0
+
+    :goto_0
+    instance-of v0, p0, Landroid/content/ContextWrapper;
+
+    if-eqz v0, :cond_0
+
+    instance-of v0, p0, Landroid/app/Activity;
+
+    if-nez v0, :cond_0
+
+    check-cast p0, Landroid/content/ContextWrapper;
+
+    invoke-virtual {p0}, Landroid/content/ContextWrapper;->getBaseContext()Landroid/content/Context;
+
+    move-result-object p0
+
+    goto :goto_0
+
+    :cond_0
+    instance-of v0, p0, Landroid/app/Activity;
+
+    if-eqz v0, :cond_1
+
+    check-cast p0, Landroid/app/Activity;
+
+    return-object p0
+
+    :cond_1
+    const/4 p0, 0x0
+
+    return-object p0
+.end method
+
 .method static angle(Landroid/view/MotionEvent;I)F
     .locals 4
 
@@ -341,6 +396,49 @@
     return-void
 .end method
 
+.method static aspect(Landroid/view/View;)F
+    .locals 1
+
+    check-cast p0, Landroid/widget/ImageView;
+
+    invoke-virtual {p0}, Landroid/widget/ImageView;->getDrawable()Landroid/graphics/drawable/Drawable;
+
+    move-result-object p0
+
+    if-eqz p0, :cond_1
+
+    invoke-virtual {p0}, Landroid/graphics/drawable/Drawable;->getIntrinsicHeight()I
+
+    move-result v0
+
+    if-gtz v0, :cond_0
+
+    goto :goto_0
+
+    :cond_0
+    invoke-virtual {p0}, Landroid/graphics/drawable/Drawable;->getIntrinsicWidth()I
+
+    move-result v0
+
+    int-to-float v0, v0
+
+    invoke-virtual {p0}, Landroid/graphics/drawable/Drawable;->getIntrinsicHeight()I
+
+    move-result p0
+
+    int-to-float p0, p0
+
+    div-float/2addr v0, p0
+
+    return v0
+
+    :cond_1
+    :goto_0
+    const/4 p0, 0x0
+
+    return p0
+.end method
+
 .method static atMin(Landroid/view/View;)Z
     .locals 4
 
@@ -411,37 +509,47 @@
 .method public static bakeBackground(Ljava/lang/Object;Landroid/graphics/RectF;Landroid/graphics/RectF;Landroid/graphics/RectF;)V
     .locals 10
 
-    const-string v1, "K4HomeClock"
-
     new-instance v0, Ljava/lang/ref/WeakReference;
 
-    const/4 v2, 0x0
+    const/4 v1, 0x0
 
-    invoke-direct {v0, v2}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
+    invoke-direct {v0, v1}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
 
     sput-object v0, Lcom/k4/dressroom/EditXf;->sBaked:Ljava/lang/ref/WeakReference;
 
     sget-boolean v0, Lcom/k4/dressroom/HomeClock;->active:Z
 
-    if-eqz v0, :cond_3
+    if-eqz v0, :cond_8
+
+    if-nez p0, :cond_0
+
+    goto/16 :goto_2
+
+    :cond_0
+    sget-boolean v0, Lcom/k4/dressroom/EditXf;->sFrameLayout:Z
+
+    const-string v1, "K4HomeClock"
+
+    if-nez v0, :cond_6
 
     invoke-static {}, Lcom/k4/dressroom/EditXf;->identity()Z
 
     move-result v0
 
-    if-nez v0, :cond_3
-
-    if-eqz p0, :cond_3
-
-    if-eqz p1, :cond_3
-
-    if-eqz p2, :cond_3
-
-    if-nez p3, :cond_0
+    if-eqz v0, :cond_1
 
     goto/16 :goto_1
 
-    :cond_0
+    :cond_1
+    if-eqz p1, :cond_8
+
+    if-eqz p2, :cond_8
+
+    if-nez p3, :cond_2
+
+    goto/16 :goto_2
+
+    :cond_2
     :try_start_0
     sget-object v0, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
 
@@ -451,23 +559,23 @@
 
     check-cast v0, Landroid/view/View;
 
-    if-eqz v0, :cond_2
+    if-eqz v0, :cond_5
 
     invoke-virtual {v0}, Landroid/view/View;->getWidth()I
 
     move-result v2
 
-    if-eqz v2, :cond_2
+    if-eqz v2, :cond_5
 
     invoke-virtual {v0}, Landroid/view/View;->getHeight()I
 
     move-result v2
 
-    if-nez v2, :cond_1
+    if-nez v2, :cond_3
 
     goto/16 :goto_0
 
-    :cond_1
+    :cond_3
     invoke-static {p0}, Lcom/k4/dressroom/EditXf;->screen(Ljava/lang/Object;)Landroid/util/Size;
 
     move-result-object v2
@@ -518,29 +626,93 @@
 
     invoke-static {v0, v5, v7, v9}, Lcom/k4/dressroom/EditXf;->paint(Landroid/view/View;Landroid/graphics/Canvas;ZZ)V
 
-    const-string v0, "h"
+    const-string v5, "h"
 
-    invoke-static {p0, v0, v4}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+    invoke-static {p0, v5, v4}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
 
-    const-string v0, "o"
+    const-string v5, "o"
 
-    const/4 v5, 0x0
+    const/4 v7, 0x0
 
-    invoke-static {v5}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+    invoke-static {v7}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
 
-    move-result-object v7
+    move-result-object v9
 
-    invoke-static {p0, v0, v7}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+    invoke-static {p0, v5, v9}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
 
-    const-string v0, "p"
+    const-string v5, "p"
 
-    invoke-static {v5}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+    invoke-static {v7}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
 
-    move-result-object v7
+    move-result-object v9
 
-    invoke-static {p0, v0, v7}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+    invoke-static {p0, v5, v9}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
 
-    invoke-virtual {p1, v5, v5, v6, v8}, Landroid/graphics/RectF;->set(FFFF)V
+    const-string v5, "q"
+
+    invoke-static {v6}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+
+    move-result-object v9
+
+    invoke-static {p0, v5, v9}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+
+    const-string v5, "r"
+
+    invoke-static {v8}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+
+    move-result-object v9
+
+    invoke-static {p0, v5, v9}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+
+    const-string v5, "w"
+
+    new-instance v9, Landroid/graphics/RectF;
+
+    invoke-direct {v9, v7, v7, v6, v8}, Landroid/graphics/RectF;-><init>(FFFF)V
+
+    invoke-static {p0, v5, v9}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_1
+
+    :try_start_1
+    const-string v5, "v"
+
+    invoke-static {p0, v5}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object v5
+
+    instance-of v9, v5, Landroid/graphics/RectF;
+
+    if-eqz v9, :cond_4
+
+    check-cast v5, Landroid/graphics/RectF;
+
+    invoke-virtual {v5, v7, v7, v6, v8}, Landroid/graphics/RectF;->set(FFFF)V
+
+    const-string v5, "s"
+
+    invoke-static {v6}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+
+    move-result-object v9
+
+    invoke-static {p0, v5, v9}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+
+    const-string v5, "t"
+
+    invoke-static {v8}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+
+    move-result-object v9
+
+    invoke-static {p0, v5, v9}, Lcom/k4/dressroom/EditXf;->set(Ljava/lang/Object;Ljava/lang/String;Ljava/lang/Object;)V
+    :try_end_1
+    .catchall {:try_start_1 .. :try_end_1} :catchall_0
+
+    :catchall_0
+    :cond_4
+    :try_start_2
+    invoke-static {v0, p0}, Lcom/k4/dressroom/EditXf;->saveRecord(Landroid/view/View;Ljava/lang/Object;)V
+
+    invoke-virtual {p1, v7, v7, v6, v8}, Landroid/graphics/RectF;->set(FFFF)V
 
     mul-float p1, v6, v6
 
@@ -548,29 +720,29 @@
 
     sub-float v0, v8, p1
 
-    const/high16 v7, 0x40000000    # 2.0f
+    const/high16 v5, 0x40000000    # 2.0f
 
-    div-float/2addr v0, v7
+    div-float/2addr v0, v5
 
     add-float/2addr v8, p1
 
-    div-float/2addr v8, v7
+    div-float/2addr v8, v5
 
-    invoke-virtual {p2, v5, v0, v6, v8}, Landroid/graphics/RectF;->set(FFFF)V
+    invoke-virtual {p2, v7, v0, v6, v8}, Landroid/graphics/RectF;->set(FFFF)V
 
     sub-int p1, v2, v3
 
     int-to-float p1, p1
 
-    div-float/2addr p1, v7
+    div-float/2addr p1, v5
 
     add-int p2, v2, v3
 
     int-to-float p2, p2
 
-    div-float/2addr p2, v7
+    div-float/2addr p2, v5
 
-    invoke-virtual {p3, v5, p1, v6, p2}, Landroid/graphics/RectF;->set(FFFF)V
+    invoke-virtual {p3, v7, p1, v6, p2}, Landroid/graphics/RectF;->set(FFFF)V
 
     sput-object v4, Lcom/k4/dressroom/EditXf;->sBakedBg:Landroid/graphics/Bitmap;
 
@@ -628,19 +800,19 @@
 
     invoke-static {v1, p0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    return-void
+    goto :goto_2
 
-    :cond_2
+    :cond_5
     :goto_0
     const-string p0, "home save: no editor view, picture saved without zoom-out/rotation"
 
     invoke-static {v1, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
-    :try_end_0
-    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+    :try_end_2
+    .catchall {:try_start_2 .. :try_end_2} :catchall_1
 
     return-void
 
-    :catchall_0
+    :catchall_1
     move-exception v0
 
     move-object p0, v0
@@ -649,8 +821,31 @@
 
     invoke-static {v1, p1, p0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    :cond_3
+    goto :goto_2
+
+    :cond_6
     :goto_1
+    sget-boolean p1, Lcom/k4/dressroom/EditXf;->sFrameLayout:Z
+
+    if-eqz p1, :cond_7
+
+    const-string p1, "home save: frame layout, saved as Samsung composed it"
+
+    invoke-static {v1, p1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    :cond_7
+    sget-object p1, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
+
+    invoke-virtual {p1}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object p1
+
+    check-cast p1, Landroid/view/View;
+
+    invoke-static {p1, p0}, Lcom/k4/dressroom/EditXf;->clearRecord(Landroid/view/View;Ljava/lang/Object;)V
+
+    :cond_8
+    :goto_2
     return-void
 .end method
 
@@ -671,7 +866,7 @@
 
     invoke-virtual {v4, v5}, Ljava/lang/ThreadLocal;->set(Ljava/lang/Object;)V
 
-    if-eqz v0, :cond_5
+    if-eqz v0, :cond_4
 
     sget-object v5, Lcom/k4/dressroom/EditXf;->sBaked:Ljava/lang/ref/WeakReference;
 
@@ -679,7 +874,7 @@
 
     move-result-object v5
 
-    if-ne v5, v0, :cond_5
+    if-ne v5, v0, :cond_4
 
     if-nez v1, :cond_0
 
@@ -703,13 +898,13 @@
 
     check-cast v6, Lcom/k4/dressroom/HomeClock$SubjectView;
 
-    if-eqz v5, :cond_4
+    if-eqz v5, :cond_3
 
-    if-eqz v6, :cond_4
+    if-eqz v6, :cond_3
 
     iget-object v7, v6, Lcom/k4/dressroom/HomeClock$SubjectView;->subject:Landroid/graphics/drawable/BitmapDrawable;
 
-    if-eqz v7, :cond_4
+    if-eqz v7, :cond_3
 
     iget-object v7, v6, Lcom/k4/dressroom/HomeClock$SubjectView;->crop:Landroid/widget/ImageView;
 
@@ -744,95 +939,162 @@
 
     move-result-object v6
 
-    if-eqz v9, :cond_5
+    if-eqz v9, :cond_4
 
-    if-nez v6, :cond_2
+    if-eqz v6, :cond_4
+
+    if-nez p1, :cond_2
 
     goto/16 :goto_1
 
     :cond_2
-    invoke-virtual {v6}, Landroid/graphics/Bitmap;->getConfig()Landroid/graphics/Bitmap$Config;
+    invoke-static/range {p1 .. p1}, Lcom/k4/dressroom/EditXf;->software(Landroid/graphics/Bitmap;)Landroid/graphics/Bitmap;
 
     move-result-object v10
 
-    sget-object v11, Landroid/graphics/Bitmap$Config;->HARDWARE:Landroid/graphics/Bitmap$Config;
+    invoke-virtual {v9}, Landroid/graphics/drawable/Drawable;->getBounds()Landroid/graphics/Rect;
 
-    const/4 v12, 0x0
+    move-result-object v9
 
-    if-ne v10, v11, :cond_3
+    invoke-virtual {v9}, Landroid/graphics/Rect;->width()I
 
-    sget-object v10, Landroid/graphics/Bitmap$Config;->ARGB_8888:Landroid/graphics/Bitmap$Config;
+    move-result v11
 
-    invoke-virtual {v6, v10, v12}, Landroid/graphics/Bitmap;->copy(Landroid/graphics/Bitmap$Config;Z)Landroid/graphics/Bitmap;
+    int-to-float v11, v11
 
-    move-result-object v6
+    invoke-virtual {v6}, Landroid/graphics/Bitmap;->getWidth()I
 
-    :cond_3
-    sget-object v10, Landroid/graphics/Bitmap$Config;->ARGB_8888:Landroid/graphics/Bitmap$Config;
+    move-result v12
 
-    invoke-static {v7, v0, v10}, Landroid/graphics/Bitmap;->createBitmap(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;
+    int-to-float v12, v12
 
-    move-result-object v10
+    div-float/2addr v11, v12
 
-    new-instance v11, Landroid/graphics/Canvas;
+    invoke-virtual {v9}, Landroid/graphics/Rect;->height()I
 
-    invoke-direct {v11, v10}, Landroid/graphics/Canvas;-><init>(Landroid/graphics/Bitmap;)V
+    move-result v12
 
-    int-to-float v13, v7
+    int-to-float v12, v12
 
-    invoke-virtual {v5}, Landroid/view/View;->getWidth()I
+    invoke-virtual {v6}, Landroid/graphics/Bitmap;->getHeight()I
 
-    move-result v14
+    move-result v6
+
+    int-to-float v6, v6
+
+    div-float/2addr v12, v6
+
+    new-instance v6, Landroid/graphics/RectF;
+
+    iget v13, v9, Landroid/graphics/Rect;->left:I
+
+    int-to-float v13, v13
+
+    iget v14, v1, Landroid/graphics/Rect;->left:I
 
     int-to-float v14, v14
 
-    div-float/2addr v13, v14
+    mul-float/2addr v14, v11
 
-    int-to-float v14, v0
+    add-float/2addr v13, v14
 
-    invoke-virtual {v5}, Landroid/view/View;->getHeight()I
+    iget v14, v9, Landroid/graphics/Rect;->top:I
 
-    move-result v15
+    int-to-float v14, v14
+
+    iget v15, v1, Landroid/graphics/Rect;->top:I
 
     int-to-float v15, v15
 
-    div-float/2addr v14, v15
+    mul-float/2addr v15, v12
 
-    invoke-virtual {v11, v13, v14}, Landroid/graphics/Canvas;->scale(FF)V
+    add-float/2addr v14, v15
 
-    invoke-static {v5}, Lcom/k4/dressroom/EditXf;->matrix(Landroid/view/View;)Landroid/graphics/Matrix;
+    iget v15, v9, Landroid/graphics/Rect;->left:I
 
-    move-result-object v13
+    int-to-float v15, v15
 
-    invoke-virtual {v11, v13}, Landroid/graphics/Canvas;->concat(Landroid/graphics/Matrix;)V
+    move-object/from16 p3, v5
+
+    iget v5, v1, Landroid/graphics/Rect;->right:I
+
+    int-to-float v5, v5
+
+    mul-float/2addr v5, v11
+
+    add-float/2addr v15, v5
+
+    iget v5, v9, Landroid/graphics/Rect;->top:I
+
+    int-to-float v5, v5
+
+    iget v9, v1, Landroid/graphics/Rect;->bottom:I
+
+    int-to-float v9, v9
+
+    mul-float/2addr v9, v12
+
+    add-float/2addr v5, v9
+
+    invoke-direct {v6, v13, v14, v15, v5}, Landroid/graphics/RectF;-><init>(FFFF)V
+
+    sget-object v5, Landroid/graphics/Bitmap$Config;->ARGB_8888:Landroid/graphics/Bitmap$Config;
+
+    invoke-static {v7, v0, v5}, Landroid/graphics/Bitmap;->createBitmap(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;
+
+    move-result-object v5
+
+    new-instance v9, Landroid/graphics/Canvas;
+
+    invoke-direct {v9, v5}, Landroid/graphics/Canvas;-><init>(Landroid/graphics/Bitmap;)V
+
+    int-to-float v11, v7
+
+    invoke-virtual/range {p3 .. p3}, Landroid/view/View;->getWidth()I
+
+    move-result v12
+
+    int-to-float v12, v12
+
+    div-float/2addr v11, v12
+
+    int-to-float v12, v0
+
+    invoke-virtual/range {p3 .. p3}, Landroid/view/View;->getHeight()I
+
+    move-result v13
+
+    int-to-float v13, v13
+
+    div-float/2addr v12, v13
+
+    invoke-virtual {v9, v11, v12}, Landroid/graphics/Canvas;->scale(FF)V
+
+    invoke-static/range {p3 .. p3}, Lcom/k4/dressroom/EditXf;->matrix(Landroid/view/View;)Landroid/graphics/Matrix;
+
+    move-result-object v11
+
+    invoke-virtual {v9, v11}, Landroid/graphics/Canvas;->concat(Landroid/graphics/Matrix;)V
 
     invoke-static {v8}, Lcom/k4/dressroom/EditXf;->imageMatrix(Landroid/widget/ImageView;)Landroid/graphics/Matrix;
 
     move-result-object v8
 
-    invoke-virtual {v11, v8}, Landroid/graphics/Canvas;->concat(Landroid/graphics/Matrix;)V
+    invoke-virtual {v9, v8}, Landroid/graphics/Canvas;->concat(Landroid/graphics/Matrix;)V
 
-    new-instance v8, Landroid/graphics/drawable/BitmapDrawable;
+    new-instance v8, Landroid/graphics/Paint;
 
-    invoke-virtual {v5}, Landroid/view/View;->getResources()Landroid/content/res/Resources;
+    const/4 v11, 0x2
 
-    move-result-object v5
+    invoke-direct {v8, v11}, Landroid/graphics/Paint;-><init>(I)V
 
-    invoke-direct {v8, v5, v6}, Landroid/graphics/drawable/BitmapDrawable;-><init>(Landroid/content/res/Resources;Landroid/graphics/Bitmap;)V
+    const/4 v11, 0x0
 
-    const/4 v5, 0x1
+    invoke-virtual {v9, v10, v11, v6, v8}, Landroid/graphics/Canvas;->drawBitmap(Landroid/graphics/Bitmap;Landroid/graphics/Rect;Landroid/graphics/RectF;Landroid/graphics/Paint;)V
 
-    invoke-virtual {v8, v5}, Landroid/graphics/drawable/BitmapDrawable;->setFilterBitmap(Z)V
+    const/4 v6, 0x0
 
-    invoke-virtual {v9}, Landroid/graphics/drawable/Drawable;->getBounds()Landroid/graphics/Rect;
-
-    move-result-object v5
-
-    invoke-virtual {v8, v5}, Landroid/graphics/drawable/BitmapDrawable;->setBounds(Landroid/graphics/Rect;)V
-
-    invoke-virtual {v8, v11}, Landroid/graphics/drawable/BitmapDrawable;->draw(Landroid/graphics/Canvas;)V
-
-    invoke-virtual {v1, v12, v12, v7, v0}, Landroid/graphics/Rect;->set(IIII)V
+    invoke-virtual {v1, v6, v6, v7, v0}, Landroid/graphics/Rect;->set(IIII)V
 
     sget-object v1, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
 
@@ -856,9 +1118,9 @@
 
     invoke-static {v2, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    return-object v10
+    return-object v5
 
-    :cond_4
+    :cond_3
     :goto_0
     const-string v0, "home save: no subject for the rendered picture"
 
@@ -875,7 +1137,7 @@
 
     invoke-static {v2, v1, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    :cond_5
+    :cond_4
     :goto_1
     return-object p1
 .end method
@@ -1183,7 +1445,7 @@
 .end method
 
 .method static declared-synchronized borderColor(Landroid/graphics/Bitmap;)I
-    .locals 28
+    .locals 29
 
     move-object/from16 v0, p0
 
@@ -1196,7 +1458,7 @@
 
     move-result-object v2
     :try_end_0
-    .catchall {:try_start_0 .. :try_end_0} :catchall_3
+    .catchall {:try_start_0 .. :try_end_0} :catchall_2
 
     const/high16 v3, -0x1000000
 
@@ -1208,17 +1470,29 @@
 
     :cond_0
     :try_start_1
-    sget-object v4, Lcom/k4/dressroom/EditXf;->sColorFor:Landroid/graphics/Bitmap;
+    sget-object v4, Lcom/k4/dressroom/EditXf;->sFixedColor:Ljava/lang/Integer;
 
-    if-ne v0, v4, :cond_1
+    const/4 v5, 0x0
 
-    sget-object v4, Lcom/k4/dressroom/EditXf;->sColorMask:Landroid/graphics/Bitmap;
+    if-eqz v4, :cond_2
 
-    if-ne v2, v4, :cond_1
+    sget-object v6, Lcom/k4/dressroom/EditXf;->sFixedStyle:Ljava/lang/String;
 
-    sget v0, Lcom/k4/dressroom/EditXf;->sColor:I
+    invoke-static {}, Lcom/k4/dressroom/HomeClock;->styleName()Ljava/lang/String;
+
+    move-result-object v7
+
+    invoke-static {v6, v7}, Ljava/util/Objects;->equals(Ljava/lang/Object;Ljava/lang/Object;)Z
+
+    move-result v6
+
+    if-eqz v6, :cond_1
+
+    invoke-virtual {v4}, Ljava/lang/Integer;->intValue()I
+
+    move-result v0
     :try_end_1
-    .catchall {:try_start_1 .. :try_end_1} :catchall_3
+    .catchall {:try_start_1 .. :try_end_1} :catchall_2
 
     monitor-exit v1
 
@@ -1226,6 +1500,33 @@
 
     :cond_1
     :try_start_2
+    sput-object v5, Lcom/k4/dressroom/EditXf;->sFixedColor:Ljava/lang/Integer;
+
+    const-string v4, "K4HomeClock"
+
+    const-string v6, "fill colour: Effect changed, from the picture again"
+
+    invoke-static {v4, v6}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    :cond_2
+    sget-object v4, Lcom/k4/dressroom/EditXf;->sColorFor:Landroid/graphics/Bitmap;
+
+    if-ne v0, v4, :cond_3
+
+    sget-object v4, Lcom/k4/dressroom/EditXf;->sColorMask:Landroid/graphics/Bitmap;
+
+    if-ne v2, v4, :cond_3
+
+    sget v0, Lcom/k4/dressroom/EditXf;->sColor:I
+    :try_end_2
+    .catchall {:try_start_2 .. :try_end_2} :catchall_2
+
+    monitor-exit v1
+
+    return v0
+
+    :cond_3
+    :try_start_3
     invoke-static {v0}, Lcom/k4/dressroom/EditXf;->software(Landroid/graphics/Bitmap;)Landroid/graphics/Bitmap;
 
     move-result-object v4
@@ -1240,58 +1541,53 @@
 
     invoke-virtual {v4}, Landroid/graphics/Bitmap;->getHeight()I
 
-    move-result v13
-
-    invoke-static {v7, v13}, Ljava/lang/Math;->min(II)I
-
-    move-result v5
-
-    int-to-float v5, v5
-
-    const v6, 0x3cf5c28f    # 0.03f
-
-    mul-float/2addr v5, v6
-
-    invoke-static {v5}, Ljava/lang/Math;->round(F)I
-
-    move-result v5
-
-    const/4 v6, 0x2
-
-    invoke-static {v6, v5}, Ljava/lang/Math;->max(II)I
-
     move-result v14
 
-    const/16 v15, 0x1000
+    invoke-static {v7, v14}, Ljava/lang/Math;->min(II)I
 
-    new-array v5, v15, [I
+    move-result v6
 
-    new-array v6, v15, [J
+    int-to-float v6, v6
 
-    new-array v8, v15, [J
+    const v8, 0x3cf5c28f    # 0.03f
 
-    new-array v9, v15, [J
+    mul-float/2addr v6, v8
 
-    move-object v10, v5
+    invoke-static {v6}, Ljava/lang/Math;->round(F)I
+
+    move-result v6
+
+    const/4 v8, 0x2
+
+    invoke-static {v8, v6}, Ljava/lang/Math;->max(II)I
+
+    move-result v15
+
+    const/16 v13, 0x1000
+
+    new-array v6, v13, [I
+
+    new-array v8, v13, [J
+
+    new-array v9, v13, [J
+
+    new-array v10, v13, [J
+
+    move-object v11, v5
 
     new-array v5, v7, [I
 
-    if-eqz v12, :cond_2
+    if-eqz v12, :cond_4
 
     invoke-virtual {v12}, Landroid/graphics/Bitmap;->getWidth()I
 
     move-result v11
 
     new-array v11, v11, [I
-    :try_end_2
-    .catchall {:try_start_2 .. :try_end_2} :catchall_2
+    :try_end_3
+    .catchall {:try_start_3 .. :try_end_3} :catchall_1
 
-    goto :goto_0
-
-    :cond_2
-    const/4 v11, 0x0
-
-    :goto_0
+    :cond_4
     move-object/from16 v16, v11
 
     const/16 v17, 0x0
@@ -1302,464 +1598,470 @@
 
     move/from16 v9, v17
 
-    :goto_1
-    if-ge v9, v13, :cond_a
+    :goto_0
+    const/4 v3, 0x1
 
-    const/16 v19, 0x1
+    if-ge v9, v14, :cond_c
 
-    if-lt v9, v14, :cond_4
+    if-lt v9, v15, :cond_6
 
-    sub-int v3, v13, v14
+    sub-int v13, v14, v15
 
-    if-lt v9, v3, :cond_3
+    if-lt v9, v13, :cond_5
+
+    goto :goto_1
+
+    :cond_5
+    move/from16 v19, v17
 
     goto :goto_2
 
-    :cond_3
-    move/from16 v3, v17
+    :cond_6
+    :goto_1
+    move/from16 v19, v3
 
-    goto :goto_3
-
-    :cond_4
     :goto_2
-    move/from16 v3, v19
-
-    :goto_3
-    move-object/from16 v20, v8
+    move-object v13, v8
 
     const/4 v8, 0x0
 
-    move-object/from16 v21, v11
+    move-object/from16 v20, v11
 
     const/4 v11, 0x1
 
-    move-object/from16 v22, v6
+    move-object/from16 v21, v6
 
     const/4 v6, 0x0
 
-    move-object/from16 v23, v10
+    move-object/from16 v22, v10
 
     move v10, v7
 
-    :try_start_3
+    move-object/from16 v23, v22
+
+    move-object/from16 v22, v20
+
+    move-object/from16 v20, v13
+
+    :try_start_4
     invoke-virtual/range {v4 .. v11}, Landroid/graphics/Bitmap;->getPixels([IIIIIII)V
 
     move-object/from16 v24, v5
 
+    move v5, v7
+
     move/from16 v25, v9
 
-    if-eqz v12, :cond_5
-
-    invoke-virtual {v12}, Landroid/graphics/Bitmap;->getHeight()I
-
-    move-result v5
-
-    add-int/lit8 v5, v5, -0x1
+    if-eqz v12, :cond_7
 
     invoke-virtual {v12}, Landroid/graphics/Bitmap;->getHeight()I
 
     move-result v6
 
-    mul-int v9, v25, v6
+    sub-int/2addr v6, v3
 
-    div-int/2addr v9, v13
+    invoke-virtual {v12}, Landroid/graphics/Bitmap;->getHeight()I
 
-    invoke-static {v5, v9}, Ljava/lang/Math;->min(II)I
+    move-result v7
 
-    move-result v5
+    mul-int v9, v25, v7
 
-    move v10, v5
+    div-int/2addr v9, v14
+
+    invoke-static {v6, v9}, Ljava/lang/Math;->min(II)I
+
+    move-result v6
+
+    move v11, v6
+
+    goto :goto_3
+
+    :cond_7
+    move/from16 v11, v17
+
+    :goto_3
+    if-eqz v12, :cond_8
+
+    invoke-virtual {v12}, Landroid/graphics/Bitmap;->getWidth()I
+
+    move-result v9
+
+    move-object v6, v12
+
+    invoke-virtual {v6}, Landroid/graphics/Bitmap;->getWidth()I
+
+    move-result v12
+
+    const/4 v13, 0x1
+
+    const/4 v8, 0x0
+
+    const/4 v10, 0x0
+
+    move/from16 v26, v3
+
+    move-object/from16 v7, v16
+
+    const/16 v3, 0x1000
+
+    invoke-virtual/range {v6 .. v13}, Landroid/graphics/Bitmap;->getPixels([IIIIIII)V
 
     goto :goto_4
 
-    :cond_5
-    move/from16 v10, v17
+    :cond_8
+    move/from16 v26, v3
+
+    move-object v6, v12
+
+    move-object/from16 v7, v16
+
+    const/16 v3, 0x1000
 
     :goto_4
-    if-eqz v12, :cond_6
-
-    invoke-virtual {v12}, Landroid/graphics/Bitmap;->getWidth()I
-
-    move-result v8
-
-    invoke-virtual {v12}, Landroid/graphics/Bitmap;->getWidth()I
-
-    move-result v11
-
-    move-object v5, v12
-
-    const/4 v12, 0x1
-
-    move v6, v7
-
-    const/4 v7, 0x0
-
-    const/4 v9, 0x0
-
-    move v15, v6
-
-    move-object/from16 v6, v16
-
-    invoke-virtual/range {v5 .. v12}, Landroid/graphics/Bitmap;->getPixels([IIIIIII)V
-
-    goto :goto_5
-
-    :cond_6
-    move v15, v7
-
-    move-object v5, v12
-
-    move-object/from16 v6, v16
+    move/from16 v8, v17
 
     :goto_5
-    move/from16 v7, v17
+    if-ge v8, v5, :cond_b
+
+    if-nez v19, :cond_9
+
+    if-lt v8, v15, :cond_9
+
+    sub-int v9, v5, v15
+
+    if-ge v8, v9, :cond_9
+
+    add-int/lit8 v8, v9, -0x1
 
     :goto_6
-    if-ge v7, v15, :cond_9
-
-    if-nez v3, :cond_7
-
-    if-lt v7, v14, :cond_7
-
-    sub-int v8, v15, v14
-
-    if-ge v7, v8, :cond_7
-
-    add-int/lit8 v7, v8, -0x1
-
-    :goto_7
-    move-object v12, v1
-
-    goto :goto_8
-
-    :cond_7
-    if-eqz v5, :cond_8
-
-    invoke-virtual {v5}, Landroid/graphics/Bitmap;->getWidth()I
-
-    move-result v8
-
-    add-int/lit8 v8, v8, -0x1
-
-    invoke-virtual {v5}, Landroid/graphics/Bitmap;->getWidth()I
-
-    move-result v9
-
-    mul-int/2addr v9, v7
-
-    div-int/2addr v9, v15
-
-    invoke-static {v8, v9}, Ljava/lang/Math;->min(II)I
-
-    move-result v8
-
-    aget v8, v6, v8
-
-    invoke-static {v8}, Landroid/graphics/Color;->alpha(I)I
-
-    move-result v8
-
-    if-lez v8, :cond_8
+    move-object v13, v4
 
     goto :goto_7
 
-    :cond_8
-    aget v8, v24, v7
+    :cond_9
+    if-eqz v6, :cond_a
 
-    invoke-static {v8}, Landroid/graphics/Color;->alpha(I)I
+    invoke-virtual {v6}, Landroid/graphics/Bitmap;->getWidth()I
 
     move-result v9
 
-    invoke-static {v8}, Landroid/graphics/Color;->red(I)I
+    add-int/lit8 v9, v9, -0x1
+
+    invoke-virtual {v6}, Landroid/graphics/Bitmap;->getWidth()I
 
     move-result v10
 
-    mul-int/2addr v10, v9
+    mul-int/2addr v10, v8
 
-    div-int/lit16 v10, v10, 0xff
+    div-int/2addr v10, v5
 
-    invoke-static {v8}, Landroid/graphics/Color;->green(I)I
+    invoke-static {v9, v10}, Ljava/lang/Math;->min(II)I
 
-    move-result v11
+    move-result v9
 
-    mul-int/2addr v11, v9
+    aget v9, v7, v9
 
-    div-int/lit16 v11, v11, 0xff
+    invoke-static {v9}, Landroid/graphics/Color;->alpha(I)I
 
-    invoke-static {v8}, Landroid/graphics/Color;->blue(I)I
+    move-result v9
 
-    move-result v8
-
-    mul-int/2addr v8, v9
-
-    div-int/lit16 v8, v8, 0xff
-
-    shr-int/lit8 v9, v10, 0x4
-
-    shl-int/lit8 v9, v9, 0x8
-
-    shr-int/lit8 v12, v11, 0x4
-
-    shl-int/lit8 v12, v12, 0x4
-
-    or-int/2addr v9, v12
-
-    shr-int/lit8 v12, v8, 0x4
-
-    or-int/2addr v9, v12
-
-    aget v12, v23, v9
-
-    add-int/lit8 v12, v12, 0x1
-
-    aput v12, v23, v9
-
-    aget-wide v26, v22, v9
-    :try_end_3
-    .catchall {:try_start_3 .. :try_end_3} :catchall_0
-
-    move-object v12, v1
-
-    int-to-long v0, v10
-
-    add-long v26, v26, v0
-
-    :try_start_4
-    aput-wide v26, v22, v9
-
-    aget-wide v0, v20, v9
-
-    int-to-long v10, v11
-
-    add-long/2addr v0, v10
-
-    aput-wide v0, v20, v9
-
-    aget-wide v0, v21, v9
-
-    int-to-long v10, v8
-
-    add-long/2addr v0, v10
-
-    aput-wide v0, v21, v9
-
-    :goto_8
-    add-int/lit8 v7, v7, 0x1
-
-    move-object/from16 v0, p0
-
-    move-object v1, v12
+    if-lez v9, :cond_a
 
     goto :goto_6
 
-    :cond_9
-    move-object v12, v1
+    :cond_a
+    aget v9, v24, v8
+
+    invoke-static {v9}, Landroid/graphics/Color;->alpha(I)I
+
+    move-result v10
+
+    invoke-static {v9}, Landroid/graphics/Color;->red(I)I
+
+    move-result v11
+
+    mul-int/2addr v11, v10
+
+    div-int/lit16 v11, v11, 0xff
+
+    invoke-static {v9}, Landroid/graphics/Color;->green(I)I
+
+    move-result v12
+
+    mul-int/2addr v12, v10
+
+    div-int/lit16 v12, v12, 0xff
+
+    invoke-static {v9}, Landroid/graphics/Color;->blue(I)I
+
+    move-result v9
+
+    mul-int/2addr v9, v10
+
+    div-int/lit16 v9, v9, 0xff
+
+    shr-int/lit8 v10, v11, 0x4
+
+    shl-int/lit8 v10, v10, 0x8
+
+    shr-int/lit8 v13, v12, 0x4
+
+    shl-int/lit8 v13, v13, 0x4
+
+    or-int/2addr v10, v13
+
+    shr-int/lit8 v13, v9, 0x4
+
+    or-int/2addr v10, v13
+
+    aget v13, v21, v10
+
+    add-int/lit8 v13, v13, 0x1
+
+    aput v13, v21, v10
+
+    aget-wide v27, v20, v10
+
+    move-object v13, v4
+
+    int-to-long v3, v11
+
+    add-long v27, v27, v3
+
+    aput-wide v27, v20, v10
+
+    aget-wide v3, v22, v10
+
+    int-to-long v11, v12
+
+    add-long/2addr v3, v11
+
+    aput-wide v3, v22, v10
+
+    aget-wide v3, v23, v10
+
+    int-to-long v11, v9
+
+    add-long/2addr v3, v11
+
+    aput-wide v3, v23, v10
+
+    :goto_7
+    add-int/lit8 v8, v8, 0x1
+
+    move-object v4, v13
+
+    const/16 v3, 0x1000
+
+    goto :goto_5
+
+    :cond_b
+    move-object v13, v4
 
     add-int/lit8 v9, v25, 0x1
 
-    move-object/from16 v0, p0
+    move-object v12, v6
 
-    move-object/from16 v16, v6
-
-    move v7, v15
+    move-object/from16 v16, v7
 
     move-object/from16 v8, v20
 
-    move-object/from16 v11, v21
+    move-object/from16 v6, v21
 
-    move-object/from16 v6, v22
+    move-object/from16 v11, v22
 
     move-object/from16 v10, v23
 
-    const/16 v15, 0x1000
+    const/16 v13, 0x1000
 
-    move-object v12, v5
+    move v7, v5
 
     move-object/from16 v5, v24
 
-    goto/16 :goto_1
+    goto/16 :goto_0
 
-    :catchall_0
-    move-exception v0
+    :cond_c
+    move/from16 v26, v3
 
-    move-object v12, v1
-
-    goto/16 :goto_c
-
-    :cond_a
-    move-object/from16 v22, v6
+    move-object/from16 v21, v6
 
     move-object/from16 v20, v8
 
     move-object/from16 v23, v10
 
-    move-object/from16 v21, v11
+    move-object/from16 v22, v11
 
-    move-object v5, v12
+    move-object v6, v12
 
-    const/16 v19, 0x1
+    move v4, v13
 
-    move-object v12, v1
+    :goto_8
+    if-ge v3, v4, :cond_e
 
-    move v1, v15
+    aget v5, v21, v3
 
-    move/from16 v0, v19
+    aget v7, v21, v17
 
-    :goto_9
-    if-ge v0, v1, :cond_c
+    if-le v5, v7, :cond_d
 
-    aget v3, v23, v0
+    move/from16 v17, v3
 
-    aget v4, v23, v17
+    :cond_d
+    add-int/lit8 v3, v3, 0x1
 
-    if-le v3, v4, :cond_b
+    goto :goto_8
 
-    move/from16 v17, v0
+    :cond_e
+    aget v3, v21, v17
 
-    :cond_b
-    add-int/lit8 v0, v0, 0x1
+    move/from16 v4, v26
+
+    invoke-static {v4, v3}, Ljava/lang/Math;->max(II)I
+
+    move-result v3
+
+    aget v4, v21, v17
+
+    if-nez v4, :cond_f
+
+    move/from16 v3, v18
 
     goto :goto_9
 
-    :cond_c
-    aget v0, v23, v17
+    :cond_f
+    aget-wide v4, v20, v17
 
-    move/from16 v1, v19
+    int-to-long v7, v3
 
-    invoke-static {v1, v0}, Ljava/lang/Math;->max(II)I
+    div-long/2addr v4, v7
 
-    move-result v0
+    long-to-int v3, v4
 
-    aget v1, v23, v17
+    aget-wide v4, v22, v17
 
-    if-nez v1, :cond_d
+    div-long/2addr v4, v7
 
-    move/from16 v0, v18
+    long-to-int v4, v4
 
-    goto :goto_a
+    aget-wide v9, v23, v17
 
-    :cond_d
-    aget-wide v3, v22, v17
+    div-long/2addr v9, v7
 
-    int-to-long v0, v0
+    long-to-int v5, v9
 
-    div-long/2addr v3, v0
+    invoke-static {v3, v4, v5}, Landroid/graphics/Color;->rgb(III)I
 
-    long-to-int v3, v3
+    move-result v3
 
-    aget-wide v6, v20, v17
+    :goto_9
+    sput v3, Lcom/k4/dressroom/EditXf;->sColor:I
 
-    div-long/2addr v6, v0
-
-    long-to-int v4, v6
-
-    aget-wide v6, v21, v17
-
-    div-long/2addr v6, v0
-
-    long-to-int v0, v6
-
-    invoke-static {v3, v4, v0}, Landroid/graphics/Color;->rgb(III)I
-
-    move-result v0
-
-    :goto_a
-    sput v0, Lcom/k4/dressroom/EditXf;->sColor:I
-
-    sput-object p0, Lcom/k4/dressroom/EditXf;->sColorFor:Landroid/graphics/Bitmap;
+    sput-object v0, Lcom/k4/dressroom/EditXf;->sColorFor:Landroid/graphics/Bitmap;
 
     sput-object v2, Lcom/k4/dressroom/EditXf;->sColorMask:Landroid/graphics/Bitmap;
 
-    const-string v1, "K4HomeClock"
+    const-string v0, "K4HomeClock"
 
     const-string v2, "fill colour #%06x (%d of the border ring\'s pixels%s)"
 
-    const v3, 0xffffff
+    const v4, 0xffffff
 
-    and-int/2addr v0, v3
-
-    invoke-static {v0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
-
-    move-result-object v0
-
-    aget v3, v23, v17
+    and-int/2addr v3, v4
 
     invoke-static {v3}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
 
     move-result-object v3
 
-    if-eqz v5, :cond_e
+    aget v4, v21, v17
 
-    const-string v4, ", subject skipped"
+    invoke-static {v4}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+
+    move-result-object v4
+
+    if-eqz v6, :cond_10
+
+    const-string v5, ", subject skipped"
+
+    goto :goto_a
+
+    :cond_10
+    const-string v5, ""
+
+    :goto_a
+    filled-new-array {v3, v4, v5}, [Ljava/lang/Object;
+
+    move-result-object v3
+
+    invoke-static {v2, v3}, Ljava/lang/String;->format(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v2
+
+    invoke-static {v0, v2}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_4
+    .catchall {:try_start_4 .. :try_end_4} :catchall_0
+
+    goto :goto_c
+
+    :catchall_0
+    move-exception v0
 
     goto :goto_b
-
-    :cond_e
-    const-string v4, ""
-
-    :goto_b
-    filled-new-array {v0, v3, v4}, [Ljava/lang/Object;
-
-    move-result-object v0
-
-    invoke-static {v2, v0}, Ljava/lang/String;->format(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
-
-    move-result-object v0
-
-    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
-    :try_end_4
-    .catchall {:try_start_4 .. :try_end_4} :catchall_1
-
-    goto :goto_d
 
     :catchall_1
     move-exception v0
 
-    goto :goto_c
+    move/from16 v18, v3
+
+    :goto_b
+    :try_start_5
+    const-string v2, "K4HomeClock"
+
+    const-string v3, "border colour"
+
+    invoke-static {v2, v3, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    sput v18, Lcom/k4/dressroom/EditXf;->sColor:I
+
+    :goto_c
+    sget v0, Lcom/k4/dressroom/EditXf;->sColor:I
+    :try_end_5
+    .catchall {:try_start_5 .. :try_end_5} :catchall_2
+
+    monitor-exit v1
+
+    return v0
 
     :catchall_2
     move-exception v0
 
-    move-object v12, v1
-
-    move/from16 v18, v3
-
-    :goto_c
-    :try_start_5
-    const-string v1, "K4HomeClock"
-
-    const-string v2, "border colour"
-
-    invoke-static {v1, v2, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
-
-    sput v18, Lcom/k4/dressroom/EditXf;->sColor:I
-
-    :goto_d
-    sget v0, Lcom/k4/dressroom/EditXf;->sColor:I
-    :try_end_5
-    .catchall {:try_start_5 .. :try_end_5} :catchall_4
-
-    monitor-exit v12
-
-    return v0
-
-    :catchall_3
-    move-exception v0
-
-    move-object v12, v1
-
-    :goto_e
     :try_start_6
-    monitor-exit v12
+    monitor-exit v1
     :try_end_6
-    .catchall {:try_start_6 .. :try_end_6} :catchall_4
+    .catchall {:try_start_6 .. :try_end_6} :catchall_2
 
     throw v0
+.end method
 
-    :catchall_4
-    move-exception v0
+.method static bounds(Landroid/view/View;)Landroid/graphics/RectF;
+    .locals 1
 
-    goto :goto_e
+    :try_start_0
+    const-string v0, "getDrawableBounds"
+
+    invoke-static {p0, v0}, Lcom/k4/dressroom/EditXf;->call(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object p0
+
+    check-cast p0, Landroid/graphics/RectF;
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    return-object p0
+
+    :catchall_0
+    const/4 p0, 0x0
+
+    return-object p0
 .end method
 
 .method static boxBlur([IIII)V
@@ -2043,26 +2345,129 @@
     return-void
 .end method
 
+.method static clearRecord(Landroid/view/View;Ljava/lang/Object;)V
+    .locals 2
+
+    const-string v0, "k4_home_clock_xf"
+
+    const-string v1, "K4HomeClock"
+
+    if-eqz p0, :cond_0
+
+    :try_start_0
+    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
+
+    move-result-object p0
+
+    goto :goto_0
+
+    :cond_0
+    const-string p0, "a"
+
+    invoke-static {p1, p0}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object p0
+
+    check-cast p0, Landroid/content/Context;
+
+    :goto_0
+    if-eqz p0, :cond_1
+
+    invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+
+    move-result-object p1
+
+    invoke-static {p1, v0}, Landroid/provider/Settings$System;->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object p1
+
+    if-eqz p1, :cond_1
+
+    invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+
+    move-result-object p0
+
+    const/4 p1, 0x0
+
+    invoke-static {p0, v0, p1}, Landroid/provider/Settings$System;->putString(Landroid/content/ContentResolver;Ljava/lang/String;Ljava/lang/String;)Z
+
+    const-string p0, "home save: no transform, saved transform cleared"
+
+    invoke-static {v1, p0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    return-void
+
+    :catchall_0
+    move-exception p0
+
+    const-string p1, "clearRecord"
+
+    invoke-static {v1, p1, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    :cond_1
+    return-void
+.end method
+
 .method public static draw(Landroid/view/View;Landroid/graphics/Canvas;)Z
     .locals 2
 
+    sget-boolean v0, Lcom/k4/dressroom/HomeClock;->active:Z
+
+    if-eqz v0, :cond_1
+
+    sget-object v0, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    if-nez v0, :cond_0
+
+    sget-boolean v0, Lcom/k4/dressroom/EditXf;->sPendingRead:Z
+
+    if-nez v0, :cond_1
+
+    :cond_0
+    if-eqz p0, :cond_1
+
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/Class;->getName()Ljava/lang/String;
+
+    move-result-object v0
+
+    const-string v1, "com.samsung.android.app.dressroom.presentation.preview.widget.CropImageView"
+
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_1
+
+    invoke-static {p0}, Lcom/k4/dressroom/EditXf;->tryRestore(Landroid/view/View;)V
+
+    :cond_1
     invoke-static {p0}, Lcom/k4/dressroom/EditXf;->mine(Landroid/view/View;)Z
 
     move-result v0
 
     const/4 v1, 0x0
 
-    if-eqz v0, :cond_1
+    if-eqz v0, :cond_3
 
     invoke-static {}, Lcom/k4/dressroom/EditXf;->identity()Z
 
     move-result v0
 
-    if-eqz v0, :cond_0
+    if-nez v0, :cond_3
+
+    sget-boolean v0, Lcom/k4/dressroom/EditXf;->sFrameLayout:Z
+
+    if-eqz v0, :cond_2
 
     goto :goto_0
 
-    :cond_0
+    :cond_2
     const/4 v0, 0x1
 
     :try_start_0
@@ -2081,7 +2486,7 @@
 
     invoke-static {p1, v0, p0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    :cond_1
+    :cond_3
     :goto_0
     return v1
 .end method
@@ -2196,9 +2601,366 @@
 
     move-result p0
 
+    invoke-static {p0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+
+    move-result-object p2
+
+    sput-object p2, Lcom/k4/dressroom/EditXf;->sLastFillColor:Ljava/lang/Integer;
+
     invoke-virtual {p1, p0}, Landroid/graphics/Canvas;->drawColor(I)V
 
     return-void
+.end method
+
+.method static fingerprint(Landroid/view/View;)[I
+    .locals 18
+
+    const/4 v1, 0x0
+
+    :try_start_0
+    invoke-static/range {p0 .. p0}, Lcom/k4/dressroom/EditXf;->outer(Landroid/view/View;)Landroid/graphics/drawable/Drawable;
+
+    move-result-object v0
+
+    move-object/from16 v2, p0
+
+    check-cast v2, Landroid/widget/ImageView;
+
+    invoke-virtual {v2}, Landroid/widget/ImageView;->getDrawable()Landroid/graphics/drawable/Drawable;
+
+    move-result-object v2
+
+    const/4 v3, 0x0
+
+    if-ne v2, v0, :cond_0
+
+    instance-of v4, v0, Landroid/graphics/drawable/LayerDrawable;
+
+    if-eqz v4, :cond_0
+
+    move-object v4, v0
+
+    check-cast v4, Landroid/graphics/drawable/LayerDrawable;
+
+    invoke-virtual {v4}, Landroid/graphics/drawable/LayerDrawable;->getNumberOfLayers()I
+
+    move-result v4
+
+    if-lez v4, :cond_0
+
+    check-cast v0, Landroid/graphics/drawable/LayerDrawable;
+
+    invoke-virtual {v0, v3}, Landroid/graphics/drawable/LayerDrawable;->getDrawable(I)Landroid/graphics/drawable/Drawable;
+
+    move-result-object v2
+
+    :cond_0
+    invoke-static {v2}, Lcom/k4/dressroom/EditXf;->bitmapOf(Landroid/graphics/drawable/Drawable;)Landroid/graphics/Bitmap;
+
+    move-result-object v0
+
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->software(Landroid/graphics/Bitmap;)Landroid/graphics/Bitmap;
+
+    move-result-object v0
+
+    if-nez v0, :cond_1
+
+    return-object v1
+
+    :cond_1
+    invoke-virtual {v0}, Landroid/graphics/Bitmap;->getWidth()I
+
+    move-result v2
+
+    invoke-virtual {v0}, Landroid/graphics/Bitmap;->getHeight()I
+
+    move-result v4
+
+    const/16 v5, 0x40
+
+    new-array v5, v5, [I
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_1
+
+    move v6, v3
+
+    :goto_0
+    const/16 v7, 0x8
+
+    if-ge v6, v7, :cond_5
+
+    move v8, v3
+
+    :goto_1
+    if-ge v8, v7, :cond_4
+
+    move v9, v3
+
+    move v10, v9
+
+    :goto_2
+    const/4 v11, 0x4
+
+    if-ge v9, v11, :cond_3
+
+    move v12, v3
+
+    :goto_3
+    if-ge v12, v11, :cond_2
+
+    add-int/lit8 v13, v2, -0x1
+
+    mul-int/lit8 v14, v8, 0x4
+
+    add-int/2addr v14, v12
+
+    int-to-float v14, v14
+
+    const/high16 v15, 0x3f000000    # 0.5f
+
+    add-float/2addr v14, v15
+
+    move-object/from16 v16, v1
+
+    int-to-float v1, v2
+
+    mul-float/2addr v14, v1
+
+    const/high16 v1, 0x42000000    # 32.0f
+
+    div-float/2addr v14, v1
+
+    float-to-int v14, v14
+
+    :try_start_1
+    invoke-static {v13, v14}, Ljava/lang/Math;->min(II)I
+
+    move-result v13
+
+    add-int/lit8 v14, v4, -0x1
+
+    mul-int/lit8 v17, v6, 0x4
+
+    move/from16 p0, v1
+
+    add-int v1, v17, v9
+
+    int-to-float v1, v1
+
+    add-float/2addr v1, v15
+
+    int-to-float v15, v4
+
+    mul-float/2addr v1, v15
+
+    div-float v1, v1, p0
+
+    float-to-int v1, v1
+
+    invoke-static {v14, v1}, Ljava/lang/Math;->min(II)I
+
+    move-result v1
+
+    invoke-virtual {v0, v13, v1}, Landroid/graphics/Bitmap;->getPixel(II)I
+
+    move-result v1
+
+    invoke-static {v1}, Landroid/graphics/Color;->red(I)I
+
+    move-result v13
+
+    mul-int/lit8 v13, v13, 0x4d
+
+    invoke-static {v1}, Landroid/graphics/Color;->green(I)I
+
+    move-result v14
+
+    mul-int/lit16 v14, v14, 0x96
+
+    add-int/2addr v13, v14
+
+    invoke-static {v1}, Landroid/graphics/Color;->blue(I)I
+
+    move-result v1
+
+    mul-int/lit8 v1, v1, 0x1d
+
+    add-int/2addr v13, v1
+
+    shr-int/lit8 v1, v13, 0x8
+
+    add-int/2addr v10, v1
+
+    add-int/lit8 v12, v12, 0x1
+
+    move-object/from16 v1, v16
+
+    goto :goto_3
+
+    :cond_2
+    move-object/from16 v16, v1
+
+    add-int/lit8 v9, v9, 0x1
+
+    goto :goto_2
+
+    :cond_3
+    move-object/from16 v16, v1
+
+    mul-int/lit8 v1, v6, 0x8
+
+    add-int/2addr v1, v8
+
+    div-int/lit8 v10, v10, 0x10
+
+    aput v10, v5, v1
+    :try_end_1
+    .catchall {:try_start_1 .. :try_end_1} :catchall_0
+
+    add-int/lit8 v8, v8, 0x1
+
+    move-object/from16 v1, v16
+
+    goto :goto_1
+
+    :catchall_0
+    move-exception v0
+
+    goto :goto_4
+
+    :cond_4
+    move-object/from16 v16, v1
+
+    add-int/lit8 v6, v6, 0x1
+
+    goto :goto_0
+
+    :cond_5
+    return-object v5
+
+    :catchall_1
+    move-exception v0
+
+    move-object/from16 v16, v1
+
+    :goto_4
+    const-string v1, "K4HomeClock"
+
+    const-string v2, "fingerprint"
+
+    invoke-static {v1, v2, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    return-object v16
+.end method
+
+.method static frame(Landroid/view/View;)V
+    .locals 2
+
+    :try_start_0
+    invoke-static {p0}, Lcom/k4/dressroom/EditXf;->layout(Landroid/view/View;)V
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    goto :goto_0
+
+    :catchall_0
+    move-exception p0
+
+    const-string v0, "K4HomeClock"
+
+    const-string v1, "layout"
+
+    invoke-static {v0, v1, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    :goto_0
+    invoke-static {}, Lcom/k4/dressroom/EditXf;->keepSwitch()V
+
+    return-void
+.end method
+
+.method static frameIn(Landroid/view/View;)Z
+    .locals 4
+
+    invoke-virtual {p0}, Landroid/view/View;->getVisibility()I
+
+    move-result v0
+
+    const/4 v1, 0x0
+
+    if-eqz v0, :cond_0
+
+    return v1
+
+    :cond_0
+    invoke-virtual {p0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/Class;->getName()Ljava/lang/String;
+
+    move-result-object v0
+
+    const-string v2, "com.samsung.android.app.dressroom.presentation.preview.widget.CropImageView"
+
+    invoke-virtual {v2, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v0
+
+    const/4 v2, 0x1
+
+    if-eqz v0, :cond_1
+
+    invoke-static {p0}, Lcom/k4/dressroom/EditXf;->viewType(Landroid/view/View;)Ljava/lang/String;
+
+    move-result-object v0
+
+    if-eqz v0, :cond_1
+
+    const-string v3, "FRAME_"
+
+    invoke-virtual {v0, v3}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_1
+
+    return v2
+
+    :cond_1
+    instance-of v0, p0, Landroid/view/ViewGroup;
+
+    if-eqz v0, :cond_3
+
+    check-cast p0, Landroid/view/ViewGroup;
+
+    move v0, v1
+
+    :goto_0
+    invoke-virtual {p0}, Landroid/view/ViewGroup;->getChildCount()I
+
+    move-result v3
+
+    if-ge v0, v3, :cond_3
+
+    invoke-virtual {p0, v0}, Landroid/view/ViewGroup;->getChildAt(I)Landroid/view/View;
+
+    move-result-object v3
+
+    invoke-static {v3}, Lcom/k4/dressroom/EditXf;->frameIn(Landroid/view/View;)Z
+
+    move-result v3
+
+    if-eqz v3, :cond_2
+
+    return v2
+
+    :cond_2
+    add-int/lit8 v0, v0, 0x1
+
+    goto :goto_0
+
+    :cond_3
+    return v1
 .end method
 
 .method static guide(Landroid/view/View;Z)V
@@ -2435,6 +3197,37 @@
     return-object v0
 .end method
 
+.method static isMain(Landroid/view/View;)Z
+    .locals 1
+
+    invoke-static {p0}, Lcom/k4/dressroom/EditXf;->viewType(Landroid/view/View;)Ljava/lang/String;
+
+    move-result-object p0
+
+    if-eqz p0, :cond_1
+
+    const-string v0, "NONE"
+
+    invoke-virtual {v0, p0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result p0
+
+    if-eqz p0, :cond_0
+
+    goto :goto_0
+
+    :cond_0
+    const/4 p0, 0x0
+
+    return p0
+
+    :cond_1
+    :goto_0
+    const/4 p0, 0x1
+
+    return p0
+.end method
+
 .method static keepSwitch()V
     .locals 4
 
@@ -2644,6 +3437,104 @@
     invoke-virtual {v0, p0}, Landroid/widget/TextView;->setOnClickListener(Landroid/view/View$OnClickListener;)V
 
     return-object v0
+.end method
+
+.method static layout(Landroid/view/View;)V
+    .locals 2
+
+    if-nez p0, :cond_0
+
+    goto :goto_1
+
+    :cond_0
+    invoke-virtual {p0}, Landroid/view/View;->getRootView()Landroid/view/View;
+
+    move-result-object p0
+
+    invoke-static {p0}, Lcom/k4/dressroom/EditXf;->frameIn(Landroid/view/View;)Z
+
+    move-result p0
+
+    sget-boolean v0, Lcom/k4/dressroom/EditXf;->sFrameLayout:Z
+
+    if-ne p0, v0, :cond_1
+
+    goto :goto_1
+
+    :cond_1
+    sput-boolean p0, Lcom/k4/dressroom/EditXf;->sFrameLayout:Z
+
+    if-eqz p0, :cond_2
+
+    const-string v0, "frame layout: zoom-out / tilt off, stock editor"
+
+    goto :goto_0
+
+    :cond_2
+    const-string v0, "plain layout: zoom-out / tilt available"
+
+    :goto_0
+    const-string v1, "K4HomeClock"
+
+    invoke-static {v1, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    if-eqz p0, :cond_5
+
+    const/4 p0, 0x0
+
+    sput-object p0, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    sget-object p0, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
+
+    invoke-virtual {p0}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object p0
+
+    check-cast p0, Landroid/view/View;
+
+    invoke-static {}, Lcom/k4/dressroom/EditXf;->identity()Z
+
+    move-result v0
+
+    if-nez v0, :cond_3
+
+    const/high16 v0, 0x3f800000    # 1.0f
+
+    sput v0, Lcom/k4/dressroom/EditXf;->s:F
+
+    const/4 v0, 0x0
+
+    sput v0, Lcom/k4/dressroom/EditXf;->deg:F
+
+    sput v0, Lcom/k4/dressroom/EditXf;->tx:F
+
+    sput v0, Lcom/k4/dressroom/EditXf;->ty:F
+
+    if-eqz p0, :cond_3
+
+    invoke-static {p0}, Lcom/k4/dressroom/EditXf;->redraw(Landroid/view/View;)V
+
+    :cond_3
+    sget-boolean v0, Lcom/k4/dressroom/EditXf;->sRotating:Z
+
+    const/4 v1, 0x0
+
+    if-eqz v0, :cond_4
+
+    sput-boolean v1, Lcom/k4/dressroom/EditXf;->sRotating:Z
+
+    if-eqz p0, :cond_4
+
+    invoke-static {p0, v1}, Lcom/k4/dressroom/EditXf;->guide(Landroid/view/View;Z)V
+
+    :cond_4
+    if-eqz p0, :cond_5
+
+    invoke-static {p0, v1}, Lcom/k4/dressroom/EditXf;->showSwitch(Landroid/view/View;Z)V
+
+    :cond_5
+    :goto_1
+    return-void
 .end method
 
 .method static makeSwitch(Landroid/view/View;)Landroid/view/View;
@@ -2962,6 +3853,102 @@
     const/4 p0, 0x0
 
     return p0
+.end method
+
+.method static near(Lorg/json/JSONArray;Landroid/graphics/RectF;F)Z
+    .locals 7
+    .annotation system Ldalvik/annotation/Throws;
+        value = {
+            Lorg/json/JSONException;
+        }
+    .end annotation
+
+    const/4 v0, 0x0
+
+    invoke-virtual {p0, v0}, Lorg/json/JSONArray;->getDouble(I)D
+
+    move-result-wide v1
+
+    iget v3, p1, Landroid/graphics/RectF;->left:F
+
+    float-to-double v3, v3
+
+    sub-double/2addr v1, v3
+
+    invoke-static {v1, v2}, Ljava/lang/Math;->abs(D)D
+
+    move-result-wide v1
+
+    float-to-double v3, p2
+
+    cmpg-double p2, v1, v3
+
+    if-gtz p2, :cond_0
+
+    const/4 p2, 0x1
+
+    invoke-virtual {p0, p2}, Lorg/json/JSONArray;->getDouble(I)D
+
+    move-result-wide v1
+
+    iget v5, p1, Landroid/graphics/RectF;->top:F
+
+    float-to-double v5, v5
+
+    sub-double/2addr v1, v5
+
+    invoke-static {v1, v2}, Ljava/lang/Math;->abs(D)D
+
+    move-result-wide v1
+
+    cmpg-double v1, v1, v3
+
+    if-gtz v1, :cond_0
+
+    const/4 v1, 0x2
+
+    invoke-virtual {p0, v1}, Lorg/json/JSONArray;->getDouble(I)D
+
+    move-result-wide v1
+
+    iget v5, p1, Landroid/graphics/RectF;->right:F
+
+    float-to-double v5, v5
+
+    sub-double/2addr v1, v5
+
+    invoke-static {v1, v2}, Ljava/lang/Math;->abs(D)D
+
+    move-result-wide v1
+
+    cmpg-double v1, v1, v3
+
+    if-gtz v1, :cond_0
+
+    const/4 v1, 0x3
+
+    invoke-virtual {p0, v1}, Lorg/json/JSONArray;->getDouble(I)D
+
+    move-result-wide v1
+
+    iget p0, p1, Landroid/graphics/RectF;->bottom:F
+
+    float-to-double p0, p0
+
+    sub-double/2addr v1, p0
+
+    invoke-static {v1, v2}, Ljava/lang/Math;->abs(D)D
+
+    move-result-wide p0
+
+    cmpg-double p0, p0, v3
+
+    if-gtz p0, :cond_0
+
+    return p2
+
+    :cond_0
+    return v0
 .end method
 
 .method static noStretch(Landroid/view/View;)V
@@ -3363,6 +4350,59 @@
     return-void
 .end method
 
+.method static profileOf(Landroid/app/Activity;)Ljava/lang/String;
+    .locals 2
+
+    const/4 v0, 0x0
+
+    :try_start_0
+    invoke-virtual {p0}, Landroid/app/Activity;->getIntent()Landroid/content/Intent;
+
+    move-result-object v1
+
+    invoke-virtual {v1}, Landroid/content/Intent;->getExtras()Landroid/os/Bundle;
+
+    move-result-object v1
+
+    if-eqz v1, :cond_0
+
+    invoke-virtual {p0}, Landroid/app/Activity;->getIntent()Landroid/content/Intent;
+
+    move-result-object p0
+
+    invoke-virtual {p0}, Landroid/content/Intent;->getExtras()Landroid/os/Bundle;
+
+    move-result-object p0
+
+    const-string v1, "profile_id"
+
+    invoke-virtual {p0, v1}, Landroid/os/Bundle;->get(Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object p0
+
+    goto :goto_0
+
+    :cond_0
+    move-object p0, v0
+
+    :goto_0
+    if-nez p0, :cond_1
+
+    return-object v0
+
+    :cond_1
+    invoke-static {p0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object p0
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    return-object p0
+
+    :catchall_0
+    return-object v0
+.end method
+
 .method static rawFactor()F
     .locals 3
 
@@ -3458,14 +4498,277 @@
 
     sput v0, Lcom/k4/dressroom/EditXf;->sFill:I
 
-    new-instance v0, Ljava/lang/ref/WeakReference;
+    new-instance v1, Ljava/lang/ref/WeakReference;
 
-    invoke-direct {v0, v2}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
+    invoke-direct {v1, v2}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
 
-    sput-object v0, Lcom/k4/dressroom/EditXf;->sSwitch:Ljava/lang/ref/WeakReference;
+    sput-object v1, Lcom/k4/dressroom/EditXf;->sSwitch:Ljava/lang/ref/WeakReference;
 
     sput-object v2, Lcom/k4/dressroom/EditXf;->sKeepStretch:Ljava/lang/Boolean;
 
+    sput-boolean v0, Lcom/k4/dressroom/EditXf;->sFrameLayout:Z
+
+    sput-object v2, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    sput-boolean v0, Lcom/k4/dressroom/EditXf;->sPendingRead:Z
+
+    sput-object v2, Lcom/k4/dressroom/EditXf;->sFixedColor:Ljava/lang/Integer;
+
+    sput-object v2, Lcom/k4/dressroom/EditXf;->sFixedStyle:Ljava/lang/String;
+
+    sput-object v2, Lcom/k4/dressroom/EditXf;->sLastFillColor:Ljava/lang/Integer;
+
+    return-void
+.end method
+
+.method static saveRecord(Landroid/view/View;Ljava/lang/Object;)V
+    .locals 6
+
+    const-string v0, "K4HomeClock"
+
+    :try_start_0
+    invoke-static {p0}, Lcom/k4/dressroom/EditXf;->bounds(Landroid/view/View;)Landroid/graphics/RectF;
+
+    move-result-object v1
+
+    if-nez v1, :cond_0
+
+    goto/16 :goto_1
+
+    :cond_0
+    new-instance v2, Lorg/json/JSONObject;
+
+    invoke-direct {v2}, Lorg/json/JSONObject;-><init>()V
+
+    const-string v3, "v"
+
+    const/4 v4, 0x1
+
+    invoke-virtual {v2, v3, v4}, Lorg/json/JSONObject;->put(Ljava/lang/String;I)Lorg/json/JSONObject;
+
+    const-string v3, "pid"
+
+    const-string v4, "c"
+
+    invoke-static {p1, v4}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object p1
+
+    invoke-static {p1}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object p1
+
+    invoke-virtual {v2, v3, p1}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+
+    const-string p1, "db"
+
+    new-instance v3, Lorg/json/JSONArray;
+
+    invoke-direct {v3}, Lorg/json/JSONArray;-><init>()V
+
+    iget v4, v1, Landroid/graphics/RectF;->left:F
+
+    float-to-double v4, v4
+
+    invoke-virtual {v3, v4, v5}, Lorg/json/JSONArray;->put(D)Lorg/json/JSONArray;
+
+    move-result-object v3
+
+    iget v4, v1, Landroid/graphics/RectF;->top:F
+
+    float-to-double v4, v4
+
+    invoke-virtual {v3, v4, v5}, Lorg/json/JSONArray;->put(D)Lorg/json/JSONArray;
+
+    move-result-object v3
+
+    iget v4, v1, Landroid/graphics/RectF;->right:F
+
+    float-to-double v4, v4
+
+    invoke-virtual {v3, v4, v5}, Lorg/json/JSONArray;->put(D)Lorg/json/JSONArray;
+
+    move-result-object v3
+
+    iget v1, v1, Landroid/graphics/RectF;->bottom:F
+
+    float-to-double v4, v1
+
+    invoke-virtual {v3, v4, v5}, Lorg/json/JSONArray;->put(D)Lorg/json/JSONArray;
+
+    move-result-object v1
+
+    invoke-virtual {v2, p1, v1}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+
+    const-string p1, "aspect"
+
+    invoke-static {p0}, Lcom/k4/dressroom/EditXf;->aspect(Landroid/view/View;)F
+
+    move-result v1
+
+    float-to-double v3, v1
+
+    invoke-virtual {v2, p1, v3, v4}, Lorg/json/JSONObject;->put(Ljava/lang/String;D)Lorg/json/JSONObject;
+
+    invoke-static {p0}, Lcom/k4/dressroom/EditXf;->fingerprint(Landroid/view/View;)[I
+
+    move-result-object p1
+
+    if-eqz p1, :cond_2
+
+    new-instance v1, Lorg/json/JSONArray;
+
+    invoke-direct {v1}, Lorg/json/JSONArray;-><init>()V
+
+    array-length v3, p1
+
+    const/4 v4, 0x0
+
+    :goto_0
+    if-ge v4, v3, :cond_1
+
+    aget v5, p1, v4
+
+    invoke-virtual {v1, v5}, Lorg/json/JSONArray;->put(I)Lorg/json/JSONArray;
+
+    add-int/lit8 v4, v4, 0x1
+
+    goto :goto_0
+
+    :cond_1
+    const-string p1, "fp"
+
+    invoke-virtual {v2, p1, v1}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+
+    :cond_2
+    const-string p1, "vw"
+
+    invoke-virtual {p0}, Landroid/view/View;->getWidth()I
+
+    move-result v1
+
+    invoke-virtual {v2, p1, v1}, Lorg/json/JSONObject;->put(Ljava/lang/String;I)Lorg/json/JSONObject;
+
+    const-string p1, "vh"
+
+    invoke-virtual {p0}, Landroid/view/View;->getHeight()I
+
+    move-result v1
+
+    invoke-virtual {v2, p1, v1}, Lorg/json/JSONObject;->put(Ljava/lang/String;I)Lorg/json/JSONObject;
+
+    const-string p1, "s"
+
+    sget v1, Lcom/k4/dressroom/EditXf;->s:F
+
+    float-to-double v3, v1
+
+    invoke-virtual {v2, p1, v3, v4}, Lorg/json/JSONObject;->put(Ljava/lang/String;D)Lorg/json/JSONObject;
+
+    const-string p1, "deg"
+
+    invoke-static {}, Lcom/k4/dressroom/EditXf;->shownDeg()F
+
+    move-result v1
+
+    float-to-double v3, v1
+
+    invoke-virtual {v2, p1, v3, v4}, Lorg/json/JSONObject;->put(Ljava/lang/String;D)Lorg/json/JSONObject;
+
+    const-string p1, "tx"
+
+    sget v1, Lcom/k4/dressroom/EditXf;->tx:F
+
+    float-to-double v3, v1
+
+    invoke-virtual {v2, p1, v3, v4}, Lorg/json/JSONObject;->put(Ljava/lang/String;D)Lorg/json/JSONObject;
+
+    const-string p1, "ty"
+
+    sget v1, Lcom/k4/dressroom/EditXf;->ty:F
+
+    float-to-double v3, v1
+
+    invoke-virtual {v2, p1, v3, v4}, Lorg/json/JSONObject;->put(Ljava/lang/String;D)Lorg/json/JSONObject;
+
+    const-string p1, "fill"
+
+    sget v1, Lcom/k4/dressroom/EditXf;->sFill:I
+
+    invoke-virtual {v2, p1, v1}, Lorg/json/JSONObject;->put(Ljava/lang/String;I)Lorg/json/JSONObject;
+
+    sget-object p1, Lcom/k4/dressroom/EditXf;->sLastFillColor:Ljava/lang/Integer;
+
+    sget v1, Lcom/k4/dressroom/EditXf;->sFill:I
+
+    if-nez v1, :cond_3
+
+    if-eqz p1, :cond_3
+
+    const-string v1, "color"
+
+    invoke-virtual {v2, v1, p1}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+
+    :cond_3
+    invoke-static {}, Lcom/k4/dressroom/HomeClock;->styleName()Ljava/lang/String;
+
+    move-result-object p1
+
+    if-eqz p1, :cond_4
+
+    const-string v1, "style"
+
+    invoke-virtual {v2, v1, p1}, Lorg/json/JSONObject;->put(Ljava/lang/String;Ljava/lang/Object;)Lorg/json/JSONObject;
+
+    :cond_4
+    invoke-virtual {p0}, Landroid/view/View;->getContext()Landroid/content/Context;
+
+    move-result-object p0
+
+    invoke-virtual {p0}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+
+    move-result-object p0
+
+    const-string p1, "k4_home_clock_xf"
+
+    invoke-virtual {v2}, Lorg/json/JSONObject;->toString()Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {p0, p1, v1}, Landroid/provider/Settings$System;->putString(Landroid/content/ContentResolver;Ljava/lang/String;Ljava/lang/String;)Z
+
+    invoke-static {v2}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object p0
+
+    new-instance p1, Ljava/lang/StringBuilder;
+
+    invoke-direct {p1}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v1, "home save: transform saved for the re-edit: "
+
+    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {p1, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {p1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object p0
+
+    invoke-static {v0, p0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    return-void
+
+    :catchall_0
+    move-exception p0
+
+    const-string p1, "saveRecord"
+
+    invoke-static {v0, p1, p0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    :goto_1
     return-void
 .end method
 
@@ -3477,6 +4780,10 @@
     move-result v0
 
     if-eqz v0, :cond_7
+
+    sget-boolean v0, Lcom/k4/dressroom/EditXf;->sFrameLayout:Z
+
+    if-nez v0, :cond_7
 
     const/high16 v0, 0x3f800000    # 1.0f
 
@@ -4319,11 +5626,11 @@
 
     sget-boolean v3, Lcom/k4/dressroom/HomeClock;->active:Z
 
-    if-eqz v3, :cond_1f
+    if-eqz v3, :cond_20
 
-    if-eqz v0, :cond_1f
+    if-eqz v0, :cond_20
 
-    if-eqz v1, :cond_1f
+    if-eqz v1, :cond_20
 
     invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
 
@@ -4345,34 +5652,38 @@
 
     :cond_0
     :try_start_0
-    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->handles(Landroid/view/View;)Z
+    invoke-virtual {v1}, Landroid/view/MotionEvent;->getActionMasked()I
 
     move-result v3
 
     if-nez v3, :cond_1
 
-    goto/16 :goto_9
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->layout(Landroid/view/View;)V
+
+    sget-object v3, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    if-eqz v3, :cond_1
+
+    const-string v3, "saved home picture transform not restored: the picture was touched first"
+
+    invoke-static {v2, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    const/4 v3, 0x0
+
+    sput-object v3, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
 
     :cond_1
-    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->noStretch(Landroid/view/View;)V
+    sget-boolean v3, Lcom/k4/dressroom/EditXf;->sFrameLayout:Z
 
-    sget-object v3, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
+    if-nez v3, :cond_20
 
-    invoke-virtual {v3}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->isMain(Landroid/view/View;)Z
 
-    move-result-object v3
+    move-result v3
 
-    if-eq v3, v0, :cond_3
+    if-eqz v3, :cond_20
 
-    sget-object v3, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
-
-    invoke-virtual {v3}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
-
-    move-result-object v3
-
-    if-eqz v3, :cond_2
-
-    invoke-static {}, Lcom/k4/dressroom/EditXf;->identity()Z
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->handles(Landroid/view/View;)Z
 
     move-result v3
 
@@ -4381,13 +5692,40 @@
     goto/16 :goto_9
 
     :cond_2
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->noStretch(Landroid/view/View;)V
+
+    sget-object v3, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
+
+    invoke-virtual {v3}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object v3
+
+    if-eq v3, v0, :cond_4
+
+    sget-object v3, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
+
+    invoke-virtual {v3}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object v3
+
+    if-eqz v3, :cond_3
+
+    invoke-static {}, Lcom/k4/dressroom/EditXf;->identity()Z
+
+    move-result v3
+
+    if-nez v3, :cond_3
+
+    goto/16 :goto_9
+
+    :cond_3
     new-instance v3, Ljava/lang/ref/WeakReference;
 
     invoke-direct {v3, v0}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
 
     sput-object v3, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
 
-    :cond_3
+    :cond_4
     invoke-virtual {v1}, Landroid/view/MotionEvent;->getActionMasked()I
 
     move-result v3
@@ -4398,18 +5736,18 @@
 
     const/4 v6, 0x1
 
-    if-eq v3, v5, :cond_5
+    if-eq v3, v5, :cond_6
 
-    if-ne v3, v6, :cond_4
+    if-ne v3, v6, :cond_5
 
     goto :goto_0
 
-    :cond_4
+    :cond_5
     move v7, v4
 
     goto :goto_1
 
-    :cond_5
+    :cond_6
     :goto_0
     invoke-virtual {v1}, Landroid/view/MotionEvent;->getActionIndex()I
 
@@ -4431,9 +5769,9 @@
 
     move-result v14
 
-    if-ge v10, v14, :cond_7
+    if-ge v10, v14, :cond_8
 
-    if-eq v10, v7, :cond_6
+    if-eq v10, v7, :cond_7
 
     invoke-virtual {v1, v10}, Landroid/view/MotionEvent;->getX(I)F
 
@@ -4449,13 +5787,13 @@
 
     add-int/lit8 v11, v11, 0x1
 
-    :cond_6
+    :cond_7
     add-int/lit8 v10, v10, 0x1
 
     goto :goto_2
 
-    :cond_7
-    if-lez v11, :cond_8
+    :cond_8
+    if-lez v11, :cond_9
 
     int-to-float v10, v11
 
@@ -4463,14 +5801,14 @@
 
     div-float/2addr v13, v10
 
-    :cond_8
-    if-nez v3, :cond_9
+    :cond_9
+    if-nez v3, :cond_a
 
     sput-boolean v8, Lcom/k4/dressroom/EditXf;->sRotating:Z
 
     sput v8, Lcom/k4/dressroom/EditXf;->sCount:I
 
-    :cond_9
+    :cond_a
     invoke-static {v1, v7}, Lcom/k4/dressroom/EditXf;->span(Landroid/view/MotionEvent;I)F
 
     move-result v10
@@ -4483,13 +5821,13 @@
 
     const/4 v9, 0x2
 
-    if-ne v11, v14, :cond_10
+    if-ne v11, v14, :cond_11
 
-    if-eq v3, v9, :cond_a
+    if-eq v3, v9, :cond_b
 
     goto/16 :goto_4
 
-    :cond_a
+    :cond_b
     sget v7, Lcom/k4/dressroom/EditXf;->sSpanNow:F
 
     sput v7, Lcom/k4/dressroom/EditXf;->sSpanPrev:F
@@ -4500,21 +5838,21 @@
 
     cmpg-float v7, v7, v15
 
-    if-gez v7, :cond_c
+    if-gez v7, :cond_d
 
     sget v7, Lcom/k4/dressroom/EditXf;->sFx:F
 
     cmpl-float v7, v12, v7
 
-    if-nez v7, :cond_b
+    if-nez v7, :cond_c
 
     sget v7, Lcom/k4/dressroom/EditXf;->sFy:F
 
     cmpl-float v7, v13, v7
 
-    if-eqz v7, :cond_c
+    if-eqz v7, :cond_d
 
-    :cond_b
+    :cond_c
     sget v7, Lcom/k4/dressroom/EditXf;->tx:F
 
     sget v10, Lcom/k4/dressroom/EditXf;->sFx:F
@@ -4541,7 +5879,7 @@
 
     goto :goto_3
 
-    :cond_c
+    :cond_d
     move v7, v8
 
     :goto_3
@@ -4549,7 +5887,7 @@
 
     sput v13, Lcom/k4/dressroom/EditXf;->sFy:F
 
-    if-lt v11, v9, :cond_12
+    if-lt v11, v9, :cond_13
 
     invoke-static {v1, v4}, Lcom/k4/dressroom/EditXf;->angle(Landroid/view/MotionEvent;I)F
 
@@ -4557,7 +5895,7 @@
 
     sget-boolean v10, Lcom/k4/dressroom/EditXf;->sRotating:Z
 
-    if-nez v10, :cond_d
+    if-nez v10, :cond_e
 
     sget v10, Lcom/k4/dressroom/EditXf;->sRotStart:F
 
@@ -4575,7 +5913,7 @@
 
     cmpl-float v10, v10, v12
 
-    if-lez v10, :cond_d
+    if-lez v10, :cond_e
 
     sput-boolean v6, Lcom/k4/dressroom/EditXf;->sRotating:Z
 
@@ -4587,10 +5925,10 @@
 
     invoke-static {v0, v6}, Lcom/k4/dressroom/EditXf;->guide(Landroid/view/View;Z)V
 
-    :cond_d
+    :cond_e
     sget-boolean v10, Lcom/k4/dressroom/EditXf;->sRotating:Z
 
-    if-eqz v10, :cond_12
+    if-eqz v10, :cond_13
 
     invoke-static {}, Lcom/k4/dressroom/EditXf;->shownDeg()F
 
@@ -4628,15 +5966,15 @@
 
     cmpl-float v12, v4, v10
 
-    if-eqz v12, :cond_12
+    if-eqz v12, :cond_13
 
     cmpl-float v7, v4, v16
 
-    if-eqz v7, :cond_e
+    if-eqz v7, :cond_f
 
     cmpl-float v7, v10, v16
 
-    if-eqz v7, :cond_f
+    if-eqz v7, :cond_10
 
     invoke-static {v4}, Ljava/lang/Math;->signum(F)F
 
@@ -4648,17 +5986,17 @@
 
     cmpl-float v4, v4, v7
 
-    if-eqz v4, :cond_f
-
-    :cond_e
-    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->haptic(Landroid/view/View;)V
+    if-eqz v4, :cond_10
 
     :cond_f
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->haptic(Landroid/view/View;)V
+
+    :cond_10
     move v7, v6
 
     goto :goto_5
 
-    :cond_10
+    :cond_11
     :goto_4
     sput v12, Lcom/k4/dressroom/EditXf;->sFx:F
 
@@ -4670,7 +6008,7 @@
 
     sput v10, Lcom/k4/dressroom/EditXf;->sSpanNow:F
 
-    if-lt v11, v9, :cond_11
+    if-lt v11, v9, :cond_12
 
     invoke-static {v1, v7}, Lcom/k4/dressroom/EditXf;->angle(Landroid/view/MotionEvent;I)F
 
@@ -4682,45 +6020,45 @@
 
     sput v4, Lcom/k4/dressroom/EditXf;->sRotBase:F
 
-    :cond_11
+    :cond_12
     move v7, v8
 
-    :cond_12
+    :cond_13
     :goto_5
-    if-eq v3, v6, :cond_14
+    if-eq v3, v6, :cond_15
 
     const/4 v4, 0x3
 
-    if-ne v3, v4, :cond_13
+    if-ne v3, v4, :cond_14
 
     goto :goto_6
 
-    :cond_13
+    :cond_14
     move v4, v8
 
     goto :goto_7
 
-    :cond_14
+    :cond_15
     :goto_6
     move v4, v6
 
     :goto_7
-    if-nez v4, :cond_15
+    if-nez v4, :cond_16
 
-    if-ne v3, v5, :cond_1a
+    if-ne v3, v5, :cond_1b
 
-    if-ge v11, v9, :cond_1a
+    if-ge v11, v9, :cond_1b
 
-    :cond_15
+    :cond_16
     sget-boolean v3, Lcom/k4/dressroom/EditXf;->sRotating:Z
 
-    if-eqz v3, :cond_16
+    if-eqz v3, :cond_17
 
     sput-boolean v8, Lcom/k4/dressroom/EditXf;->sRotating:Z
 
     invoke-static {v0, v8}, Lcom/k4/dressroom/EditXf;->guide(Landroid/view/View;Z)V
 
-    :cond_16
+    :cond_17
     sget v3, Lcom/k4/dressroom/EditXf;->deg:F
 
     invoke-static {v3}, Ljava/lang/Math;->abs(F)F
@@ -4731,24 +6069,24 @@
 
     cmpg-float v3, v3, v5
 
-    if-gez v3, :cond_17
+    if-gez v3, :cond_18
 
     sget v3, Lcom/k4/dressroom/EditXf;->deg:F
 
     cmpl-float v3, v3, v16
 
-    if-eqz v3, :cond_17
+    if-eqz v3, :cond_18
 
     sput v16, Lcom/k4/dressroom/EditXf;->deg:F
 
-    :cond_17
-    if-eqz v4, :cond_18
+    :cond_18
+    if-eqz v4, :cond_19
 
     sget v3, Lcom/k4/dressroom/EditXf;->s:F
 
     cmpg-float v3, v3, v15
 
-    if-gez v3, :cond_18
+    if-gez v3, :cond_19
 
     sget v3, Lcom/k4/dressroom/EditXf;->s:F
 
@@ -4756,7 +6094,7 @@
 
     cmpl-float v3, v3, v5
 
-    if-lez v3, :cond_18
+    if-lez v3, :cond_19
 
     sput v15, Lcom/k4/dressroom/EditXf;->s:F
 
@@ -4766,11 +6104,11 @@
 
     goto :goto_8
 
-    :cond_18
+    :cond_19
     move v6, v7
 
     :goto_8
-    if-eqz v4, :cond_19
+    if-eqz v4, :cond_1a
 
     invoke-static {v0}, Lcom/k4/dressroom/EditXf;->showSwitchLater(Landroid/view/View;)V
 
@@ -4814,31 +6152,31 @@
 
     invoke-static {v2, v3}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    :cond_19
+    :cond_1a
     move v7, v6
 
-    :cond_1a
-    if-eqz v7, :cond_1b
+    :cond_1b
+    if-eqz v7, :cond_1c
 
     invoke-static {v0}, Lcom/k4/dressroom/EditXf;->redraw(Landroid/view/View;)V
 
-    :cond_1b
+    :cond_1c
     sget-object v3, Lcom/k4/dressroom/EditXf;->sGuide:Lcom/k4/dressroom/EditXf$Guide;
 
-    if-eqz v3, :cond_1c
+    if-eqz v3, :cond_1d
 
     invoke-virtual {v3}, Lcom/k4/dressroom/EditXf$Guide;->invalidateSelf()V
 
-    :cond_1c
+    :cond_1d
     invoke-static {}, Lcom/k4/dressroom/EditXf;->identity()Z
 
     move-result v3
 
-    if-eqz v3, :cond_1d
+    if-eqz v3, :cond_1e
 
     goto :goto_9
 
-    :cond_1d
+    :cond_1e
     new-instance v3, Landroid/graphics/Matrix;
 
     invoke-direct {v3}, Landroid/graphics/Matrix;-><init>()V
@@ -4857,11 +6195,11 @@
 
     sget-object v3, Lcom/k4/dressroom/EditXf;->sCopy:Landroid/view/MotionEvent;
 
-    if-eqz v3, :cond_1e
+    if-eqz v3, :cond_1f
 
     invoke-virtual {v3}, Landroid/view/MotionEvent;->recycle()V
 
-    :cond_1e
+    :cond_1f
     sput-object v0, Lcom/k4/dressroom/EditXf;->sCopy:Landroid/view/MotionEvent;
     :try_end_0
     .catchall {:try_start_0 .. :try_end_0} :catchall_0
@@ -4875,7 +6213,672 @@
 
     invoke-static {v2, v3, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
-    :cond_1f
+    :cond_20
     :goto_9
     return-object v1
+.end method
+
+.method static tryRestore(Landroid/view/View;)V
+    .locals 19
+
+    move-object/from16 v0, p0
+
+    const-string v1, "style"
+
+    const-string v2, "color"
+
+    const-string v3, "K4HomeClock"
+
+    const-string v4, "saved home picture transform is for profile "
+
+    const-string v5, "re-edit of profile "
+
+    const/4 v6, 0x0
+
+    :try_start_0
+    sget-boolean v7, Lcom/k4/dressroom/EditXf;->sPendingRead:Z
+
+    const/4 v8, 0x1
+
+    const/4 v9, 0x0
+
+    if-nez v7, :cond_4
+
+    sput-boolean v8, Lcom/k4/dressroom/EditXf;->sPendingRead:Z
+
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->activity(Landroid/view/View;)Landroid/app/Activity;
+
+    move-result-object v7
+
+    if-eqz v7, :cond_0
+
+    invoke-virtual {v7}, Landroid/app/Activity;->getIntent()Landroid/content/Intent;
+
+    move-result-object v10
+
+    const-string v11, "re_edit_screen"
+
+    invoke-virtual {v10, v11, v9}, Landroid/content/Intent;->getBooleanExtra(Ljava/lang/String;Z)Z
+
+    move-result v10
+
+    if-eqz v10, :cond_0
+
+    move v10, v8
+
+    goto :goto_0
+
+    :cond_0
+    move v10, v9
+
+    :goto_0
+    invoke-virtual {v0}, Landroid/view/View;->getContext()Landroid/content/Context;
+
+    move-result-object v11
+
+    invoke-virtual {v11}, Landroid/content/Context;->getContentResolver()Landroid/content/ContentResolver;
+
+    move-result-object v11
+
+    const-string v12, "k4_home_clock_xf"
+
+    invoke-static {v11, v12}, Landroid/provider/Settings$System;->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v11
+
+    if-eqz v10, :cond_3
+
+    if-eqz v11, :cond_3
+
+    invoke-virtual {v11}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v10
+
+    if-eqz v10, :cond_1
+
+    goto :goto_1
+
+    :cond_1
+    new-instance v10, Lorg/json/JSONObject;
+
+    invoke-direct {v10, v11}, Lorg/json/JSONObject;-><init>(Ljava/lang/String;)V
+
+    invoke-static {v7}, Lcom/k4/dressroom/EditXf;->profileOf(Landroid/app/Activity;)Ljava/lang/String;
+
+    move-result-object v7
+
+    const-string v11, "pid"
+
+    invoke-virtual {v10, v11, v6}, Lorg/json/JSONObject;->optString(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v11
+
+    if-eqz v7, :cond_2
+
+    if-eqz v11, :cond_2
+
+    const-string v12, "0"
+
+    invoke-virtual {v12, v11}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v12
+
+    if-nez v12, :cond_2
+
+    invoke-virtual {v7, v11}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v12
+
+    if-nez v12, :cond_2
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0, v4}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v0, v11}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v1, ", this re-edit is "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v3, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    return-void
+
+    :cond_2
+    sput-object v10, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    invoke-static {}, Landroid/os/SystemClock;->uptimeMillis()J
+
+    move-result-wide v10
+
+    const-wide/16 v12, 0x4e20
+
+    add-long/2addr v10, v12
+
+    sput-wide v10, Lcom/k4/dressroom/EditXf;->sPendingUntil:J
+
+    new-instance v4, Ljava/lang/StringBuilder;
+
+    invoke-direct {v4, v5}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v4, v7}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    const-string v5, ": waiting for the saved crop to restore the transform"
+
+    invoke-virtual {v4, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v4}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v4
+
+    invoke-static {v3, v4}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    goto :goto_2
+
+    :cond_3
+    :goto_1
+    if-eqz v11, :cond_10
+
+    invoke-virtual {v11}, Ljava/lang/String;->isEmpty()Z
+
+    move-result v0
+
+    if-nez v0, :cond_10
+
+    const-string v0, "saved home picture transform not for this editor (not a re-edit)"
+
+    invoke-static {v3, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    return-void
+
+    :cond_4
+    :goto_2
+    sget-object v4, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    if-eqz v4, :cond_10
+
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->isMain(Landroid/view/View;)Z
+
+    move-result v5
+
+    if-eqz v5, :cond_10
+
+    invoke-virtual {v0}, Landroid/view/View;->getWidth()I
+
+    move-result v5
+
+    if-eqz v5, :cond_10
+
+    sget-boolean v5, Lcom/k4/dressroom/EditXf;->sFrameLayout:Z
+
+    if-nez v5, :cond_10
+
+    sget-object v5, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
+
+    invoke-virtual {v5}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object v5
+
+    if-eqz v5, :cond_5
+
+    sget-object v5, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
+
+    invoke-virtual {v5}, Ljava/lang/ref/WeakReference;->get()Ljava/lang/Object;
+
+    move-result-object v5
+
+    if-eq v5, v0, :cond_5
+
+    goto/16 :goto_8
+
+    :cond_5
+    invoke-static {}, Landroid/os/SystemClock;->uptimeMillis()J
+
+    move-result-wide v10
+
+    sget-wide v12, Lcom/k4/dressroom/EditXf;->sPendingUntil:J
+
+    cmp-long v5, v10, v12
+
+    if-lez v5, :cond_6
+
+    sput-object v6, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    const-string v0, "saved home picture transform not restored: the saved crop never showed"
+
+    invoke-static {v3, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    return-void
+
+    :cond_6
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->bounds(Landroid/view/View;)Landroid/graphics/RectF;
+
+    move-result-object v12
+
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->aspect(Landroid/view/View;)F
+
+    move-result v5
+
+    if-eqz v12, :cond_10
+
+    const/4 v7, 0x0
+
+    cmpl-float v7, v5, v7
+
+    if-eqz v7, :cond_10
+
+    const-string v7, "db"
+
+    invoke-virtual {v4, v7}, Lorg/json/JSONObject;->getJSONArray(Ljava/lang/String;)Lorg/json/JSONArray;
+
+    move-result-object v7
+
+    const/high16 v10, 0x3fc00000    # 1.5f
+
+    invoke-static {v7, v12, v10}, Lcom/k4/dressroom/EditXf;->near(Lorg/json/JSONArray;Landroid/graphics/RectF;F)Z
+
+    move-result v7
+
+    if-eqz v7, :cond_10
+
+    float-to-double v10, v5
+
+    const-string v5, "aspect"
+
+    invoke-virtual {v4, v5}, Lorg/json/JSONObject;->getDouble(Ljava/lang/String;)D
+
+    move-result-wide v13
+
+    sub-double v13, v10, v13
+
+    invoke-static {v13, v14}, Ljava/lang/Math;->abs(D)D
+
+    move-result-wide v13
+
+    const-wide v15, 0x3f747ae147ae147bL    # 0.005
+
+    mul-double/2addr v10, v15
+
+    cmpl-double v5, v13, v10
+
+    if-lez v5, :cond_7
+
+    goto/16 :goto_8
+
+    :cond_7
+    const-string v5, "fp"
+
+    invoke-virtual {v4, v5}, Lorg/json/JSONObject;->optJSONArray(Ljava/lang/String;)Lorg/json/JSONArray;
+
+    move-result-object v5
+
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->fingerprint(Landroid/view/View;)[I
+
+    move-result-object v7
+
+    if-eqz v5, :cond_f
+
+    if-eqz v7, :cond_f
+
+    invoke-virtual {v5}, Lorg/json/JSONArray;->length()I
+
+    move-result v10
+
+    array-length v11, v7
+
+    if-eq v10, v11, :cond_8
+
+    goto/16 :goto_7
+
+    :cond_8
+    const-wide/16 v10, 0x0
+
+    move v13, v9
+
+    move v14, v13
+
+    :goto_3
+    array-length v15, v7
+
+    if-ge v13, v15, :cond_9
+
+    aget v15, v7, v13
+
+    invoke-virtual {v5, v13}, Lorg/json/JSONArray;->getInt(I)I
+
+    move-result v16
+
+    sub-int v15, v15, v16
+
+    invoke-static {v15}, Ljava/lang/Math;->abs(I)I
+
+    move-result v15
+
+    int-to-long v8, v15
+
+    add-long/2addr v10, v8
+
+    invoke-static {v14, v15}, Ljava/lang/Math;->max(II)I
+
+    move-result v14
+
+    add-int/lit8 v13, v13, 0x1
+
+    const/4 v8, 0x1
+
+    const/4 v9, 0x0
+
+    goto :goto_3
+
+    :cond_9
+    array-length v5, v7
+
+    int-to-long v8, v5
+
+    const-wide/16 v17, 0x8
+
+    mul-long v8, v8, v17
+
+    cmp-long v5, v10, v8
+
+    if-gtz v5, :cond_e
+
+    const/16 v5, 0x30
+
+    if-le v14, v5, :cond_a
+
+    goto/16 :goto_6
+
+    :cond_a
+    invoke-virtual {v0}, Landroid/view/View;->getWidth()I
+
+    move-result v5
+
+    int-to-float v5, v5
+
+    const-string v7, "vw"
+
+    invoke-virtual {v4, v7}, Lorg/json/JSONObject;->getInt(Ljava/lang/String;)I
+
+    move-result v7
+
+    int-to-float v7, v7
+
+    div-float/2addr v5, v7
+
+    invoke-virtual {v0}, Landroid/view/View;->getHeight()I
+
+    move-result v7
+
+    int-to-float v7, v7
+
+    const-string v8, "vh"
+
+    invoke-virtual {v4, v8}, Lorg/json/JSONObject;->getInt(Ljava/lang/String;)I
+
+    move-result v8
+
+    int-to-float v8, v8
+
+    div-float/2addr v7, v8
+
+    sput-object v6, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    new-instance v8, Ljava/lang/ref/WeakReference;
+
+    invoke-direct {v8, v0}, Ljava/lang/ref/WeakReference;-><init>(Ljava/lang/Object;)V
+
+    sput-object v8, Lcom/k4/dressroom/EditXf;->sView:Ljava/lang/ref/WeakReference;
+
+    const-string v8, "s"
+
+    invoke-virtual {v4, v8}, Lorg/json/JSONObject;->getDouble(Ljava/lang/String;)D
+
+    move-result-wide v8
+
+    double-to-float v8, v8
+
+    sput v8, Lcom/k4/dressroom/EditXf;->s:F
+
+    const-string v8, "deg"
+
+    invoke-virtual {v4, v8}, Lorg/json/JSONObject;->getDouble(Ljava/lang/String;)D
+
+    move-result-wide v8
+
+    double-to-float v8, v8
+
+    sput v8, Lcom/k4/dressroom/EditXf;->deg:F
+
+    const-string v8, "tx"
+
+    invoke-virtual {v4, v8}, Lorg/json/JSONObject;->getDouble(Ljava/lang/String;)D
+
+    move-result-wide v8
+
+    double-to-float v8, v8
+
+    mul-float/2addr v8, v5
+
+    sput v8, Lcom/k4/dressroom/EditXf;->tx:F
+
+    const-string v5, "ty"
+
+    invoke-virtual {v4, v5}, Lorg/json/JSONObject;->getDouble(Ljava/lang/String;)D
+
+    move-result-wide v8
+
+    double-to-float v5, v8
+
+    mul-float/2addr v5, v7
+
+    sput v5, Lcom/k4/dressroom/EditXf;->ty:F
+
+    const-string v5, "fill"
+
+    const/4 v7, 0x0
+
+    invoke-virtual {v4, v5, v7}, Lorg/json/JSONObject;->optInt(Ljava/lang/String;I)I
+
+    move-result v5
+
+    sput v5, Lcom/k4/dressroom/EditXf;->sFill:I
+
+    invoke-virtual {v4, v2}, Lorg/json/JSONObject;->has(Ljava/lang/String;)Z
+
+    move-result v5
+
+    if-eqz v5, :cond_c
+
+    invoke-virtual {v4, v2}, Lorg/json/JSONObject;->getInt(Ljava/lang/String;)I
+
+    move-result v2
+
+    invoke-static {v2}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+
+    move-result-object v2
+
+    sput-object v2, Lcom/k4/dressroom/EditXf;->sFixedColor:Ljava/lang/Integer;
+
+    invoke-virtual {v4, v1}, Lorg/json/JSONObject;->has(Ljava/lang/String;)Z
+
+    move-result v2
+
+    if-eqz v2, :cond_b
+
+    invoke-virtual {v4, v1}, Lorg/json/JSONObject;->getString(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v1
+
+    goto :goto_4
+
+    :cond_b
+    move-object v1, v6
+
+    :goto_4
+    sput-object v1, Lcom/k4/dressroom/EditXf;->sFixedStyle:Ljava/lang/String;
+
+    :cond_c
+    sget-object v1, Ljava/util/Locale;->US:Ljava/util/Locale;
+
+    const-string v2, "re-edit: home picture transform restored: scale %.3f, %.1f deg, offset %.0f,%.0f, fill %s, crop %s"
+
+    sget v4, Lcom/k4/dressroom/EditXf;->s:F
+
+    invoke-static {v4}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+
+    move-result-object v7
+
+    invoke-static {}, Lcom/k4/dressroom/EditXf;->shownDeg()F
+
+    move-result v4
+
+    invoke-static {v4}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+
+    move-result-object v8
+
+    sget v4, Lcom/k4/dressroom/EditXf;->tx:F
+
+    invoke-static {v4}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+
+    move-result-object v9
+
+    sget v4, Lcom/k4/dressroom/EditXf;->ty:F
+
+    invoke-static {v4}, Ljava/lang/Float;->valueOf(F)Ljava/lang/Float;
+
+    move-result-object v10
+
+    sget v4, Lcom/k4/dressroom/EditXf;->sFill:I
+
+    const/4 v5, 0x1
+
+    if-ne v4, v5, :cond_d
+
+    const-string v4, "blur"
+
+    goto :goto_5
+
+    :cond_d
+    const-string v4, "colour"
+
+    :goto_5
+    move-object v11, v4
+
+    filled-new-array/range {v7 .. v12}, [Ljava/lang/Object;
+
+    move-result-object v4
+
+    invoke-static {v1, v2, v4}, Ljava/lang/String;->format(Ljava/util/Locale;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v3, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->redraw(Landroid/view/View;)V
+
+    invoke-static {v0}, Lcom/k4/dressroom/EditXf;->showSwitchLater(Landroid/view/View;)V
+
+    return-void
+
+    :cond_e
+    :goto_6
+    sput-object v6, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    array-length v0, v7
+
+    int-to-long v0, v0
+
+    div-long/2addr v10, v0
+
+    new-instance v0, Ljava/lang/StringBuilder;
+
+    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
+
+    const-string v1, "saved home picture transform not restored: another picture (fingerprint mean "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0, v10, v11}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+
+    const-string v1, ", max "
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0, v14}, Ljava/lang/StringBuilder;->append(I)Ljava/lang/StringBuilder;
+
+    const-string v1, ")"
+
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v3, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    return-void
+
+    :cond_f
+    :goto_7
+    sput-object v6, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    const-string v0, "saved home picture transform not restored: no picture fingerprint"
+
+    invoke-static {v3, v0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    return-void
+
+    :catchall_0
+    move-exception v0
+
+    sput-object v6, Lcom/k4/dressroom/EditXf;->sPending:Lorg/json/JSONObject;
+
+    const-string v1, "tryRestore"
+
+    invoke-static {v3, v1, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    :cond_10
+    :goto_8
+    return-void
+.end method
+
+.method static viewType(Landroid/view/View;)Ljava/lang/String;
+    .locals 2
+
+    const/4 v0, 0x0
+
+    :try_start_0
+    const-string v1, "k"
+
+    invoke-static {p0, v1}, Lcom/k4/dressroom/HomeClock;->field(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;
+
+    move-result-object p0
+
+    instance-of v1, p0, Ljava/lang/Enum;
+
+    if-eqz v1, :cond_0
+
+    check-cast p0, Ljava/lang/Enum;
+
+    invoke-virtual {p0}, Ljava/lang/Enum;->name()Ljava/lang/String;
+
+    move-result-object p0
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catchall_0
+
+    return-object p0
+
+    :catchall_0
+    :cond_0
+    return-object v0
 .end method

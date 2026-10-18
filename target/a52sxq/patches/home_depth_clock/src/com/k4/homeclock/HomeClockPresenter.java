@@ -46,7 +46,7 @@ final class HomeClockPresenter extends h3.a {
         data.f = in.f;
         data.g = in.g;
         try {
-            int split = in.d == null ? -1 : nodes.indexOf(in.d);
+            int split = clockSlot(nodes, in.d, in.e);
             Bitmap.Config config = in.g instanceof Bitmap.Config ? (Bitmap.Config) in.g : Bitmap.Config.ARGB_8888;
             ColorSpace cs = in.f instanceof ColorSpace ? (ColorSpace) in.f : null;
             Bitmap back = create(w, h, config, cs, false);
@@ -154,6 +154,32 @@ final class HomeClockPresenter extends h3.a {
             return Bitmap.createBitmap(w, h, config);
         }
         return Bitmap.createBitmap(w, h, config, alpha, cs);
+    }
+
+    /**
+     * Where the clock goes in the layer list (every layer from there on is drawn in front of it), or -1 (on top).
+     * Plain layout [background, masked]: right below the subject. Frame layouts (Wallpaper & style Frame / Suggest:
+     * LayeredPresenter adds the frame layers, FrameBitmapNode i3.h, to g0.a.e in document order frame_base,
+     * frame_bottom): the subject pops out of the frame [background, frame_base, masked, frame_bottom] -> below the
+     * subject, which then also covers it; the subject stays inside the frame [background, masked, frame_base,
+     * frame_bottom] -> above the frame plate, which would otherwise hide the clock (only frame_bottom stays in front).
+     * The editor (HomeClock.SubjectView) puts the same views in front of its clock.
+     */
+    static int clockSlot(java.util.List<?> nodes, Object subject, Object frames) {
+        int at = subject == null ? -1 : nodes.indexOf(subject);
+        if (at < 0 || !(frames instanceof java.util.List) || ((java.util.List<?>) frames).isEmpty()) {
+            return at;
+        }
+        int base = nodes.indexOf(((java.util.List<?>) frames).get(0));
+        if (base > at) {
+            at = base + 1;
+            Log.i(HomeDepthClock.TAG, "frame layout, subject inside the frame: clock above the frame plate (layer " + at + "/" + nodes.size() + ")");
+            return at < nodes.size() ? at : -1;
+        }
+        if (base >= 0) {
+            Log.i(HomeDepthClock.TAG, "frame layout, subject out of the frame: clock below the subject (layer " + at + "/" + nodes.size() + ")");
+        }
+        return at;
     }
 
     /** Screen y of the first clearly opaque row of the cut-out subject, or -1. */

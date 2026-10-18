@@ -289,8 +289,21 @@ def at_start(call, regs_max):
     return fn
 f = one(W + "CropImageView.smali")
 s = open(f).read()
-for fld in (".field public C:Z", ".field public D:Z", ".field public E:Z", ".field public x:F", ".field public R:Lv9/i;"):
+for fld in (".field public C:Z", ".field public D:Z", ".field public E:Z", ".field public x:F", ".field public R:Lv9/i;", ".field public k:Ld7/w;"):
     assert fld in s, "CropImageView " + fld
+# view types (EditXf.viewType: the main picture is NONE, frame layouts show FRAME_* views)
+dw = open(one("d7/w.smali")).read()
+for e_ in ("NONE", "OBJECT", "FRAME_BACKGROUND", "FRAME_BASE", "FRAME_BOTTOM"):
+    assert ".field public static final enum %s:Ld7/w;" % e_ in dw, "d7.w." + e_
+# the Effect of the picture (HomeClock.styleName / styledSubject): e7.h0.f2 (h7.x) .N (h7.i), d7.m subject variants
+assert re.search(r"^\.field public f2:Lh7/x;$", open(one("e7/h0.smali")).read(), re.M), "e7.h0.f2"
+assert re.search(r"^\.field public N:Lh7/i;$", open(one("h7/x.smali")).read(), re.M), "h7.x.N"
+hi = open(one("h7/i.smali")).read()
+for e_ in ("GrayScale", "Shadow", "BlurAll"):
+    assert ".field public static final enum %s:Lh7/i;" % e_ in hi, "h7.i." + e_
+dm = open(one("d7/m.smali")).read()
+for fld in ("k", "l", "m"):
+    assert ".field public %s:Landroid/graphics/Bitmap;" % fld in dm, "d7.m." + fld
 for m in ("public final getDrawableInner()Landroid/graphics/drawable/Drawable;", "public final getDrawableBounds()Landroid/graphics/RectF;",
           "public final getDrawableOriginScaledBounds()Landroid/graphics/RectF;"):
     assert re.search(r"^\.method %s$" % re.escape(m), s, re.M), "CropImageView." + m
@@ -308,7 +321,9 @@ def hdraw(body):
 xpatch(f, "public onDraw(Landroid/graphics/Canvas;)V", hdraw, "MaskImageView.onDraw -> EditXf.draw")
 f = by_text('"makeBackgroundImage"')
 s = open(f).read()
-for fld in (".field public final f:Landroid/util/Size;", ".field public h:Landroid/graphics/Bitmap;", ".field public o:F", ".field public p:F"):
+for fld in (".field public final f:Landroid/util/Size;", ".field public h:Landroid/graphics/Bitmap;", ".field public o:F", ".field public p:F",
+            ".field public final c:J", ".field public q:F", ".field public r:F", ".field public s:F", ".field public t:F",
+            ".field public final v:Landroid/graphics/RectF;", ".field public w:Landroid/graphics/RectF;"):
     assert fld in s, "SaveImageMaker " + fld
 assert re.search(r"^\.field private a:Ljava/util/ArrayList;$", open(one("c7/c0.smali")).read(), re.M), "c7.c0.a (expand offsets)"
 for name, typ in (("preview_switch_title_layout", "id"), ("set_wallpaper_btn_bg", "drawable"), ("preview_selector_text_set", "drawable"),

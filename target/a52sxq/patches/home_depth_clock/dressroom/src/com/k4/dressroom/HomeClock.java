@@ -186,7 +186,7 @@ public final class HomeClock {
                         return true;
                     }
                     clockOnly(g, star, clock);
-                    EditXf.keepSwitch();
+                    EditXf.frame(g);
                     p8.a med = sMediator.get();
                     if (med != null) {
                         hideLauncher(med);
@@ -334,9 +334,70 @@ public final class HomeClock {
                 item.b = sIconOn;
             }
             sItem = new WeakReference<>(item);
+            sController = new WeakReference<Object>(controller);
             items[slot] = item;
         } catch (Throwable t) {
             Log.e(TAG, "addMenu", t);
+        }
+    }
+
+    private static WeakReference<Object> sController = new WeakReference<>(null);
+    private static WeakReference<Object> sResult = new WeakReference<>(null);
+    private static Field sStyleField, sStyleItemField;
+
+    /** The picture's current Effect (DesignPreviewController e7.h0.f2 = StylePreviewController h7.x, .N = h7.i), or null. */
+    static String styleName() {
+        try {
+            Object c = sController.get();
+            if (c == null) {
+                return null;
+            }
+            if (sStyleField == null) {
+                sStyleField = findField(c.getClass(), "f2");
+            }
+            Object x = sStyleField.get(c);
+            if (x == null) {
+                return null;
+            }
+            if (sStyleItemField == null) {
+                sStyleItemField = findField(x.getClass(), "N");
+            }
+            Object n = sStyleItemField.get(x);
+            return n instanceof Enum ? ((Enum<?>) n).name() : null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    static Field findField(Class<?> k, String name) throws NoSuchFieldException {
+        for (; k != null; k = k.getSuperclass()) {
+            try {
+                Field f = k.getDeclaredField(name);
+                f.setAccessible(true);
+                return f;
+            } catch (NoSuchFieldException ignored) {
+            }
+        }
+        throw new NoSuchFieldException(name);
+    }
+
+    /**
+     * The full-size cut-out the saved wallpaper will have for the current Effect (what ImagePreviewController.Z2 picks
+     * for masked.jpg: GrayScale / Shadow the grayscale variant d7.m.l, BlurAll the blurred one d7.m.m, else the colour
+     * one d7.m.k), or null.
+     */
+    static Bitmap styledSubject() {
+        Object res = sResult.get();
+        if (res == null) {
+            return null;
+        }
+        try {
+            String st = styleName();
+            String f = "GrayScale".equals(st) || "Shadow".equals(st) ? "l" : "BlurAll".equals(st) ? "m" : "k";
+            Bitmap b = (Bitmap) field(res, f);
+            return b != null ? b : (Bitmap) field(res, "k");
+        } catch (Throwable t) {
+            return null;
         }
     }
 
@@ -399,6 +460,9 @@ public final class HomeClock {
                 Log.w(TAG, "subject: save check", t);
             }
             sDepth = depth;
+            if (res != null) {
+                sResult = new WeakReference<>(res);
+            }
             if (!depth) {
                 Log.i(TAG, "subject not saved by Samsung for this picture: clock drawn over the whole picture");
             }
@@ -440,8 +504,8 @@ public final class HomeClock {
     static final class SubjectView extends View {
         final ImageView crop;
         android.graphics.drawable.BitmapDrawable subject;
-        private final float[] last = new float[17];
-        private final float[] now = new float[17];
+        private final float[] last = new float[19];
+        private final float[] now = new float[19];
 
         SubjectView(Context c, ImageView crop) {
             super(c);
@@ -469,18 +533,121 @@ public final class HomeClock {
             now[11] = b.right;
             now[12] = b.bottom;
             EditXf.state(now, 13); // zoom-out / rotation of the Home editor (EditXf)
-            if (java.util.Arrays.equals(now, last)) {
+            Bitmap styled = styledSubject();
+            now[17] = styled == null ? 0f : System.identityHashCode(styled);
+            now[18] = EditXf.sFrameLayout ? 1f : 0f;
+            float[] fr = EditXf.sFrameLayout ? frameState() : null;
+            if (java.util.Arrays.equals(now, last) && java.util.Arrays.equals(fr, lastFrame)) {
                 return false;
             }
             System.arraycopy(now, 0, last, 0, now.length);
+            lastFrame = fr;
             return true;
+        }
+
+        private float[] lastFrame;
+        private final float[] m9 = new float[9];
+
+        /** The frame layout views' order, pictures, bounds, matrices and alpha (redraw when any of them changes). */
+        float[] frameState() {
+            java.util.List<View> vs = frameViews();
+            float[] st = new float[vs.size() * 16 + 1];
+            st[0] = vs.size();
+            int i = 1;
+            for (View v : vs) {
+                android.graphics.drawable.Drawable d = ((ImageView) v).getDrawable();
+                st[i++] = System.identityHashCode(v);
+                st[i++] = d == null ? 0f : System.identityHashCode(d);
+                ((ImageView) v).getImageMatrix().getValues(m9);
+                for (float f : new float[] {m9[0], m9[1], m9[2], m9[3], m9[4], m9[5]}) {
+                    st[i++] = f;
+                }
+                Rect b = d == null ? new Rect() : d.getBounds();
+                st[i++] = b.left;
+                st[i++] = b.top;
+                st[i++] = b.right;
+                st[i++] = b.bottom;
+                st[i++] = v.getAlpha();
+                st[i++] = v.getLeft();
+                st[i++] = v.getTop();
+                st[i++] = d == null ? 0f : d.getAlpha();
+            }
+            return st;
+        }
+
+        /** Samsung's visible frame layout views (CropImageView of a type other than NONE), bottom to top. */
+        java.util.List<View> frameViews() {
+            java.util.List<View> out = new java.util.ArrayList<>();
+            if (!(crop.getParent() instanceof ViewGroup)) {
+                return out;
+            }
+            ViewGroup g = (ViewGroup) crop.getParent();
+            for (int i = 0; i < g.getChildCount(); i++) {
+                View v = g.getChildAt(i);
+                if (v != crop && v.getVisibility() == View.VISIBLE && EditXf.CROP.equals(v.getClass().getName()) && !EditXf.isMain(v)) {
+                    out.add(v);
+                }
+            }
+            return out;
+        }
+
+        /**
+         * The frame layout views drawn in front of the clock, the editor's side of HomeClockPresenter.clockSlot: from
+         * the subject (OBJECT) up when it is above the frame plate (FRAME_BASE), else only what is above the plate
+         * (FRAME_BOTTOM); none without a subject view.
+         */
+        java.util.List<View> frontViews() {
+            java.util.List<View> vs = frameViews();
+            int subj = -1, base = -1;
+            for (int i = 0; i < vs.size(); i++) {
+                String t = EditXf.viewType(vs.get(i));
+                if ("OBJECT".equals(t)) {
+                    subj = i;
+                } else if ("FRAME_BASE".equals(t)) {
+                    base = i;
+                }
+            }
+            if (subj < 0) {
+                return new java.util.ArrayList<>();
+            }
+            int at = base > subj ? base + 1 : subj;
+            return vs.subList(Math.min(at, vs.size()), vs.size());
+        }
+
+        /** Frame layout: Samsung's own views from the clock slot up, drawn again above the clock (same pixels). */
+        void drawFrameFront(android.graphics.Canvas canvas) {
+            for (View v : frontViews()) {
+                int save = canvas.save();
+                canvas.translate(v.getLeft() - crop.getLeft(), v.getTop() - crop.getTop());
+                if (v.getAlpha() < 1f) {
+                    canvas.saveLayerAlpha(0, 0, v.getWidth(), v.getHeight(), Math.round(v.getAlpha() * 255));
+                }
+                v.draw(canvas);
+                canvas.restoreToCount(save);
+            }
         }
 
         @Override
         protected void onDraw(android.graphics.Canvas canvas) {
+            if (EditXf.sFrameLayout) {
+                // a frame layout has Samsung's own subject view (OBJECT), in its place in the frame
+                try {
+                    drawFrameFront(canvas);
+                } catch (Throwable t) {
+                    Log.w(TAG, "frame layout views", t);
+                }
+                return;
+            }
             android.graphics.drawable.Drawable d = crop.getDrawable();
             if (d == null || subject == null) {
                 return;
+            }
+            Bitmap styled = styledSubject(); // the Effect's variant, as the save will have it
+            if (styled != null && styled != subject.getBitmap()) {
+                android.graphics.drawable.BitmapDrawable bd = new android.graphics.drawable.BitmapDrawable(getResources(), styled);
+                bd.setFilterBitmap(true);
+                bd.setColorFilter(subject.getColorFilter());
+                subject = bd;
             }
             int save = canvas.save();
             EditXf.apply(crop, canvas); // follows the Home editor's zoom-out / rotation
