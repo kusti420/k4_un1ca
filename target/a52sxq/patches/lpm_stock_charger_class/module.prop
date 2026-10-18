@@ -1,0 +1,4 @@
+id=a52sxq_lpm_stock_charger_class
+name=Galaxy A52s 5G: power-off charging (LPM) runs only Samsung lpm, like stock
+author=kusti420
+description=The S26 Ultra init.rc has "on charger: class_start charger"; the stock A52s (A14) init.rc has no such trigger, so in power-off charging only class sec-charger (Samsung /system/bin/lpm + sbm -c) ran. With the A52s vendor that trigger also starts the vendor's old "service charger /system/bin/charger" (init.qcom.rc, class charger; dead on stock because stock had no /system/bin/charger) and the health HAL, so the AOSP charger UI (minui on DRM, own power-key reboot and unplug shutdown) runs next to Samsung lpm. Drop the trigger to restore the stock A52s LPM service set.
