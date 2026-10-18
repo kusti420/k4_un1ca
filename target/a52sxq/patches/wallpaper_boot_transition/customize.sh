@@ -52,7 +52,21 @@ need("com/android/server/wm/Transition.smali", (
     ".method public final cleanUpInternal()V"))
 need("com/android/server/wm/WindowManagerService.smali", (".field public final mAnimator:" + WM + "WindowAnimator;",))
 need("com/android/server/wm/WindowAnimator.smali", (".method public final addSurfaceVisibilityUpdate(" + WM + "WindowContainer;)V",))
-need("com/android/server/wm/TransitionController.smali", (".method public final inTransition(" + WM + "WindowContainer;)Z",))
+need("com/android/server/wm/TransitionController.smali", (
+    ".method public final inPlayingTransition(" + WM + "WindowContainer;)Z",
+    ".field public mCollectingTransition:" + WM + "Transition;",
+    ".field public mWaitingTransitions:Ljava/util/ArrayList;"))
+need("com/android/server/wm/Transition.smali", (".method public final isInTransition(" + WM + "WindowContainer;)Z",))
+# The abort that matters runs inside TransitionController.flushRunningTransitions() (shell player registration). That
+# method clears mTransitionPlayers first and resets mCollectingTransition only after Transition.abort() returns, so
+# during the hook the controller still reports the aborted transition as collecting: TransitionController.inTransition()
+# would say "held" for every one of its tokens (9.3.54: hook ran, every token skipped, no log). The helper therefore
+# only skips a token that a playing transition or a different collecting/waiting transition holds.
+tc = open(one("com/android/server/wm/TransitionController.smali")).read()
+fm = re.search(r"^\.method public final flushRunningTransitions\(\)V\n.*?^\.end method\n", tc, re.M | re.S)
+assert fm, "TransitionController.flushRunningTransitions"
+fb = fm.group(0)
+assert fb.index("->mTransitionPlayers:") < fb.index("->clear()V"), "flushRunningTransitions: players no longer cleared first"
 need("com/android/server/wm/WindowContainer.smali", (".method public isVisibleRequested()Z",
                                                      ".method public asWallpaperToken()" + WM + "WallpaperWindowToken;"))
 need("com/android/server/wm/WindowToken.smali", (".field public mClientVisible:Z",))
@@ -149,12 +163,23 @@ open(dst, "w").write("""\
 
     if-eqz v4, :cond_next
 
-    # another (collecting or playing) transition owns its visibility now
-    invoke-virtual {v2, v4}, %(WM)sTransitionController;->inTransition(%(WM)sWindowContainer;)Z
+    # a playing transition, or another collecting/waiting one, owns its visibility now. Not inTransition(): the
+    # aborted transition is still mCollectingTransition here when the abort comes from flushRunningTransitions()
+    invoke-static {p0, v2, v4}, %(K4)s->heldElsewhere(%(WM)sTransition;%(WM)sTransitionController;%(WM)sWindowContainer;)Z
 
     move-result v5
 
-    if-nez v5, :cond_next
+    if-eqz v5, :cond_free
+
+    const-string v7, "K4WallpaperAbort"
+
+    const-string v8, "aborted transition: wallpaper token held by another transition, left alone"
+
+    invoke-static {v7, v8}, Landroid/util/Slog;->i(Ljava/lang/String;Ljava/lang/String;)I
+
+    goto :cond_next
+
+    :cond_free
 
     invoke-virtual {v4}, %(WM)sWindowContainer;->isVisibleRequested()Z
 
@@ -222,6 +247,72 @@ open(dst, "w").write("""\
     invoke-static {v1, v2, v0}, Landroid/util/Slog;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
 
     return-void
+.end method
+
+# true when wc is part of a playing transition or of a collecting/waiting transition other than t
+.method private static heldElsewhere(%(WM)sTransition;%(WM)sTransitionController;%(WM)sWindowContainer;)Z
+    .locals 4
+
+    invoke-virtual {p1, p2}, %(WM)sTransitionController;->inPlayingTransition(%(WM)sWindowContainer;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_yes
+
+    iget-object v0, p1, %(WM)sTransitionController;->mCollectingTransition:%(WM)sTransition;
+
+    if-eqz v0, :cond_waiting
+
+    if-eq v0, p0, :cond_waiting
+
+    invoke-virtual {v0, p2}, %(WM)sTransition;->isInTransition(%(WM)sWindowContainer;)Z
+
+    move-result v0
+
+    if-nez v0, :cond_yes
+
+    :cond_waiting
+    iget-object v0, p1, %(WM)sTransitionController;->mWaitingTransitions:Ljava/util/ArrayList;
+
+    if-eqz v0, :cond_no
+
+    invoke-virtual {v0}, Ljava/util/ArrayList;->size()I
+
+    move-result v1
+
+    const/4 v2, 0x0
+
+    :goto_0
+    if-ge v2, v1, :cond_no
+
+    invoke-virtual {v0, v2}, Ljava/util/ArrayList;->get(I)Ljava/lang/Object;
+
+    move-result-object v3
+
+    check-cast v3, %(WM)sTransition;
+
+    if-eq v3, p0, :cond_skip
+
+    invoke-virtual {v3, p2}, %(WM)sTransition;->isInTransition(%(WM)sWindowContainer;)Z
+
+    move-result v3
+
+    if-nez v3, :cond_yes
+
+    :cond_skip
+    add-int/lit8 v2, v2, 0x1
+
+    goto :goto_0
+
+    :cond_no
+    const/4 v0, 0x0
+
+    return v0
+
+    :cond_yes
+    const/4 v0, 0x1
+
+    return v0
 .end method
 """ % {"K4": K4, "WM": WM})
 print("  - helper %s" % os.path.relpath(dst, root))
