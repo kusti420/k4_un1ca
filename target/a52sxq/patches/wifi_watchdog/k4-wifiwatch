@@ -58,12 +58,6 @@ alive() {
     return 1
 }
 
-# once per device: let a validated cellular network take over while Wi-Fi has no internet (Samsung's CSC default is
-# "never avoid bad Wi-Fi"); a user who sets it back keeps that
-if [ "$(getprop persist.sys.k4.wifiwatch_defaults)" != 1 ]; then
-    settings put global network_avoid_bad_wifi 1 > /dev/null 2>&1 && setprop persist.sys.k4.wifiwatch_defaults 1 && \
-        log "default applied: avoid bad Wi-Fi"
-fi
 dead=0
 since=0
 prev_rx=0

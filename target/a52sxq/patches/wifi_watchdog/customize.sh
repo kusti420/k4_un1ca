@@ -21,7 +21,6 @@ if ! grep -q "^sys\.k4\.wifiwatch " "$PLAT_PC"; then
     [ -z "$(tail -c 1 "$PLAT_PC")" ] || echo >> "$PLAT_PC"
     echo "sys.k4.wifiwatch            u:object_r:k4_metamod_status_prop:s0" >> "$PLAT_PC"
     echo "persist.sys.k4.wifiwatch    u:object_r:k4_metamod_prop:s0 exact string" >> "$PLAT_PC"
-    echo "persist.sys.k4.wifiwatch_defaults u:object_r:k4_metamod_prop:s0 exact string" >> "$PLAT_PC"
 fi
 PLAT_CIL="$WORK_DIR/system/system/etc/selinux/plat_sepolicy.cil"
 grep -q -x -F "(allow shell k4_metamod_status_prop (property_service (set)))" "$PLAT_CIL" || {
