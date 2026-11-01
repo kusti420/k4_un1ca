@@ -54,6 +54,7 @@ done
 # carries usage bit 34, and writes the HBM level (331, what SemUdfpsOpticalHelper computes for this panel)
 # to mask_brightness. BiometricSetting is system_app, which may write sysfs_lcd_writable.
 BSS="system/priv-app/BiometricSetting/BiometricSetting.apk"
+[ -f "$WORK_DIR/system/$BSS" ] || ABORT "fingerprint: $BSS not in the work dir (enrollment HBM/mask layer patches)"
 if [ -f "$WORK_DIR/system/$BSS" ]; then
     DECODE_APK "system" "$BSS" || ABORT "Failed to decode $BSS"
     LOG "- Adding a fingerprint indisplay layer to UdfpsMaskWindow"
@@ -533,6 +534,7 @@ fi
 # devices ship a libui that allows it. Clear bit 34 from both invalid-bit masks
 # (movk x8, #0xffff, lsl #32 -> #0xfffb; movk x9, #0xfffc, lsl #32 -> #0xfff8).
 LIBUI="$WORK_DIR/system/system/lib64/libui.so"
+[ -f "$LIBUI" ] || ABORT "fingerprint: ${LIBUI//$WORK_DIR/} not in the work dir (gralloc usage bit 34)"
 if [ -f "$LIBUI" ]; then
     LOG "- Allowing gralloc usage bit 34 in libui"
     python3 - "$LIBUI" << 'PYEOF' || ABORT "Failed to patch libui.so"

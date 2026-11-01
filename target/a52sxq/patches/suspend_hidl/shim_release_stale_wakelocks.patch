@@ -1,6 +1,6 @@
-Follow-up for ~/git/android/vendor/k4/suspend-hidl-shim/main.cpp (not in the pinned prebuilt yet).
-Apply in the IchthysOS tree, rebuild android.system.suspend-hidl-shim, copy it here and update the sha256 pin
-in customize.sh. Releases the "<name>.<pid>" kernel wake locks a previous shim instance left behind.
+Change to ~/git/android/vendor/k4/suspend-hidl-shim/main.cpp, applied in the IchthysOS tree since 2026-11-01;
+the pinned android.system.suspend-hidl-shim (sha256 in customize.sh, commit 8c348ec3) is built with it. Kept here
+as the record of the change. Releases the "<name>.<pid>" kernel wake locks a previous shim instance left behind.
 
 --- a/main.cpp
 +++ b/main.cpp

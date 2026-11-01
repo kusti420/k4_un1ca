@@ -107,6 +107,7 @@ open(path, "w").write(src)
 print("hooked K4DeviceStates.single before the provider constructor (list register %s)" % lst)
 PYEOF
 else
-    LOG "- FlexibleDeviceStateProvider not found in $SVC, skipping"
+    # a foldable source always builds FlexibleDeviceStateProvider in this constructor: a miss means the anchor moved
+    ABORT "devicestate: foldable source, but the FlexibleDeviceStateProvider constructor call is not in DeviceStateManagerService ($SVC): anchor changed, update the patch"
 fi
 unset SVC DIR DSMS

@@ -57,6 +57,7 @@ EVAL "sed -i \"/persist.sys.usb.config/i ro.surface_flinger.enable_frame_rate_ov
 # log string, then the closest preceding `b.ne` (within 8 instructions, directly after a 64-bit `cmp`) that jumps
 # forward past the log call. Anything else aborts.
 SF="$WORK_DIR/system/system/bin/surfaceflinger"
+[ -f "$SF" ] || ABORT "hfr: ${SF//$WORK_DIR/} not in the work dir (idle timer controller patch)"
 if [ -f "$SF" ]; then
     LOG "- Disabling the kernel idle timer controller in /system/bin/surfaceflinger"
     python3 - "$SF" << 'PYEOF' || ABORT "Failed to patch the kernel idle timer controller in surfaceflinger"

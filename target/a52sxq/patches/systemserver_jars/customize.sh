@@ -63,7 +63,8 @@ open(pb_path, "wb").write(data)
 print("  - Added %d jars: %s" % (len(added), " ".join(added)))
 PYEOF
 else
-    LOG "- systemserverclasspath.pb not found, skipping"
+    # derive_classpath input every Android 12+ source ships; without it odrefresh never compiles these jars
+    ABORT "systemserver_jars: ${PB//$WORK_DIR/} not found"
 fi
 # Keep system_server and these jars fully compiled: with Samsung's (regenerated) services.jar.prof present odrefresh
 # would otherwise switch to speed-profile and compile only the profiled methods.

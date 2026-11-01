@@ -243,6 +243,37 @@ HEX_PATCH()
     return 0
 }
 
+# HEX_PATCH_ONCE <file> <from> <to>
+# HEX_PATCH, but only when <from> occurs exactly once and at a byte boundary. HEX_PATCH's sed replaces the first
+# match of the hex stream only: a second copy would be left unpatched silently, and a match starting at an odd
+# nibble would corrupt two unrelated bytes.
+HEX_PATCH_ONCE()
+{
+    _CHECK_NON_EMPTY_PARAM "FILE" "$1" || return 1
+    _CHECK_NON_EMPTY_PARAM "FROM" "$2" || return 1
+    _CHECK_NON_EMPTY_PARAM "TO" "$3" || return 1
+
+    local FILE="$1"
+    local FROM="${2// /}"
+    local MATCHES
+
+    FROM="$(tr "[:upper:]" "[:lower:]" <<< "$FROM")"
+
+    if [ ! -f "$FILE" ]; then
+        LOGE "File not found: ${FILE//$WORK_DIR/}"
+        return 1
+    fi
+
+    # "<total> <byte-aligned>"
+    MATCHES="$(xxd -p -c 0 "$FILE" | grep -b -o "$FROM" | awk -F: '{ n++; if ($1 % 2 == 0) a++ } END { print n + 0, a + 0 }')"
+    if [ "$MATCHES" != "1 1" ]; then
+        LOGE "\"$FROM\" must occur exactly once in ${FILE//$WORK_DIR/} (matches: ${MATCHES% *}, byte-aligned: ${MATCHES#* })"
+        return 1
+    fi
+
+    HEX_PATCH "$1" "$2" "$3"
+}
+
 # SET_FLOATING_FEATURE_CONFIG "<config>" "<value>"
 # Sets the supplied config to the desired value.
 # "-d" or "--delete" can be passed as value to delete the config.

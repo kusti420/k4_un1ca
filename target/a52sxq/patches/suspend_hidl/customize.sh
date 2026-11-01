@@ -18,7 +18,9 @@
 SRC="$SRC_DIR/target/a52sxq/patches/suspend_hidl"
 SUSPEND_SVC="$WORK_DIR/system/system/bin/hw/android.system.suspend-service"
 
-if [ -f "$SUSPEND_SVC" ] && ! grep -q "suspend@1.0" "$SUSPEND_SVC"; then
+[ -f "$SUSPEND_SVC" ] || ABORT "suspend_hidl: ${SUSPEND_SVC//$WORK_DIR/} not in the work dir"
+# intentional skip: a source whose suspend service still serves android.system.suspend@1.0 itself needs no shim
+if ! grep -q "suspend@1.0" "$SUSPEND_SVC"; then
     LOG "- Adding the android.system.suspend@1.0 HIDL shim for the VNDK 30 vendor HALs"
     for f in android.system.suspend-hidl-shim android.system.suspend@1.0.so android.system.suspend-hidl-shim.rc android.system.suspend-hidl-shim.xml; do
         [ -f "$SRC/$f" ] || ABORT "suspend_hidl: $f missing from the patch dir"
@@ -46,6 +48,6 @@ if [ -f "$SUSPEND_SVC" ] && ! grep -q "suspend@1.0" "$SUSPEND_SVC"; then
     grep -q "suspend-hidl-shim" "$PLAT_FC" || ABORT "suspend_hidl: plat_file_contexts entry not added"
     unset PLAT_FC
 else
-    LOG "- Source suspend service already serves HIDL (or is missing), skipping the shim"
+    LOG "  (skipped: the source android.system.suspend-service still serves suspend@1.0 itself, no shim needed)"
 fi
 unset SRC SUSPEND_SVC

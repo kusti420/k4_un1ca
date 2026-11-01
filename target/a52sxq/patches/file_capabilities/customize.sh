@@ -13,10 +13,8 @@ LOG_STEP_IN "- Restoring stock file capabilities"
 while read -r PARTITION ENTRY MASK; do
     [ "$PARTITION" ] || continue
 
-    if [ ! -f "$WORK_DIR/$ENTRY" ]; then
-        LOG "- /$ENTRY is not in the work dir, skipping"
-        continue
-    fi
+    # every entry is a stock A528BXXU5FWK4 vendor binary; a miss means the vendor image changed or was debloated
+    [ -f "$WORK_DIR/$ENTRY" ] || ABORT "file_capabilities: /$ENTRY is not in the work dir"
 
     FS_CONFIG="$WORK_DIR/configs/fs_config-$PARTITION"
     [ -f "$FS_CONFIG" ] || ABORT "file_capabilities: ${FS_CONFIG//$WORK_DIR/} not found"

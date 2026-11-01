@@ -7,6 +7,13 @@
 # Fix: mov x9, #0x1ffffffffff -> mov x9, #0x3fffffffff (caps 0..37). Caps 38..40 do not exist on this kernel.
 # Located by pattern, not offset (Fold8 F976B: 0x29e00, S25 S931B: 0x2a110): the library's only
 # `mov Xn, #0x1ffffffffff`, which must be followed within a few instructions by `bic Xd, Xn, Xm` (mask & ~keep).
+# Stock kernel only: the bone-machine kernel (kernel_bone_machine, k4 patch 0001) defines CAP_PERFMON/CAP_BPF/
+# CAP_CHECKPOINT_RESTORE and CAP_LAST_CAP=40, so PR_CAPBSET_READ succeeds for 38-40 and the unpatched mask is right;
+# clamping it there would leave caps 38-40 in every app's bounding set.
+if [ ! -f "$SRC_DIR/target/a52sxq/patches/kernel_bone_machine/disable" ]; then
+    LOG "- zygote_next child keeps the full capability mask (0-40): kernel_bone_machine ships caps 38-40, no clamp needed"
+    return 0
+fi
 LIB="$WORK_DIR/system/system/lib64/libzygote.dylib.so"
 [ -f "$LIB" ] || ABORT "zygote_next_kernel54: $LIB not found"
 python3 - "$LIB" << 'PYEOF' || ABORT "Failed to patch libzygote.dylib.so"

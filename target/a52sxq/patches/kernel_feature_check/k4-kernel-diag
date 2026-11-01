@@ -161,10 +161,12 @@ result pd_disable "$(st $RC)" feat "Fast charging off still charges at 25 W on U
     "/sys/class/power_supply/battery/pd_disable"
 
 # --- minor: works, but differs from the kernel this ROM is built and tested with ---------------------------------------
-# k4 0001: capabilities 38-40. zygote_next_kernel54 clamps zygote_next's cap drop to 0-37, so this is not fatal.
+# k4 0001: capabilities 38-40. The ROM is built for this kernel, so zygote_next_kernel54 (the 0-37 clamp of
+# zygote_next's cap drop) is NOT applied: on a kernel without caps 38-40 the zygote-child aborts (PR_CAPBSET_READ 38
+# -> EINVAL -> panic) and system_server hangs in startNativeChildZygote until the watchdog.
 CAP="$(cat "$R/proc/sys/kernel/cap_last_cap" 2> /dev/null)"
 case "$CAP" in ''|*[!0-9]*) RC=2 ;; *) [ "$CAP" -ge 40 ] && RC=0 || RC=1 ;; esac
-result caps "$(st $RC)" minor "no CAP_PERFMON/CAP_BPF/CAP_CHECKPOINT_RESTORE, zygote_next needs its 0-37 clamp" \
+result caps "$(st $RC)" crit "no CAP_PERFMON/CAP_BPF/CAP_CHECKPOINT_RESTORE: zygote_next child aborts, system_server watchdog" \
     "/proc/sys/kernel/cap_last_cap=${CAP:-?} (want 40)"
 [ "$RC" = 0 ] && TAGS="caps${TAGS:+, $TAGS}"
 

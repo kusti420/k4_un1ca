@@ -116,10 +116,13 @@ if ! $SOURCE_CAMERA_SUPPORT_MASS_APP_FLAVOR; then
         # platforms (One UI 9 = 90000). Fall back to the newest version it knows instead.
         DECODE_APK "system" "system/priv-app/SamsungCamera/SamsungCamera.apk"
         CAMERA_DIR="$APKTOOL_DIR/system/priv-app/SamsungCamera/SamsungCamera.apk"
-        ONEUI_ENUM="$(grep -rl "get : argument is invalid - " "$CAMERA_DIR"/smali* | head -n 1)"
-        if [ "$ONEUI_ENUM" ] && grep -q "mOneUiVersionCode" "$ONEUI_ENUM"; then
-            LOG "- Making SamsungCamera fall back to its newest known One UI version"
-            python3 - "$ONEUI_ENUM" << 'PYEOF' || ABORT "Failed to patch ${ONEUI_ENUM//$APKTOOL_DIR/}"
+        ONEUI_ENUM="$(grep -rl "get : argument is invalid - " "$CAMERA_DIR"/smali* || true)"
+        # exactly one class (the One UI version enum, x1/k in 16.0.00.74) throws this; the prebuilt is pinned
+        [ "$(grep -c . <<< "$ONEUI_ENUM")" = 1 ] || \
+            ABORT "camera: expected one smali file with \"get : argument is invalid - \" in the r9qxxx SamsungCamera, found $(grep -c . <<< "$ONEUI_ENUM")"
+        grep -q "mOneUiVersionCode" "$ONEUI_ENUM" || ABORT "camera: ${ONEUI_ENUM//$APKTOOL_DIR/} is not the One UI version enum (no mOneUiVersionCode)"
+        LOG "- Making SamsungCamera fall back to its newest known One UI version"
+        python3 - "$ONEUI_ENUM" << 'PYEOF' || ABORT "Failed to patch ${ONEUI_ENUM//$APKTOOL_DIR/}"
 import re, sys
 p = sys.argv[1]
 s = open(p).read()
@@ -130,7 +133,6 @@ s, n = pat.subn(lambda m: "%s    sget-object %s, %s->%s:%s\n\n    return-object 
 assert n == 1, "throw block not found"
 open(p, "w").write(s)
 PYEOF
-        fi
         unset CAMERA_DIR ONEUI_ENUM
 
         # One UI 9 SystemUI draws the lock screen shortcut from the activity's "com.samsung.keyguard.shortcut.icon"
@@ -505,16 +507,16 @@ fi
 
 # Fix device model number in photo/video metadata
 while IFS= read -r f; do
-    HEX_PATCH "$f" "726f2e70726f647563742e6d6f64656c00" "726f2e626f6f742e656d2e6d6f64656c00"
+    HEX_PATCH_ONCE "$f" "726f2e70726f647563742e6d6f64656c00" "726f2e626f6f742e656d2e6d6f64656c00"
 done < <(grep -r -w -l "ro.product.model" "$WORK_DIR/vendor" | grep "camera")
 for f in \
     "$WORK_DIR/system/system/lib/libstagefright.so" \
     "$WORK_DIR/system/system/lib64/libstagefright.so"; do
     # Android 17 Samsung flagships are 64-bit-only and no longer ship the
     # 32-bit stagefright library. Patch each ABI only when that stock binary is
-    # present; HEX_PATCH remains strict for every existing copy.
+    # present; HEX_PATCH_ONCE remains strict (exactly one match) for every existing copy.
     if [ -f "$f" ]; then
-        HEX_PATCH "$f" \
+        HEX_PATCH_ONCE "$f" \
             "726f2e70726f647563742e6d6f64656c00" "726f2e626f6f742e656d2e6d6f64656c00"
     fi
 done
@@ -529,15 +531,15 @@ if [[ "$TARGET_OS_SINGLE_SYSTEM_IMAGE" == "essi" ]]; then
         [[ "$(GET_PROP "system" "ro.product.device")" == "a56"* ]] && \
             [[ "$(GET_PROP "vendor" "ro.product.vendor.device")" != "a56"* ]]
     }; then
-        HEX_PATCH "$WORK_DIR/system/system/lib64/libobjectcapture_jni.arcsoft.so" \
+        HEX_PATCH_ONCE "$WORK_DIR/system/system/lib64/libobjectcapture_jni.arcsoft.so" \
             "e503162a47020094e022009121008052e203162a" "8500805247020094e02200912100805282008052"
     elif ! [[ "$(GET_PROP "system" "ro.product.device")" =~ r0|g0|b0 ]] && \
             [[ "$(GET_PROP "vendor" "ro.product.vendor.device")" =~ r0|g0|b0 ]]; then
-        HEX_PATCH "$WORK_DIR/system/system/lib64/libobjectcapture_jni.arcsoft.so" \
+        HEX_PATCH_ONCE "$WORK_DIR/system/system/lib64/libobjectcapture_jni.arcsoft.so" \
             "e503162a47020094e022009121008052e203162a" "4500805247020094e02200912100805242008052"
     elif [[ "$(GET_PROP "system" "ro.product.device")" != "a56"* ]] && \
             [[ "$(GET_PROP "vendor" "ro.product.vendor.device")" == "a56"* ]]; then
-        HEX_PATCH "$WORK_DIR/system/system/lib64/libobjectcapture_jni.arcsoft.so" \
+        HEX_PATCH_ONCE "$WORK_DIR/system/system/lib64/libobjectcapture_jni.arcsoft.so" \
             "e503162a47020094e022009121008052e203162a" "c500805247020094e022009121008052c2008052"
     fi
 fi
@@ -547,17 +549,17 @@ if [ -f "$WORK_DIR/vendor/lib64/libDualCamBokehCapture.camera.samsung.so" ]; the
     if grep -q "ro.build.flavor" "$WORK_DIR/vendor/lib64/libDualCamBokehCapture.camera.samsung.so" 2> /dev/null; then
         SET_PROP "system" "ro.build.flavor" "$(GET_PROP "$FW_DIR/$TARGET_FIRMWARE_PATH/system/system/build.prop" "ro.build.flavor")"
     elif grep -q "ro.product.name" "$WORK_DIR/vendor/lib64/libDualCamBokehCapture.camera.samsung.so" 2> /dev/null; then
-        HEX_PATCH "$WORK_DIR/vendor/lib/libDualCamBokehCapture.camera.samsung.so" \
+        HEX_PATCH_ONCE "$WORK_DIR/vendor/lib/libDualCamBokehCapture.camera.samsung.so" \
             "726f2e70726f647563742e6e616d6500" "726f2e756e6963612e63616d65726100"
-        HEX_PATCH "$WORK_DIR/vendor/lib/liblivefocus_capture_engine.so" \
+        HEX_PATCH_ONCE "$WORK_DIR/vendor/lib/liblivefocus_capture_engine.so" \
             "726f2e70726f647563742e6e616d6500" "726f2e756e6963612e63616d65726100"
-        HEX_PATCH "$WORK_DIR/vendor/lib/liblivefocus_preview_engine.so" \
+        HEX_PATCH_ONCE "$WORK_DIR/vendor/lib/liblivefocus_preview_engine.so" \
             "726f2e70726f647563742e6e616d6500" "726f2e756e6963612e63616d65726100"
-        HEX_PATCH "$WORK_DIR/vendor/lib64/libDualCamBokehCapture.camera.samsung.so" \
+        HEX_PATCH_ONCE "$WORK_DIR/vendor/lib64/libDualCamBokehCapture.camera.samsung.so" \
             "726f2e70726f647563742e6e616d6500" "726f2e756e6963612e63616d65726100"
-        HEX_PATCH "$WORK_DIR/vendor/lib64/liblivefocus_capture_engine.so" \
+        HEX_PATCH_ONCE "$WORK_DIR/vendor/lib64/liblivefocus_capture_engine.so" \
             "726f2e70726f647563742e6e616d6500" "726f2e756e6963612e63616d65726100"
-        HEX_PATCH "$WORK_DIR/vendor/lib64/liblivefocus_preview_engine.so" \
+        HEX_PATCH_ONCE "$WORK_DIR/vendor/lib64/liblivefocus_preview_engine.so" \
             "726f2e70726f647563742e6e616d6500" "726f2e756e6963612e63616d65726100"
         LOG "- Patching /system/system/etc/selinux/plat_property_contexts"
         EVAL "echo \"ro.unica.camera u:object_r:build_prop:s0 exact string\"  >> \"$WORK_DIR/system/system/etc/selinux/plat_property_contexts\""
