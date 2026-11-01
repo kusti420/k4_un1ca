@@ -176,6 +176,16 @@ imported_keybox() {
 sync_keybox() {
     kb="$ADB/teesim/keybox.xml"
     cur="$(sha_of "$kb")"
+    # First run of the bridge on this phone: a switch left on for the retired framework hook must not silently hand an
+    # old import (often a leaked, revoked keybox) to TEESimulator over the shipped one. Reset it; the user turns it on
+    # again in Settings if that import is wanted.
+    if [ ! -f "$ST/keybox.bridge" ]; then
+        : > "$ST/keybox.bridge"
+        if [ "$(gp $KBP)" = true ]; then
+            sp $KBP false
+            log "keybox: the Settings switch was on for the retired framework hook, reset to off (turn it on again to hand your import to TEESimulator)"
+        fi
+    fi
     imp="$(imported_keybox)"
     if [ -n "$imp" ]; then
         printf '%s\n' "$imp" > "$ST/keybox.import" && chmod 600 "$ST/keybox.import"
@@ -208,6 +218,11 @@ sync_keybox() {
                 && sp sys.k4.keybox shipped || sp sys.k4.keybox error
         else
             sp sys.k4.keybox user
+        fi
+        # a phone that stays up across the expiry date: arm k4_keybox_timer (k4_gmscompat.rc) to re-run then
+        if [ "$(gp sys.k4.keybox)" = shipped ] && [ -f "$SRC/seed/keybox.expiry" ]; then
+            e="$(tr -dc 0-9 < "$SRC/seed/keybox.expiry")"; now="${K4GC_NOW:-$(date +%s)}"
+            [ -n "$e" ] && [ "$e" -gt "$now" ] && sp sys.k4.keybox_expiry_in "$((e - now + 60))"
         fi
     elif [ -z "$cur" ]; then
         sp sys.k4.keybox none
@@ -374,8 +389,17 @@ apply() {
     esac
 }
 
+timer() {
+    # k4_keybox_timer (no timeout wrapper): sleep until the shipped keybox expires, then make init re-run `apply`
+    secs="$(gp sys.k4.keybox_expiry_in | tr -dc 0-9)"
+    [ -n "$secs" ] || exit 0
+    sleep "$secs"
+    sp persist.sys.unica.keybox_import "expiry-$(date +%s)"
+}
+
 case "$1" in
     apply) apply ;;
-    *) echo "usage: k4-gmscompat apply" >&2; exit 2 ;;
+    timer) timer ;;
+    *) echo "usage: k4-gmscompat apply|timer" >&2; exit 2 ;;
 esac
 exit 0

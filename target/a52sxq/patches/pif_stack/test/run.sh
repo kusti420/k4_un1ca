@@ -181,6 +181,22 @@ run
 eq "foreign keybox untouched" "$(cat "$ADB/teesim/keybox.xml")" "<AndroidAttestation>foreign</AndroidAttestation>"
 eq "keybox status" "$(prop sys.k4.keybox)" user
 
+fresh "first run resets a keybox switch left on by the old framework hook; later runs do not"
+echo "persist.sys.unica.keybox=true" >> "$T/props"
+echo "<AndroidAttestation>imported</AndroidAttestation>" > "$T/secure_keybox"
+run
+eq "switch reset" "$(prop persist.sys.unica.keybox)" false
+eq "shipped keybox, not the old import" "$(prop sys.k4.keybox)" shipped
+echo "persist.sys.unica.keybox=true" >> "$T/props"
+run
+eq "user turned it on again: import applied" "$(prop sys.k4.keybox)" imported
+
+fresh "expiry timer armed while the shipped keybox is in place"
+echo 2000000000 > "$T/src/seed/keybox.expiry"
+K4GC_NOW=1999990000 run
+eq "seconds left (+60)" "$(prop sys.k4.keybox_expiry_in)" 10060
+rm -f "$T/src/seed/keybox.expiry"
+
 fresh "expired shipped keybox: not installed, removed when it is ours, the user's import still works"
 echo 2000000000 > "$T/src/seed/keybox.expiry"
 run
@@ -202,6 +218,7 @@ rm -f "$T/src/seed/keybox.expiry"
 
 fresh "import with no shipped keybox"
 mv "$T/src/seed/keybox.xml" "$T/kb.xml"
+run      # first run (bridge marker); the switch is turned on afterwards
 echo "persist.sys.unica.keybox=true" >> "$T/props"
 echo "<AndroidAttestation>imported</AndroidAttestation>" > "$T/secure_keybox"
 run

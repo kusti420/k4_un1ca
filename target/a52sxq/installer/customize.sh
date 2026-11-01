@@ -22,6 +22,31 @@ else
     LOG "- Keeping the dtbo.img of the bundled bone-machine kernel"
 fi
 
+# /data must be mounted (decrypted) in the recovery: install-end.edify clears the previous build's ART boot image and
+# overlay idmap caches there, and the de-Googled cleanup below runs there. With a lock credential and an undecrypted
+# TWRP /data those steps were silently skipped (stale boot image, "failed to parse idmap header", overlays unapplied
+# until a reboot). Refuse to start instead of installing half a build.
+LOG "- Adding the /data-mounted check to the updater-script"
+DATA_CHECK_EDIFY="$(cat << 'EDIFY'
+is_mounted("/data") || (
+  ui_print(" ");
+  ui_print("ERROR: /data is not mounted in the recovery (not decrypted?).");
+  ui_print("Enter your lock screen PIN/pattern in TWRP so /data is decrypted (TWRP > Mount shows Data), then flash again.");
+  ui_print(" ");
+  abort("E3010: /data must be mounted (decrypted) to install this build")
+);
+EDIFY
+)"
+python3 - "$TMP_DIR/META-INF/com/google/android/updater-script" "$DATA_CHECK_EDIFY" << 'PY' || return 1
+import sys
+p, block = sys.argv[1], sys.argv[2]
+s = open(p).read()
+marker = '# --- Start patching dynamic partitions ---'
+assert s.count(marker) == 1, "dynamic partitions marker not unique"
+open(p, "w").write(s.replace(marker, block + "\n" + marker))
+PY
+unset DATA_CHECK_EDIFY
+
 # De-Googled variant (target/a52sxq/patches/degoogle enabled): a flash over the Google build keeps /data, where Play
 # Store had placed updated copies of the very packages this build drops. Without their system counterparts the
 # package manager keeps them as plain user apps that crash-loop (no GSF). Remove those orphan copies during the

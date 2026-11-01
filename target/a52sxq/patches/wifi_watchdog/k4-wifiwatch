@@ -7,7 +7,9 @@
 # neighbours, so no "lost provisioning", no reconnect, and the network keeps looking validated. Samsung's own monitor
 # (WifiConnectivityMonitor) is disabled on this port.
 #
-# Every 5 s while the default route is on wlan0 (so not while Wi-Fi is off, not the default, or still in DHCP):
+# Every 5 s while wlan0 has a default route in any routing table (`ip route show table all`: so also under a VPN, whose
+# tun0 holds the main default - the Wi-Fi uplink underneath still matters - but not while Wi-Fi is off, not connected,
+# or still in DHCP; a restart does drop a VPN or a Wi-Fi-uplink hotspot for a few seconds):
 #   dead = the gateway's neighbour entry is FAILED/INCOMPLETE/missing AND tx packets grew AND rx packets did not.
 # Four dead samples in a row (20 s; the first 30 s after the route appears are ignored) -> un-wedge:
 #   1. cmd connectivity reevaluate (so the network loses "validated" and cellular takes over at once) and restart Wi-Fi

@@ -123,6 +123,18 @@ service k4_gmscompat /system/bin/timeout 180 /system/bin/sh /system/bin/k4-gmsco
     seclabel u:r:ksu:s0
     oneshot
     disabled
+
+# shipped keybox expiry: sync_keybox sets sys.k4.keybox_expiry_in (seconds left); the timer sleeps that long and bumps
+# persist.sys.unica.keybox_import so apply runs again and drops the expired keybox without waiting for a reboot
+on property:sys.k4.keybox_expiry_in=*
+    start k4_keybox_timer
+
+service k4_keybox_timer /system/bin/sh /system/bin/k4-gmscompat timer
+    user root
+    group root
+    seclabel u:r:ksu:s0
+    oneshot
+    disabled
 EOF
 SET_METADATA "system" "system/etc/init/k4_gmscompat.rc" 0 0 644 "u:object_r:system_file:s0"
 
