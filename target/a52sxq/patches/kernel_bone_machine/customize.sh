@@ -7,8 +7,11 @@
 #   stale 5.4.233 copies in /vendor/lib/modules are never needed (their symbol CRCs do not match this kernel).
 # - dtbo.img: used as is (target/a52sxq/installer/customize.sh skips the A528N dtbo while this patch is enabled).
 # AVB footers are added later by the normal packaging step (images are unsigned here).
-KZIP="$SRC_DIR/prebuilts/kernel/bone-machine/bone-machine_k4btf_ringbuf_su_pt_uvc8_dm_a52sxq.zip"
-KSHA="d23e294fc04c6c61ea876c6351647386b8c33cee01d6b755194eabeb72ba7229"
+# NOTE 2026-11-01: the k4 0017 build (bone-machine_k4btf_ringbuf_su_pt_uvc8_dm_a52sxq.zip, sha256 d23e294f...) reset the
+# phone at 7.5 s on its first boot, in the middle of apexd's dm-verity activation (console-ramoops: no panic text), so
+# the dm uevent fix is NOT shipped; back on the 10-17 build until it is understood (scratch/bootloop_9395/).
+KZIP="$SRC_DIR/prebuilts/kernel/bone-machine/bone-machine_k4btf_ringbuf_su_pt_uvc8_test_a52sxq.zip"
+KSHA="af1e005a6855b634670d93f9564271c795524233da5ad55e6d401eacfd4a99a4"
 KVER="5.4.302-bone-machine-qgki"
 [ -f "$KZIP" ] || ABORT "kernel_bone_machine: $KZIP not found"
 [ "$(sha256sum "$KZIP" | cut -d " " -f 1)" = "$KSHA" ] || ABORT "kernel_bone_machine: sha256 mismatch for $KZIP"
