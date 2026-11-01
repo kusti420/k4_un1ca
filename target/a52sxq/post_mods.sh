@@ -32,6 +32,11 @@ SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GENAI_SUPPORT_TIME_WEATHER_WAL
 # rate (games start at 60); the __floating_feature fallback derives 120 from the panel's default refresh rate.
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_SUPPORT_GAME_SERVER_POLICY_QUERIES" --delete
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_CONFIG_GAME_DEFAULT_FRAMERATE" "60"
+# Game Booster "Allow more heat" / manual performance routine (S26U only, stock A52s has neither): GameTools then sends
+# SSRM per-mode SIOP levels (setSIOPMode / each_siop_mode) that siop_a52sxq_sm7325.xml does not define, so the toggle is
+# either a no-op or lifts the skin-temperature caps on a phone with no vapour chamber.
+SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_CONFIG_GAMEBOOSTER_MORE_HEAT" --delete
+SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_SUPPORT_GAMEBOOSTER_MANUAL_ROUTINE" --delete
 
 # Game Booster "Pause USB Power Delivery" (pass-through charging): BatteryService writes /sys/class/power_supply/
 # battery/pass_through, which only the bone-machine kernel provides (k4 patch 0008 holds the charger in
