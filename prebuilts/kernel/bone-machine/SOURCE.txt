@@ -54,4 +54,4 @@ Recipe:   k4-source/k4_build.sh (SRC_COMMIT 93b49d0ccd89, clang r530567 tarball 
 2026-11-01: k4-patches/0017-dm-ioctl-send-add-uevent-again-after-hash-insert.patch added to the series (dm KOBJ_ADD re-sent after the
   name hash insert, so ueventd can name/label new dm devices on this < 5.15 kernel: root cause of apexd "Failed to set mtime"
   and the recoverydecompressedapex reboot, see target/a52sxq/patches/apex_dm_relabel). git apply --check OK against
-  93b49d0ccd89; NOT BUILT YET - next kernel build with K4_BACKPORTS=1 picks it up (kernel_bone_machine must then pin the new zip).
+  93b49d0ccd89; BUILT 2026-11-01 14:57 (k4_build_dm.log, incremental, ReSukiSU 8770c7e3 re-inited) = bone-machine_k4btf_ringbuf_su_pt_uvc8_dm_a52sxq.zip sha256 d23e294f..., pinned in kernel_bone_machine.
