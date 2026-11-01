@@ -48,15 +48,22 @@ LOG "- Replaced com.android.bt.apex with the all-codec A2DP offload build"
 # Without "ssc" here A2dpService.isOffloadSupportedCodec(0x80) is false and SSC headsets get the (silent) software path.
 BT_OFFLOAD_CAP="sbc-aac-aptx-aptx_hd-ldac-ssc"
 SET_PROP "product" "persist.bluetooth.samsung.a2dp_offload.cap" "$BT_OFFLOAD_CAP"
+# The codecs the Bluetooth app ADVERTISES to a Samsung headset come from persist.bluetooth.samsung.a2dp.cap (source:
+# SBC,AAC,APTX,LDAC,SSC,UHQ). UHQ (Samsung Scalable HiFi, 0x100) has no encoder on this phone (neither the vendor offload
+# library nor a system one: libScalable_Encoder.so is the base SSC only), so a Galaxy Buds3 that picks UHQ ends on the
+# silent software path. Advertise only what can be encoded; SSC stays (Buds "Samsung Seamless Codec").
+BT_A2DP_CAP="SBC,AAC,APTX,LDAC,SSC"
+SET_PROP "product" "persist.bluetooth.samsung.a2dp.cap" "$BT_A2DP_CAP"
 # A value stored in /data/property by an earlier build would win over build.prop; re-apply once persist props are loaded.
 cat > "$WORK_DIR/system/system/etc/init/a52sxq_bt_offload.rc" << RCEOF
-# A52s A2DP offload codec set for the One UI 9 Bluetooth app. See the a52sxq_bt_a2dp_offload patch.
+# A52s A2DP codec sets for the One UI 9 Bluetooth app. See the a52sxq_bt_a2dp_offload patch.
 on property:ro.persistent_properties.ready=true
     setprop persist.bluetooth.samsung.a2dp_offload.cap $BT_OFFLOAD_CAP
+    setprop persist.bluetooth.samsung.a2dp.cap $BT_A2DP_CAP
 RCEOF
 SET_METADATA "system" "system/etc/init/a52sxq_bt_offload.rc" 0 0 644 "u:object_r:system_file:s0"
-LOG "- A2DP offload codec set: $BT_OFFLOAD_CAP"
-unset BT_OFFLOAD_CAP
+LOG "- A2DP offload codec set: $BT_OFFLOAD_CAP; advertised Samsung codecs: $BT_A2DP_CAP (no UHQ)"
+unset BT_OFFLOAD_CAP BT_A2DP_CAP
 
 # HFP super-wideband: the source (Fold8, S25) product build.prop sets bluetooth.hfp.swb.supported=true, so the One UI 9 stack offers
 # LC3/aptX super-wideband voice and, once a headset accepts it, tells the HAL "bt_lc3_swb=on;g_sco_samplerate=32000".
