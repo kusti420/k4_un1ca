@@ -1,0 +1,3 @@
+# Packages forced out of Android 16's edge-to-edge enforcement at boot (k4-e2e-optout). One package per line; # comments.
+# Apps that target SDK 36, draw their own light status bar background and look wrong when the bar goes transparent.
+com.instagram.android
