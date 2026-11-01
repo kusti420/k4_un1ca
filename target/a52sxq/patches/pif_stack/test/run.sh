@@ -79,7 +79,7 @@ EOF
 chmod +x "$T/settings"
 run() {
     KT="$T" K4GC_ROOT="$T/root" K4GC_PROPFILE="$T/props" K4GC_KSUD="${KSUD_BIN:-$T/ksud}" K4GC_SRC="$T/src" \
-        K4GC_KMSG="$T/kmsg" K4GC_NOMAGISK=1 K4GC_SETTINGS="$T/settings" "$SH" "$SCRIPT" apply
+        K4GC_KMSG="$T/kmsg" K4GC_NOMAGISK=1 K4GC_SETTINGS="$T/settings" K4GC_NOW="${K4GC_NOW:-}" "$SH" "$SCRIPT" apply
     $VERBOSE && { echo "--- $CASE"; cat "$ADB/.k4_gmscompat.log"; }
 }
 # what ksud's next post-fs-data does: staged modules replace the installed ones
@@ -180,6 +180,25 @@ echo "<AndroidAttestation>imported</AndroidAttestation>" > "$T/secure_keybox"
 run
 eq "foreign keybox untouched" "$(cat "$ADB/teesim/keybox.xml")" "<AndroidAttestation>foreign</AndroidAttestation>"
 eq "keybox status" "$(prop sys.k4.keybox)" user
+
+fresh "expired shipped keybox: not installed, removed when it is ours, the user's import still works"
+echo 2000000000 > "$T/src/seed/keybox.expiry"
+run
+eq "fresh: installed while valid" "$(prop sys.k4.keybox)" shipped
+K4GC_NOW=2000000001 run
+eq "status" "$(prop sys.k4.keybox)" expired
+no_ "removed" "$ADB/teesim/keybox.xml"
+K4GC_NOW=2000000001 run
+eq "stays removed, no error" "$(prop sys.k4.keybox)" expired
+echo "persist.sys.unica.keybox=true" >> "$T/props"
+echo "<AndroidAttestation>imported</AndroidAttestation>" > "$T/secure_keybox"
+K4GC_NOW=2000000001 run
+eq "import still applied" "$(prop sys.k4.keybox)" imported
+fresh "expired shipped keybox never removes a foreign one"
+mkdir -p "$ADB/teesim"; echo "<AndroidAttestation>foreign</AndroidAttestation>" > "$ADB/teesim/keybox.xml"
+K4GC_NOW=2000000001 run
+eq "foreign stays" "$(cat "$ADB/teesim/keybox.xml")" "<AndroidAttestation>foreign</AndroidAttestation>"
+rm -f "$T/src/seed/keybox.expiry"
 
 fresh "import with no shipped keybox"
 mv "$T/src/seed/keybox.xml" "$T/kb.xml"

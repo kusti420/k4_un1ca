@@ -51,14 +51,46 @@ done
 EVAL "cp -f \"$MODPATH/seed/keybox.history\" \"$PIF_DIR/seed/keybox.history\""
 if [ -f "$PIF_KEYBOX" ]; then
     grep -q "<AndroidAttestation>" "$PIF_KEYBOX" || ABORT "pif_stack: $PIF_KEYBOX is not a keybox"
+    KB_SHA="$(sha256sum "$PIF_KEYBOX" | cut -d " " -f 1)"
+    # Expiry gate: the leaf certificate (first <Certificate> of each <CertificateChain>) is what Play Integrity
+    # validates; an expired one drops DEVICE/STRONG. The PEM lines are indented in the xml, so strip them first.
+    KB_TMP="$(mktemp -d)"
+    awk -v dir="$KB_TMP" '
+        { sub(/^[[:space:]]+/, "") }
+        /<CertificateChain>/ { want = 1; next }
+        /-----BEGIN CERTIFICATE-----/ { if (want) { out = sprintf("%s/leaf%d.pem", dir, ++n); inblk = 1 } }
+        inblk { print > out }
+        /-----END CERTIFICATE-----/ { if (inblk) { close(out); inblk = 0; want = 0 } }
+    ' "$PIF_KEYBOX"
+    [ "$(ls "$KB_TMP"/leaf*.pem 2> /dev/null | wc -l)" = "$(grep -c "<CertificateChain>" "$PIF_KEYBOX")" ] || \
+        ABORT "pif_stack: could not extract one leaf certificate per <CertificateChain> from $PIF_KEYBOX"
+    KB_EXPIRY=""
+    for f in "$KB_TMP"/leaf*.pem; do
+        KB_END="$(openssl x509 -noout -enddate -in "$f")" || ABORT "pif_stack: openssl cannot parse ${f##*/} of $PIF_KEYBOX"
+        KB_END="$(date -d "${KB_END#notAfter=}" +%s)" || ABORT "pif_stack: unparsable notAfter in ${f##*/} of $PIF_KEYBOX"
+        [ "$KB_EXPIRY" ] && [ "$KB_END" -ge "$KB_EXPIRY" ] || KB_EXPIRY="$KB_END"
+    done
+    rm -rf "$KB_TMP"
+    KB_DAYS=$(( (KB_EXPIRY - $(date +%s)) / 86400 ))
+    KB_DATE="$(date -u -d "@$KB_EXPIRY" +%Y-%m-%d)"
+    if [ "$KB_EXPIRY" -le "$(date +%s)" ]; then
+        ABORT "pif_stack: keybox $(echo "$KB_SHA" | cut -c 1-8) EXPIRED on $KB_DATE: renew $PIF_KEYBOX (or point K4_PIF_KEYBOX at a valid one)"
+    elif [ "$KB_DAYS" -lt 30 ]; then
+        LOGW "  WARNING: keybox $(echo "$KB_SHA" | cut -c 1-8) expires in $KB_DAYS days ($KB_DATE)"
+    else
+        LOG "  (keybox $(echo "$KB_SHA" | cut -c 1-8) valid until $KB_DATE, $KB_DAYS days)"
+    fi
     EVAL "cp -f \"$PIF_KEYBOX\" \"$PIF_DIR/seed/keybox.xml\""
     SET_METADATA "system" "system/etc/k4/gmscompat/seed/keybox.xml" 0 0 600 "u:object_r:system_file:s0"
-    KB_SHA="$(sha256sum "$PIF_KEYBOX" | cut -d " " -f 1)"
+    # seed/keybox.expiry: the earliest leaf notAfter as epoch seconds, for k4-gmscompat (no openssl on the phone) to
+    # stop installing/keeping a shipped keybox once it has expired
+    echo "$KB_EXPIRY" > "$PIF_DIR/seed/keybox.expiry"
+    SET_METADATA "system" "system/etc/k4/gmscompat/seed/keybox.expiry" 0 0 600 "u:object_r:system_file:s0"
     grep -q -x "$KB_SHA" "$PIF_DIR/seed/keybox.history" || echo "$KB_SHA" >> "$PIF_DIR/seed/keybox.history"
     grep -q -x "$KB_SHA" "$MODPATH/seed/keybox.history" || \
         LOG "  (new keybox $(echo "$KB_SHA" | cut -c 1-8): add its sha256 to patches/pif_stack/seed/keybox.history and commit)"
     LOG "- Play Integrity stack: keybox $(echo "$KB_SHA" | cut -c 1-8) shipped"
-    unset KB_SHA
+    unset KB_SHA KB_TMP KB_END KB_EXPIRY KB_DAYS KB_DATE
 else
     LOG "- Play Integrity stack: no keybox at $PIF_KEYBOX, shipping none (STRONG needs the user's own)"
 fi

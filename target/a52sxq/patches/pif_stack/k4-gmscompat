@@ -36,15 +36,17 @@
 #           switch off, or nothing imported -> the shipped keybox (seed), when a build ships one
 #       Only a keybox.xml this hook wrote (sha256 listed in /data/adb/.k4_gmscompat/keybox.ours, or one of the keyboxes
 #       earlier builds shipped, seed/keybox.history) is ever replaced; one the user put there by other means is left
-#       alone. A new build with a different shipped keybox therefore replaces the old shipped one (expired keyboxes do
-#       not linger), never the user's. Result in sys.k4.keybox: imported | shipped | user | none.
+#       alone. A new build with a different shipped keybox therefore replaces the old shipped one, never the user's. A
+#       shipped keybox past its expiry (seed/keybox.expiry, written by the build) is not installed and, if it is the one
+#       in place, removed: without a keybox TEESimulator leaves attestation alone, with an expired one every attestation
+#       fails. Result in sys.k4.keybox: imported | shipped | expired | user | none.
 #   Legacy: builds before this hook used persist.sys.unica.pif for the framework hooks. On the first run (no state
 #       directory yet) a false from those builds is reset to true: the framework hooks are gone and the switch now
 #       means this stack.
 #
 # Host tests: K4GC_ROOT (path prefix), K4GC_PROPFILE (properties in a file), K4GC_KSUD (ksud to run), K4GC_SRC (the
 # shipped files), K4GC_KMSG (kernel log file), K4GC_NOMAGISK (skip the magisk-in-PATH check), K4GC_SETTINGS (the
-# `settings` command). test/run.sh.
+# `settings` command), K4GC_NOW (epoch seconds instead of `date +%s`). test/run.sh.
 
 R="${K4GC_ROOT:-}"
 ADB="$R/data/adb"
@@ -151,6 +153,19 @@ keybox_put() {
     sha_of "$ADB/teesim/keybox.xml" >> "$ST/keybox.ours"
 }
 
+# seed/keybox.expiry (written by the build: earliest notAfter of the shipped keybox, epoch seconds) is in the past
+shipped_keybox_expired() {
+    [ -f "$SRC/seed/keybox.expiry" ] || return 1
+    e="$(tr -dc 0-9 < "$SRC/seed/keybox.expiry")"
+    [ -n "$e" ] || return 1
+    now="${K4GC_NOW:-$(date +%s)}"
+    [ "$now" -ge "$e" ]
+}
+exp_date() {
+    e="$(tr -dc 0-9 < "$SRC/seed/keybox.expiry")"
+    date -u -d "@$e" +%Y-%m-%d 2> /dev/null || echo "$e"
+}
+
 # the keybox imported in Settings (user 0), only when its switch is on and it looks like one; empty otherwise
 imported_keybox() {
     [ "$(gp $KBP)" = true ] || return 0
@@ -177,7 +192,14 @@ sync_keybox() {
         rm -f "$ST/keybox.import"
         return
     fi
-    if [ -f "$SRC/seed/keybox.xml" ]; then
+    if [ -f "$SRC/seed/keybox.xml" ] && shipped_keybox_expired; then
+        # an expired keybox only breaks attestation (expired leaf = DEVICE/STRONG fail and sign-in errors); without a
+        # keybox.xml TEESimulator leaves attestation alone. The user's own import (above) is not checked.
+        if [ -n "$cur" ] && keybox_ours "$cur"; then
+            rm -f "$kb" && log "keybox: the shipped keybox expired on $(exp_date), removed from teesim (import your own in Settings)"
+        fi
+        sp sys.k4.keybox expired
+    elif [ -f "$SRC/seed/keybox.xml" ]; then
         want="$(sha_of "$SRC/seed/keybox.xml")"
         if [ "$cur" = "$want" ]; then
             sp sys.k4.keybox shipped
