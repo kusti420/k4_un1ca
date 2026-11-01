@@ -47,8 +47,17 @@ else
         done
         [ -z "$(tail -c 1 "$TT_CIL")" ] || echo >> "$TT_CIL"
         cat "$MODPATH/sepolicy.cil" >> "$TT_CIL"
+        # A property type must be a member of property_type (and system_property_type for system-side props) or init
+        # cannot label its property file: "Failed to initialize property area" -> init aborts -> bootloop (9.3.94).
+        # secilc rejects a second typeattributeset for an attribute, so extend the existing ones (as ksu_metamodule).
+        for n in property_type system_property_type; do
+            [ "$(grep -c "^(typeattributeset $n (" "$TT_CIL")" = 1 ] || ABORT "tethering_trains: no single $n attribute set in plat_sepolicy.cil"
+            sed -i "s/^(typeattributeset $n (/(typeattributeset $n (k4_tethering_prop /" "$TT_CIL"
+            grep -q "^(typeattributeset $n (k4_tethering_prop " "$TT_CIL" || ABORT "tethering_trains: failed to extend $n"
+        done
     fi
     grep -q -x -F "(allow k4apexdm k4_tethering_prop (property_service (set)))" "$TT_CIL" || ABORT "tethering_trains: rules missing from plat_sepolicy.cil"
+    grep -q "^(typeattributeset property_type (.*k4_tethering_prop" "$TT_CIL" || ABORT "tethering_trains: k4_tethering_prop is not in property_type"
     grep -q -E "^sys\.k4\.tethering_gap" "$TT_PC" && ABORT "tethering_trains: sys.k4.tethering_gap already in plat_property_contexts"
     [ -z "$(tail -c 1 "$TT_PC")" ] || echo >> "$TT_PC"
     echo "sys.k4.tethering_gap        u:object_r:k4_tethering_prop:s0" >> "$TT_PC"

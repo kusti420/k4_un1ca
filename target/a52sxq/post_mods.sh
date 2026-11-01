@@ -89,3 +89,21 @@ if [ ! -f "$SRC_DIR/target/a52sxq/patches/play_system_updates/disable" ]; then
 else
     LOGW "play_system_updates is disabled: the Google APEX byte-identity build guard is skipped too"
 fi
+
+# Guard: every SELinux type named in plat_property_contexts must be a member of the property_type attribute, or init
+# cannot create that property's file ("Failed to initialize property area", init abort, bootloop - 9.3.94 shipped
+# k4_tethering_prop without it). Catches any patch that declares a *_prop type and forgets the attribute.
+PPC="$WORK_DIR/system/system/etc/selinux/plat_property_contexts"
+PCIL="$WORK_DIR/system/system/etc/selinux/plat_sepolicy.cil"
+if [ -f "$PPC" ] && [ -f "$PCIL" ]; then
+    PT_LINE="$(grep "^(typeattributeset property_type (" "$PCIL")"
+    [ -n "$PT_LINE" ] || ABORT "post_mods: no property_type attribute set in plat_sepolicy.cil"
+    while read -r t; do
+        case " ${PT_LINE#*(typeattributeset property_type (} " in
+            *" $t "*) ;;
+            *) ABORT "post_mods: property type $t (plat_property_contexts) is not in property_type - init would abort at boot" ;;
+        esac
+    done < <(sed -n 's/^[^#][^ ]* *u:object_r:\([a-z0-9_]*\):s0.*/\1/p' "$PPC" | sort -u)
+    LOG "- Property contexts: every type is a property_type member"
+fi
+unset PPC PCIL PT_LINE t
