@@ -66,23 +66,54 @@
 .end method
 
 .method public static isKeyboxInstallable()Z
-    .locals 1
+    .locals 2
+
+    # a52sxq: the imported keybox is handed to TEESimulator by /system/bin/k4-gmscompat (target/a52sxq/patches/pif_stack),
+    # the framework KeyboxImitationHooks are retired (unica/mods/keybox disabled)
+    new-instance v0, Ljava/io/File;
+
+    const-string v1, "/system/bin/k4-gmscompat"
+
+    invoke-direct {v0, v1}, Ljava/io/File;-><init>(Ljava/lang/String;)V
+
+    invoke-virtual {v0}, Ljava/io/File;->exists()Z
+
+    move-result v0
+
+    return v0
+.end method
+
+# a52sxq: tell k4-gmscompat (init trigger on persist.sys.unica.keybox_import) that the imported keybox changed
+.method public static notifyKeyboxChanged()V
+    .locals 3
 
     :try_start_0
-    const-string v0, "io.mesalabs.unica.KeyboxImitationHooks"
+    const-string v0, "persist.sys.unica.keybox_import"
 
-    invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+
+    move-result-wide v1
+
+    invoke-static {v1, v2}, Ljava/lang/String;->valueOf(J)Ljava/lang/String;
+
+    move-result-object v1
+
+    invoke-static {v0, v1}, Landroid/os/SemSystemProperties;->set(Ljava/lang/String;Ljava/lang/String;)V
     :try_end_0
-    .catch Ljava/lang/ClassNotFoundException; {:try_start_0 .. :try_end_0} :catch_0
+    .catch Ljava/lang/RuntimeException; {:try_start_0 .. :try_end_0} :catch_0
 
-    const/4 v0, 0x1
-
-    return v0
+    return-void
 
     :catch_0
-    const/4 v0, 0x0
+    move-exception v0
 
-    return v0
+    const-string v1, "KeyboxUtils"
+
+    const-string v2, "notifyKeyboxChanged: "
+
+    invoke-static {v1, v2, v0}, Landroid/util/Log;->e(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
+
+    return-void
 .end method
 
 .method public static isKeyboxSpoofEnabled()Z
@@ -336,6 +367,8 @@
     const-string v3, "unica_keybox_data"
 
     invoke-static {v2, v3, v0}, Landroid/provider/Settings$Secure;->putString(Landroid/content/ContentResolver;Ljava/lang/String;Ljava/lang/String;)Z
+
+    invoke-static {}, Lio/mesalabs/unica/settings/keybox/KeyboxUtils;->notifyKeyboxChanged()V
 
     const/4 v0, 0x0
 

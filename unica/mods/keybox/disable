@@ -1,0 +1,1 @@
+# disabled 2026-11-01 (a52sxq): the framework keybox hook cannot pass Android 17 DroidGuard and would double-forge under TEESimulator; the Settings keybox import now feeds TEESimulator through target/a52sxq/patches/pif_stack (k4-gmscompat sync_keybox).

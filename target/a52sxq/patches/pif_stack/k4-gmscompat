@@ -27,12 +27,24 @@
 #       Enable/disable/install take effect from the next boot (zygote loads Zygisk modules at start).
 #       At most 3 failed installs per module (<id>.tries), then not tried again until the switch is turned off and on.
 #       Result: sys.k4.gmscompat, log /data/adb/.k4_gmscompat.log and the kernel log.
+#   Keybox (every run, before the module work): the Settings "Key attestation spoof" page (unica/mods/settings
+#       keybox/*) stores an imported keybox.xml in Settings.Secure unica_keybox_data and its switch in
+#       persist.sys.unica.keybox; the framework hook that used to consume it is retired (unica/mods/keybox disabled:
+#       it cannot pass Android 17's DroidGuard and would double-forge under TEESimulator). The import now goes to
+#       TEESimulator, which watches /data/adb/teesim and reloads by itself:
+#           switch on + a keybox imported -> /data/adb/teesim/keybox.xml = the imported one
+#           switch off, or nothing imported -> the shipped keybox (seed), when a build ships one
+#       Only a keybox.xml this hook wrote (sha256 listed in /data/adb/.k4_gmscompat/keybox.ours, or one of the keyboxes
+#       earlier builds shipped, seed/keybox.history) is ever replaced; one the user put there by other means is left
+#       alone. A new build with a different shipped keybox therefore replaces the old shipped one (expired keyboxes do
+#       not linger), never the user's. Result in sys.k4.keybox: imported | shipped | user | none.
 #   Legacy: builds before this hook used persist.sys.unica.pif for the framework hooks. On the first run (no state
 #       directory yet) a false from those builds is reset to true: the framework hooks are gone and the switch now
 #       means this stack.
 #
 # Host tests: K4GC_ROOT (path prefix), K4GC_PROPFILE (properties in a file), K4GC_KSUD (ksud to run), K4GC_SRC (the
-# shipped files), K4GC_KMSG (kernel log file), K4GC_NOMAGISK (skip the magisk-in-PATH check). test/run.sh.
+# shipped files), K4GC_KMSG (kernel log file), K4GC_NOMAGISK (skip the magisk-in-PATH check), K4GC_SETTINGS (the
+# `settings` command). test/run.sh.
 
 R="${K4GC_ROOT:-}"
 ADB="$R/data/adb"
@@ -41,6 +53,8 @@ KSUD="${K4GC_KSUD:-$ADB/ksud}"
 ST="$ADB/.k4_gmscompat"
 LOGF="$ADB/.k4_gmscompat.log"
 P=persist.sys.unica.pif
+KBP=persist.sys.unica.keybox
+SETTINGS="${K4GC_SETTINGS:-settings}"
 MAX_TRIES=3
 # install order: playintegrityfix's customize.sh aborts unless some module has a libzygisk.so
 IDS="zygisksu teesim playintegrityfix"
@@ -118,6 +132,70 @@ seed() {
     mkdir -p "${2%/*}" && cp "$SRC/seed/$1" "$2" && chmod "${3:-644}" "$2" && log "seeded $2"
 }
 
+sha_of() {
+    sha256sum "$1" 2> /dev/null | cut -d ' ' -f 1
+}
+
+# the keybox.xml in /data/adb/teesim is one this hook wrote (or one an earlier build shipped)
+keybox_ours() {
+    [ -n "$1" ] || return 1
+    grep -q -x "$1" "$ST/keybox.ours" 2> /dev/null && return 0
+    grep -q -x "$1" "$SRC/seed/keybox.history" 2> /dev/null
+}
+
+# install $1 (a file) as /data/adb/teesim/keybox.xml, remembering it as ours
+keybox_put() {
+    mkdir -p "$ADB/teesim" && chmod 700 "$ADB/teesim" 2> /dev/null
+    cp -f "$1" "$ADB/teesim/.keybox.xml.k4" && chmod 600 "$ADB/teesim/.keybox.xml.k4" \
+        && mv -f "$ADB/teesim/.keybox.xml.k4" "$ADB/teesim/keybox.xml" || return 1
+    sha_of "$ADB/teesim/keybox.xml" >> "$ST/keybox.ours"
+}
+
+# the keybox imported in Settings (user 0), only when its switch is on and it looks like one; empty otherwise
+imported_keybox() {
+    [ "$(gp $KBP)" = true ] || return 0
+    v="$("$SETTINGS" --user 0 get secure unica_keybox_data 2> /dev/null)"
+    case "$v" in *"<AndroidAttestation>"*) printf '%s\n' "$v" ;; esac
+}
+
+sync_keybox() {
+    kb="$ADB/teesim/keybox.xml"
+    cur="$(sha_of "$kb")"
+    imp="$(imported_keybox)"
+    if [ -n "$imp" ]; then
+        printf '%s\n' "$imp" > "$ST/keybox.import" && chmod 600 "$ST/keybox.import"
+        want="$(sha_of "$ST/keybox.import")"
+        if [ "$cur" = "$want" ]; then
+            sp sys.k4.keybox imported
+        elif [ -z "$cur" ] || keybox_ours "$cur"; then
+            keybox_put "$ST/keybox.import" && log "keybox: the keybox imported in Settings is now teesim's" \
+                && sp sys.k4.keybox imported || sp sys.k4.keybox error
+        else
+            log "keybox: /data/adb/teesim/keybox.xml was not written by this hook, the Settings import is not applied"
+            sp sys.k4.keybox user
+        fi
+        rm -f "$ST/keybox.import"
+        return
+    fi
+    if [ -f "$SRC/seed/keybox.xml" ]; then
+        want="$(sha_of "$SRC/seed/keybox.xml")"
+        if [ "$cur" = "$want" ]; then
+            sp sys.k4.keybox shipped
+        elif [ -z "$cur" ] || keybox_ours "$cur"; then
+            keybox_put "$SRC/seed/keybox.xml" && log "keybox: shipped keybox $(echo "$want" | cut -c 1-8) installed" \
+                && sp sys.k4.keybox shipped || sp sys.k4.keybox error
+        else
+            sp sys.k4.keybox user
+        fi
+    elif [ -z "$cur" ]; then
+        sp sys.k4.keybox none
+    elif keybox_ours "$cur"; then
+        sp sys.k4.keybox shipped
+    else
+        sp sys.k4.keybox user
+    fi
+}
+
 install_one() {
     id="$1"
     tries="$(cat "$ST/$id.tries" 2> /dev/null)"
@@ -134,7 +212,6 @@ install_one() {
         teesim)
             seed teesim_config.json "$ADB/teesim/config.json"
             seed teesim_overrides.json "$ADB/teesim/overrides.json"
-            seed keybox.xml "$ADB/teesim/keybox.xml" 600
             ;;
         playintegrityfix) seed pif.prop "$ADB/pif.prop" ;;
     esac
@@ -263,6 +340,7 @@ apply() {
             log "legacy $P=false from the framework hooks reset to true"
         fi
     fi
+    sync_keybox
     if meta_pending; then
         sp sys.k4.gmscompat wait-meta
         log "a metamodule install is pending: ksud blocks installs until the reboot, tried again then"

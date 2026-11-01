@@ -46,14 +46,23 @@ for f in teesim_config.json teesim_overrides.json pif.prop; do
     EVAL "cp -f \"$MODPATH/seed/$f\" \"$PIF_DIR/seed/$f\""
     SET_METADATA "system" "system/etc/k4/gmscompat/seed/$f" 0 0 600 "u:object_r:system_file:s0"
 done
+# seed/keybox.history: sha256 of every keybox a release shipped, so k4-gmscompat may replace an old shipped keybox on
+# the phone with this build's (and never the user's). This build's keybox is appended when it is new.
+EVAL "cp -f \"$MODPATH/seed/keybox.history\" \"$PIF_DIR/seed/keybox.history\""
 if [ -f "$PIF_KEYBOX" ]; then
     grep -q "<AndroidAttestation>" "$PIF_KEYBOX" || ABORT "pif_stack: $PIF_KEYBOX is not a keybox"
     EVAL "cp -f \"$PIF_KEYBOX\" \"$PIF_DIR/seed/keybox.xml\""
     SET_METADATA "system" "system/etc/k4/gmscompat/seed/keybox.xml" 0 0 600 "u:object_r:system_file:s0"
-    LOG "- Play Integrity stack: keybox $(sha256sum "$PIF_KEYBOX" | cut -c 1-8) shipped"
+    KB_SHA="$(sha256sum "$PIF_KEYBOX" | cut -d " " -f 1)"
+    grep -q -x "$KB_SHA" "$PIF_DIR/seed/keybox.history" || echo "$KB_SHA" >> "$PIF_DIR/seed/keybox.history"
+    grep -q -x "$KB_SHA" "$MODPATH/seed/keybox.history" || \
+        LOG "  (new keybox $(echo "$KB_SHA" | cut -c 1-8): add its sha256 to patches/pif_stack/seed/keybox.history and commit)"
+    LOG "- Play Integrity stack: keybox $(echo "$KB_SHA" | cut -c 1-8) shipped"
+    unset KB_SHA
 else
     LOG "- Play Integrity stack: no keybox at $PIF_KEYBOX, shipping none (STRONG needs the user's own)"
 fi
+SET_METADATA "system" "system/etc/k4/gmscompat/seed/keybox.history" 0 0 600 "u:object_r:system_file:s0"
 
 EVAL "cp -f \"$MODPATH/k4-gmscompat\" \"$WORK_DIR/system/system/bin/k4-gmscompat\""
 SET_METADATA "system" "system/bin/k4-gmscompat" 0 2000 755 "u:object_r:system_file:s0"
@@ -69,6 +78,13 @@ on property:init.svc.k4_metamod=stopped
 on property:persist.sys.unica.pif=* && property:init.svc.k4_metamod=stopped
     start k4_gmscompat
 
+# the Settings "Key attestation spoof" switch and its keybox import/clear (persist.sys.unica.keybox_import is bumped by
+# Settings after every import or clear): the keybox goes to TEESimulator, see k4-gmscompat sync_keybox
+on property:persist.sys.unica.keybox=* && property:init.svc.k4_metamod=stopped
+    start k4_gmscompat
+on property:persist.sys.unica.keybox_import=* && property:init.svc.k4_metamod=stopped
+    start k4_gmscompat
+
 service k4_gmscompat /system/bin/timeout 180 /system/bin/sh /system/bin/k4-gmscompat apply
     user root
     group root
@@ -81,10 +97,12 @@ SET_METADATA "system" "system/etc/init/k4_gmscompat.rc" 0 0 644 "u:object_r:syst
 # result property: the status type of ksu_metamodule (set by the ksu domain, readable from adb shell)
 PLAT_PC="$WORK_DIR/system/system/etc/selinux/plat_property_contexts"
 grep -q "k4_metamod_status_prop" "$PLAT_PC" || ABORT "pif_stack: k4_metamod_status_prop not in plat_property_contexts"
-if ! grep -q "^sys\.k4\.gmscompat " "$PLAT_PC"; then
-    [ -z "$(tail -c 1 "$PLAT_PC")" ] || echo >> "$PLAT_PC"
-    echo "sys.k4.gmscompat            u:object_r:k4_metamod_status_prop:s0" >> "$PLAT_PC"
-fi
+for k in sys.k4.gmscompat sys.k4.keybox; do
+    if ! grep -q "^${k//./\\.} " "$PLAT_PC"; then
+        [ -z "$(tail -c 1 "$PLAT_PC")" ] || echo >> "$PLAT_PC"
+        printf '%-28s u:object_r:k4_metamod_status_prop:s0\n' "$k" >> "$PLAT_PC"
+    fi
+done
 
 LOG "- Play Integrity stack (Zygisk Next 864, TEESimulator 73, PIF 490) in /system/etc/k4/gmscompat, installed by k4-gmscompat"
 unset PIF_ZIPS PIF_KEYBOX PIF_DIR PLAT_PC h id vc f
