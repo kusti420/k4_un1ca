@@ -60,6 +60,15 @@ run_cmd()
     if [ -x "$SRC_DIR/scripts/$CMD.sh" ]; then
         shift
         mkdir -p "$(dirname "$WORK_DIR")"
+        # A build that stopped while an APEX/ext4 image was fuse-mounted (fuse2fs / fuse.erofs in a patch) leaves the
+        # mount behind, and the next make_rom dies at that same step with no error text. Unmount anything still
+        # mounted under the target's out dir before starting.
+        if [ "$CMD" = make_rom ]; then
+            while IFS= read -r m; do
+                echo "  - unmounting stale $m"
+                fusermount3 -u "$m" 2> /dev/null || fusermount -u "$m" 2> /dev/null || umount "$m" 2> /dev/null
+            done < <(awk -v d="$(dirname "$WORK_DIR")/" 'index($2, d) == 1 && $3 ~ /^fuse/ { print $2 }' /proc/mounts)
+        fi
         (set -o pipefail; "$SRC_DIR/scripts/$CMD.sh" "$@" |& tee \
             >(sed -r -e "s/\x1B\[([0-9]{1,3}(;[0-9]{1,2};?)?)?[mGK]//g" -e "/#/d" > "$(dirname "$WORK_DIR")/$CMD-$(date +%Y%m%d_%H%M%S).log"))
         return $?
