@@ -21,6 +21,9 @@ OVERLAY_PACKAGE="com.k4.overlay.pureblack"
 OVERLAY_DIR="overlay/K4PureBlack"
 OVERLAY_APK="$OVERLAY_DIR/K4PureBlack.apk"
 # Only names ending in _dark (checked below), i.e. resources no light theme uses.
+# system_surface_container_highest_dark is NOT forced: Material text-selection / suggestion popups (Telegram's DELETE
+# bubble, text_edit_suggestion_container_material -> floating_popup_background) are drawn in it, and #000 on a black
+# page made them unreadable (tester K1, 2026-10-18). Samsung's own popups use tw_dialog_window_background_color_*.
 PURE_BLACK_COLORS="
 system_background_dark
 system_surface_dark
@@ -31,7 +34,6 @@ system_surface_container_lowest_dark
 system_surface_container_low_dark
 system_surface_container_dark
 system_surface_container_high_dark
-system_surface_container_highest_dark
 system_neutral1_700_dark
 system_neutral1_800_dark
 system_neutral1_900_dark

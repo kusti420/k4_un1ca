@@ -95,6 +95,10 @@ else
     LOGW "play_system_updates is disabled: the Google APEX byte-identity build guard is skipped too"
 fi
 
+# Default font size: the A52s floating feature value 3 was an index into the stock A52s 7-step table; One UI 9's
+# 9-step table makes it 1.08x (the S26U ships 2 = 1.0x). Keep the normal size as the default.
+SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_SETTINGS_CONFIG_DEFAULT_FONT_SIZE" "2"
+
 # Guard: every SELinux type named in plat_property_contexts must be a member of the property_type attribute, or init
 # cannot create that property's file ("Failed to initialize property area", init abort, bootloop - 9.3.94 shipped
 # k4_tethering_prop without it). Catches any patch that declares a *_prop type and forgets the attribute.

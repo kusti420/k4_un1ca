@@ -20,6 +20,8 @@
     <dimen name="status_bar_camera_side_padding">2.2346mm</dimen>
     <dimen name="status_bar_camera_top_margin">2.0485mm</dimen>
     <dimen name="status_bar_height_portrait">5.3985mm</dimen>
+    <!-- k4: landscape status bar 24dp as on the stock A52s (the S26U framework-res has 30dp; the panel cutout sits on the short edge, so there is no hole to clear in landscape). -->
+    <dimen name="status_bar_height_landscape">24.0dp</dimen>
     <dimen name="status_bar_indicator_corner_padding">4.4679mm</dimen>
     <!-- k4: SystemUI IndicatorScaleGardener.getLatestScaleModel() takes this ratio as is when it is >= 0.75 and then
          never calls getMaxRatio(), which reads IndicatorGardenPresenter.cachedGardenModel. That model is half updated
