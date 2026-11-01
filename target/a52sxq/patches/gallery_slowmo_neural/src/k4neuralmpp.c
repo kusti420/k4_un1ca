@@ -76,9 +76,10 @@ static binder_status_t forward_to(AIBinder* target, transaction_code_t code, con
 static K4nConfig g_cfg = { "/vendor/lib64/k4neural", "/vendor/etc/k4neural", 2 };
 static int g_vintf = 1;
 // engine life time: built on warm-up/create, released after K4N_IDLE_S seconds without a pipe
-static pthread_mutex_t g_use_mu = PTHREAD_MUTEX_INITIALIZER; static int g_live_pipes; static double g_last_use;
+static pthread_mutex_t g_use_mu = PTHREAD_MUTEX_INITIALIZER; static pthread_cond_t g_use_cv = PTHREAD_COND_INITIALIZER;
+static int g_live_pipes; static double g_last_use; static int g_used;    // g_used: something touched the engine since the idle thread last ran
 static double g_save_until;      // TX_K4_SAVE: the next FRC pipe created before this time (k4n_now_ms) is a recording
-static void engine_touch(int dpipes) { pthread_mutex_lock(&g_use_mu); g_live_pipes += dpipes; g_last_use = k4n_now_ms(); pthread_mutex_unlock(&g_use_mu); }
+static void engine_touch(int dpipes) { pthread_mutex_lock(&g_use_mu); g_live_pipes += dpipes; g_last_use = k4n_now_ms(); g_used = 1; pthread_cond_broadcast(&g_use_cv); pthread_mutex_unlock(&g_use_mu); }
 static char g_hash[128]; static int g_version = 1;
 
 // pthread_cond_wait with a deadline on the monotonic clock (k4n_now_ms). Returns ETIMEDOUT once the deadline has passed.
@@ -860,9 +861,27 @@ static AIBinder* classic_pipe(int32_t type) {
 static double g_idle_ms;
 // called by k4n_engine_release_if() with the engine lock held (order: engine lock -> g_use_mu, never the other way)
 static int engine_idle(void) { pthread_mutex_lock(&g_use_mu); int r = g_live_pipes == 0 && k4n_now_ms() - g_last_use > g_idle_ms; pthread_mutex_unlock(&g_use_mu); return r; }
+// Releases the engine once nothing has used it for g_idle_ms. Event-driven, not a timer: the daemon is resident from
+// boot and a 5 s poll woke the CPU all day for a check that is a no-op whenever no slow-mo clip is open. The thread
+// sleeps on g_use_cv until engine_touch() reports a use, then waits exactly until last use + idle time (every use
+// meanwhile pushes the deadline), and goes back to sleep after the release until the next use.
 static void* idle_main(void* a) {
     (void) a; g_idle_ms = (getenv("K4N_IDLE_S") ? atof(getenv("K4N_IDLE_S")) : 120.0) * 1000.0;
-    for (;;) { sleep(5); k4n_engine_release_if(engine_idle); }     // no-op when it is not built or busy
+    for (;;) {
+        pthread_mutex_lock(&g_use_mu);
+        while (!g_used) pthread_cond_wait(&g_use_cv, &g_use_mu);
+        while (g_live_pipes > 0 || k4n_now_ms() - g_last_use <= g_idle_ms) {
+            if (g_live_pipes > 0) pthread_cond_wait(&g_use_cv, &g_use_mu);
+            else cv_wait_until(&g_use_cv, &g_use_mu, g_last_use + g_idle_ms + 1.0);
+        }
+        g_used = 0;
+        pthread_mutex_unlock(&g_use_mu);
+        if (!k4n_engine_release_if(engine_idle) && k4n_engine_ready()) {
+            // built but the engine lock was busy (an inference or build that did not count as a pipe): look again in 5 s
+            sleep(5);
+            pthread_mutex_lock(&g_use_mu); g_used = 1; pthread_mutex_unlock(&g_use_mu);
+        }
+    }
     return NULL;
 }
 // ---------------------------------------------------------------------------------------------------------------

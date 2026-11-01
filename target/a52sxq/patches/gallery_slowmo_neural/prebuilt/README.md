@@ -5,7 +5,10 @@ Our own binary (its sha256 is pinned in ../customize.sh: a rebuilt copy must upd
 - Source: `../src/{k4neuralmpp.c,k4n_engine.c,k4n.h}`; rebuild with `../src/build.sh` (AOSP prebuilt clang r596125,
   NDK sysroot API 30 and bionic crt objects of an AOSP tree; C only, no libc++). Working copy and test tools:
   `/mnt/B1/OneUi9/scratch/htpre/neural` on the build PC (NOTES.md one level up).
-- This copy: sha256 `50d3e6b4a834a7ed5a1973819820706a96e178583036da841128e8f5ebc0da80`, 111848 bytes, built 2026-10-23 with `build.sh` (the same toolchain rebuilt
+- This copy: sha256 `994ab0edb2dc7c9586a9970c6ae035f18cf12588d38f68501d4c19d7fbfcb946`, 112560 bytes, built 2026-11-01 with `build.sh`: the idle-release
+  thread is event-driven (sleeps on a condition variable armed by every engine use, wakes once at last use + 120 s) instead of
+  a `sleep(5)` poll that woke the CPU every 5 s for the life of the daemon. NOT yet run on a phone.
+  Previous copy: sha256 `50d3e6b4a834a7ed5a1973819820706a96e178583036da841128e8f5ebc0da80`, 111848 bytes, built 2026-10-23 with `build.sh` (the same toolchain rebuilt
   a7fb6df7... byte for byte from the previous sources first): client buffers are mapped only when the fd really has
   the claimed size (fstat / ASHMEM_GET_SIZE / dma-buf SEEK_END; a smaller memfd used to SIGBUS the daemon on first
   access), for setBuffer and the render session; setBuffer closes the fd of a buffer it rejects for its id; a buffer

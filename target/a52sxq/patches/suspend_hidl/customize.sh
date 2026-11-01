@@ -8,11 +8,11 @@
 # with a kernel wake lock written to /sys/power/wake_lock (refcounted per "<name>.<pid>"), released on
 # IWakeLock::release() or client death. It never touches the AIDL service, /sys/power/state or wakeup_count: while a
 # kernel wake lock is held the AIDL service simply blocks in its wakeup_count read.
-# Known gap (follow-up, prebuilt unchanged): the kernel wake locks belong to no process, so if the shim restarts
-# while it holds one (e.g. radio-interface.<pid>), the new instance starts with an empty refcount map and never
-# releases it - no deep sleep until reboot. shim_release_stale_wakelocks.patch (main.cpp: wake_unlock every
-# "<name>.<digits>" entry of /sys/power/wake_lock before registering) fixes it; it needs a rebuild in the IchthysOS
-# tree and a new sha256 pin below.
+# The kernel wake locks belong to no process, so if the shim restarts while it holds one (e.g. radio-interface.<pid>),
+# a fresh instance would start with an empty refcount map and never release it - no deep sleep until reboot. Since the
+# 2026-11-01 build (shim_release_stale_wakelocks.patch, applied in the IchthysOS tree) main() first wake_unlocks every
+# "<name>.<digits>" entry of /sys/power/wake_lock left by a previous instance; the old clients hold dead proxies and
+# acquire again through the new one.
 # It runs in the stock system_suspend domain (sysfs_wake_lock rw, block_suspend, add system_suspend_hwservice; the
 # vendor policy already lets the HAL domains find system_suspend_hwservice_30_0 and binder-call system_suspend_server).
 SRC="$SRC_DIR/target/a52sxq/patches/suspend_hidl"
@@ -24,7 +24,7 @@ if [ -f "$SUSPEND_SVC" ] && ! grep -q "suspend@1.0" "$SUSPEND_SVC"; then
         [ -f "$SRC/$f" ] || ABORT "suspend_hidl: $f missing from the patch dir"
     done
     # pinned: IchthysOS build of vendor/k4/suspend-hidl-shim (update after a rebuild)
-    [ "$(sha256sum "$SRC/android.system.suspend-hidl-shim" | cut -d " " -f 1)" = "a1630460e0acf80785c214b8b38e2be9e9a736d7be011071d63ee6f7bb5c166b" ] || \
+    [ "$(sha256sum "$SRC/android.system.suspend-hidl-shim" | cut -d " " -f 1)" = "478495b64702a95d0a94436696f463a2fbb0f2b0a92dd645500ea7b470a01257" ] || \
         ABORT "suspend_hidl: android.system.suspend-hidl-shim is not the reviewed build"
     [ "$(sha256sum "$SRC/android.system.suspend@1.0.so" | cut -d " " -f 1)" = "2bbc13d5ec2298216cd18a736a9f8aba2c830909b7294d435d09329d8133dfaf" ] || \
         ABORT "suspend_hidl: android.system.suspend@1.0.so is not the reviewed build"

@@ -34,7 +34,7 @@ K4N_PIN "$QAIRT/libSnpeHtpV68Skel.so" "d43309a79b5a5c0f6a05b1ab044bef8c22adb508f
 K4N_PIN "$QAIRT/NOTICE.txt" "c8a22fa8b9ed3e9266c4a3366965474cef5cb147ee2a1f33e488bbb24a071c09"
 K4N_PIN "$MODEL" "cef4cf3b9677ef4c6317015f9c50a7b33b583eb3240a26d06ed82afba71914cb"
 [ ! -f "$FILM_MODEL" ] || K4N_PIN "$FILM_MODEL" "c51bc44c7ed6d63a15e2b1a491fe70411c7cf94106419509a9db5d67daa87757"
-K4N_PIN "$SRC/prebuilt/k4neuralmpp" "50d3e6b4a834a7ed5a1973819820706a96e178583036da841128e8f5ebc0da80"
+K4N_PIN "$SRC/prebuilt/k4neuralmpp" "994ab0edb2dc7c9586a9970c6ae035f18cf12588d38f68501d4c19d7fbfcb946"
 [ -f "$WORK_DIR/vendor/bin/hw/mppserver" ] || ABORT "gallery_slowmo_neural: the vendor has no stock MPP store (mppserver)"
 grep -q -F "ISehMppStore/default" "$WORK_DIR/vendor/etc/vintf/manifest/mppserver.xml" 2> /dev/null || \
     ABORT "gallery_slowmo_neural: the stock VINTF manifest does not declare ISehMppStore/default"

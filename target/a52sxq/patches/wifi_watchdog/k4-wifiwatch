@@ -17,6 +17,9 @@
 #   2. if still dead 20 s later: one more restart
 #   3. if still dead: give up for 10 minutes (log), then start over.
 # Opt-out: setprop persist.sys.k4.wifiwatch 0 (adb shell). Status: sys.k4.wifiwatch, kernel log "k4-wifiwatch:".
+# Cost: the loop never holds a wake lock (sleep is a plain timer, it does not wake the SoC from suspend). While Wi-Fi is
+# not the default route (off, cellular, hotspot only) it only looks once a minute; the status property is written on a
+# change only (a setprop every tick woke every property waiter in the system for nothing).
 # Runs as root in the shell domain (like init's console service): needs ip/netlink, /proc/net, binder to cmd.
 
 P=persist.sys.k4.wifiwatch
@@ -29,7 +32,10 @@ log() {
     echo "k4-wifiwatch: $*" > /dev/kmsg 2> /dev/null
 }
 
+last_status=
 status() {
+    [ "$last_status" = "$1" ] && return
+    last_status=$1
     setprop sys.k4.wifiwatch "$1"
 }
 
@@ -78,6 +84,7 @@ while true; do
     if [ -z "$gw" ]; then
         dead=0; since=0; actions=0
         status idle
+        sleep 55      # no wlan0 default route: nothing to watch, look again in a minute
         continue
     fi
     [ "$since" = 0 ] && since=$now
