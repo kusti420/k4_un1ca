@@ -721,11 +721,28 @@ space_ok() {
 # guard: KernelSU, before any metamodule mounts modules (see the header): every driver module gets a skip_mount file
 # (KernelSU's / Magisk's standard "do not mount this module"; meta-overlayfs, Mountify and the other metamodules honour
 # it), so only this selector puts its files in place - imported with the stock labels, the allowlist and a trial boot.
+# A module with content under system/apex gets one too (GUARD_MARK_APEX, sys.k4.gpu_guard_apex): see module_apex.
 # The file says it is ours (first line starts with GUARD_MARK); a module's own skip_mount is never touched, ours is
 # removed again from a module that no longer carries a driver set. Disabled modules are marked too (enabled again,
 # they are covered from the start). Nothing with Magisk (it mounts modules itself; a mounted driver is reported).
 GUARD_MARK="k4-gpu-driver:"
+# Same mechanism for modules that carry files under system/apex (see guard()); the mark differs so the removal branch
+# knows which check set it. GUARD_MARK is "k4-gpu-driver:" + " Adreno", GUARD_MARK_APEX must never start with GUARD_MARK's
+# first line prefix check, hence its own prefix.
+GUARD_MARK_APEX="k4-apex-guard:"
 GUARD_LOG="$ADB/.k4_gpu_guard.log"
+# module_apex <module dir>: does the module ship anything under system/apex (a file, link or directory)? apex_what =
+# the first entry's name, for the log
+module_apex() {
+    apex_what=""
+    [ -d "$1/system/apex" ] || return 1
+    for e in "$1/system/apex"/* "$1/system/apex"/.[!.]*; do
+        [ -e "$e" ] || [ -L "$e" ] || continue
+        apex_what="${e##*/}"
+        return 0
+    done
+    return 1
+}
 glog() {
     echo "k4-gpu-driver: guard: $*" 2> /dev/null > "${K4GPU_KMSG:-/dev/kmsg}"
     echo "$*" >> "$GUARD_LOG" 2> /dev/null
@@ -736,6 +753,7 @@ guard() {
     # a short log of the last runs (it runs twice per boot: init.rc and ksud's post-fs-data.d)
     [ "$(stat -c %s "$GUARD_LOG" 2> /dev/null || echo 0)" -gt 65536 ] && : > "$GUARD_LOG"
     marked=""
+    marked_apex=""
     for m in "$ADB"/modules/* "$ADB"/modules_update/*; do
         [ -d "$m" ] && [ ! -L "$m" ] || continue
         id="${m##*/}"
@@ -757,13 +775,31 @@ guard() {
             else
                 glog "$id (${m%/*}): Adreno GPU driver module, could not set skip_mount"
             fi
+        elif module_apex "$m"; then
+            # Files under system/apex would be overlaid on /system/apex: apexd verifies and PackageManager parses the
+            # pre-installed APEX files there, Google Play system updates check a train against them, and a changed or
+            # hidden file means a failed boot or a failed update (play_system_updates). Nothing mounts such a module.
+            case "$first" in "$GUARD_MARK_APEX"*) marked_apex="$marked_apex $id"; continue ;; esac
+            if [ -e "$f" ] || [ -L "$f" ]; then
+                glog "$id (${m%/*}): module with system/apex content and its own skip_mount, left as it is"
+                continue
+            fi
+            if { echo "$GUARD_MARK_APEX module ships files under system/apex ($apex_what): no metamodule mounts it, an overlaid /system/apex breaks apexd, PackageManager and Google Play system updates. Set again on every boot." > "$f"; } 2> /dev/null; then
+                chmod 0644 "$f" 2> /dev/null
+                marked_apex="$marked_apex $id"
+                glog "$id (${m%/*}): module with system/apex content ($apex_what), skip_mount set"
+            else
+                glog "$id (${m%/*}): module with system/apex content, could not set skip_mount"
+            fi
         else
             case "$first" in
+                "$GUARD_MARK_APEX"*) rm -f "$f" && glog "$id (${m%/*}): no system/apex content any more, its skip_mount removed" ;;
                 "$GUARD_MARK"*) rm -f "$f" && glog "$id (${m%/*}): no driver set any more, its skip_mount removed" ;;
             esac
         fi
     done
     sp ${S}guard "${marked# }"
+    sp ${S}guard_apex "${marked_apex# }"
 }
 
 # settle <seconds>: run from the rc on boot_completed when trial=testing. Promote the trial to "ok" only after the

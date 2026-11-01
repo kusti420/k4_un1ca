@@ -1,0 +1,46 @@
+From: kusti420 <kusti420@users.noreply.github.com>
+Date: Sun, 1 Nov 2026 14:50:00 +0200
+Subject: [PATCH] dm ioctl: send the disk "add" uevent again once the device is in the name hash
+
+On kernels before 5.15 (89f871af1b26 "dm: delay registering the gendisk") the
+KOBJ_ADD uevent of a new dm device is sent from add_disk() inside dm_create(),
+before dev_create() inserts the device into the name hash. A userspace that
+resolves the name with DM_DEV_STATUS from the "add" handler (Android ueventd,
+devices.cpp FindDmDevice -> GetDeviceNameAndUuid) then gets -ENXIO ("ueventd:
+Failed to find device dev: 253:N: No such device or address"), creates no
+/dev/block/mapper link and labels the node by its plain path (dm_device),
+relabelling the apex_dm_device node apexd made itself (mount_before_data).
+Seen on the A52s 5G with Android 17: apexd "Failed to set mtime for
+/dev/block/dm-N: Permission denied" (every staged Play system update failed)
+and PackageManager "Failed to load asset path /dev/block/dm-N" -> Samsung
+tryToRecover -> reboot,recoverydecompressedapex (K8, ~1 boot in 6 that
+re-parses APEXes). The ROM works around it in userspace (apexd_dm_mtime,
+apex_dm_relabel); this removes the race for every dm user.
+
+Re-send KOBJ_ADD after dm_hash_insert(): ueventd processes it after the first
+one (serial after coldboot), the lookup now succeeds, MakeDevice() hits EEXIST
+and relabels the node from its mapper link, like a >= 5.15 kernel where "add"
+is only sent at table load. A duplicate add is idempotent for ueventd (mknod
+EEXIST path), vold ignores /devices/virtual/block, and first-stage init only
+runs before any dm-ioctl user exists.
+
+Signed-off-by: kusti420 <kusti420@users.noreply.github.com>
+---
+--- a/drivers/md/dm-ioctl.c
++++ b/drivers/md/dm-ioctl.c
+@@ -792,6 +792,15 @@
+ 		return r;
+ 	}
+ 
++	/*
++	 * k4: add_disk() in dm_create() already sent KOBJ_ADD, before the name
++	 * was in the hash. Send it again now that DM_DEV_STATUS by dev_t
++	 * resolves, so a uevent consumer that names the device from its "add"
++	 * handler (Android ueventd, FindDmDevice) does not race the hash insert
++	 * - 5.15+ only sends "add" at table load (89f871af1b26).
++	 */
++	kobject_uevent(&disk_to_dev(dm_disk(md))->kobj, KOBJ_ADD);
++
+ 	param->flags &= ~DM_INACTIVE_PRESENT_FLAG;
+ 
+ 	__dev_status(md, param);

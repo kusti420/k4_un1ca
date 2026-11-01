@@ -6,9 +6,12 @@
 # container signed with ../tethering/keys/container.*). The inner APK is signed with security/aosp_platform like every other
 # system app of this build. Must be regenerated whenever the source firmware (and thus Bluetooth.apk) changes.
 #
-# Current prebuilt: regenerated 2026-10-09 from the Galaxy S26 Ultra SM-S948B One UI 9 S948BXXS4BZIG (S25 S931B before) (CP2A.260605.016)
+# Current prebuilt: regenerated 2026-11-01 (same source and smali patch as the 2026-10-09 one, rebuilt with rebuild_apex.sh
+# signapk -a 4096 --align-file-size so apex_payload.img is stored 4 KiB-aligned (offset 4096, was 56: apexd could not enable
+# direct I/O on its loop device); payload AVB key, container cert and inner cert unchanged, only the AVB salt differs)
+# from the Galaxy S26 Ultra SM-S948B One UI 9 S948BXXS4BZIG (S25 S931B before) (CP2A.260605.016)
 #   source com.android.bt.apex sha256 bb4b11e1c82b98edf60450a5005a7e0bd91977c5c2fa0a10235a1fb3495e2bde (version 370399999)
-#   shipped  com.android.bt.apex sha256 18c418195763a872121f747f73607535b1615efa52fbe313eedc2003a9caa933
+#   shipped  com.android.bt.apex sha256 9ddd28e41fe55c56784582e4c205bda084566782a947e3d6e8cbcc226e042bac
 # Verified: only app/Bluetooth@CP2A.260605.016/Bluetooth.apk differs from the S25 payload; the smali diff (2 files of code:
 # the 3-codec guard in isOffloadSupportedCodec and "const/4 v6, 0x0" after checkHqCodecState) is byte-identical to the
 # Fold8 (F976BXXU1AZFW, source sha256 da4f2353...) prebuilt's diff; same AVB key/algorithm, container cert and inner cert.
@@ -28,7 +31,7 @@ fi
 unset BT_A2DP_SOURCE_APEX_SHA256 BT_A2DP_SOURCE_APEX
 # the shipped APEX itself is pinned too (rebuild_apex.sh output for that source)
 [ "$(sha256sum "$SRC_DIR/target/a52sxq/patches/bt_a2dp_offload/com.android.bt.apex" | cut -d " " -f 1)" = \
-    "18c418195763a872121f747f73607535b1615efa52fbe313eedc2003a9caa933" ] || \
+    "9ddd28e41fe55c56784582e4c205bda084566782a947e3d6e8cbcc226e042bac" ] || \
     ABORT "bt_a2dp_offload: com.android.bt.apex is not the reviewed rebuild_apex.sh output (update the sha256 after a rebuild)"
 DELETE_FROM_WORK_DIR "system" "system/apex/com.android.bt.apex"
 EVAL "cp -a \"$SRC_DIR/target/a52sxq/patches/bt_a2dp_offload/com.android.bt.apex\" \"$WORK_DIR/system/system/apex/com.android.bt.apex\""

@@ -14,3 +14,5 @@
 (allow k4apexdm sysfs_dm (dir (getattr search)))
 (allow k4apexdm sysfs_dm (file (getattr write open)))
 (allow k4apexdm kmsg_device (chr_file (getattr write open)))
+(allow k4apexdm block_device (dir (read open)))
+(allow k4apexdm apex_dm_device (lnk_file (read getattr)))

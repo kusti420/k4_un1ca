@@ -632,6 +632,33 @@ nofile "$R/data/adb/modules/was_drv/skip_mount" "ours removed from a module with
 has "own logged" "drv_own ($R/data/adb/modules): Adreno GPU driver module with its own skip_mount, left as it is" "$(GL)"
 eq "guard prop (only ours)" "$(prop sys.k4.gpu_guard)" ""
 
+CASE="guard: a module with files under system/apex is never mounted (Play system updates / apexd), its own skip_mount is kept"
+device
+plain_mod apex_mod && mkdir -p "$R/data/adb/modules/apex_mod/system/apex" && : > "$R/data/adb/modules/apex_mod/system/apex/com.android.bt.apex"
+plain_mod apex_own && mkdir -p "$R/data/adb/modules/apex_own/system/apex" && : > "$R/data/adb/modules/apex_own/system/apex/x.apex" && echo "user skip" > "$R/data/adb/modules/apex_own/skip_mount"
+plain_mod apex_empty && mkdir -p "$R/data/adb/modules/apex_empty/system/apex"
+plain_mod was_apex && echo "k4-apex-guard: module ships files under system/apex (old)" > "$R/data/adb/modules/was_apex/skip_mount"
+mkdir -p "$R/data/adb/modules_update/apex_upd/system/apex" && printf 'id=apex_upd\n' > "$R/data/adb/modules_update/apex_upd/module.prop" && mkdir "$R/data/adb/modules_update/apex_upd/system/apex/com.android.foo.apex"
+ksu_module modules adreno_a V@0849.0
+guard
+first="$(head -n 1 "$R/data/adb/modules/apex_mod/skip_mount" 2> /dev/null)"
+case "$first" in "k4-apex-guard: module ships files under system/apex (com.android.bt.apex)"*) ok ;; *) bad "apex_mod skip_mount: '$first'" ;; esac
+eq "marker mode" "$(stat -c %a "$R/data/adb/modules/apex_mod/skip_mount")" 644
+first="$(head -n 1 "$R/data/adb/modules_update/apex_upd/skip_mount" 2> /dev/null)"
+case "$first" in "k4-apex-guard: module ships files under system/apex (com.android.foo.apex)"*) ok ;; *) bad "apex_upd (a directory entry, staged copy): '$first'" ;; esac
+eq "own skip_mount kept" "$(cat "$R/data/adb/modules/apex_own/skip_mount")" "user skip"
+nofile "$R/data/adb/modules/apex_empty/skip_mount" "empty system/apex dir is not content"
+nofile "$R/data/adb/modules/was_apex/skip_mount" "ours removed when the content is gone"
+ours "$R/data/adb/modules/adreno_a/skip_mount" "driver module still marked by the driver check"
+eq "apex guard prop" "$(prop sys.k4.gpu_guard_apex)" "apex_mod apex_upd"
+eq "driver guard prop unchanged" "$(prop sys.k4.gpu_guard)" "adreno_a"
+has "log" "apex_mod ($R/data/adb/modules): module with system/apex content (com.android.bt.apex), skip_mount set" "$(GL)"
+has "own logged" "apex_own ($R/data/adb/modules): module with system/apex content and its own skip_mount, left as it is" "$(GL)"
+has "removal logged" "was_apex ($R/data/adb/modules): no system/apex content any more, its skip_mount removed" "$(GL)"
+before="$(cat "$R/data/adb/modules/apex_mod/skip_mount")"
+guard
+eq "idempotent" "$(cat "$R/data/adb/modules/apex_mod/skip_mount")" "$before"
+
 CASE="guard: nothing with Magisk, nothing without modules, odd directory names skipped"
 device; magisk_module adreno_mg V@0849.0
 guard

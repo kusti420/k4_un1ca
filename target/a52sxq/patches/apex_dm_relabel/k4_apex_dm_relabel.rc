@@ -1,5 +1,6 @@
 # APEX dm block device labels (target/a52sxq/patches/apex_dm_relabel). init.rc's post-fs-data has already waited for
 # apexd.status=activated when this action runs; it must finish before zygote-start, when system_server scans APEXes.
+# The script first waits for every APEX node's /dev/block/mapper/*.apex link (ueventd processed its "add"), then checks.
 on post-fs-data
     exec u:r:k4apexdm:s0 root root -- /system/bin/sh /system/bin/k4-apex-dm-relabel
 

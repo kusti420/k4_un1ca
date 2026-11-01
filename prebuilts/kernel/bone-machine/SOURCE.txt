@@ -50,3 +50,8 @@ Image:    2d015a7a15d08ecac112a779349e97198c63270d807fae7deada1e75c278559b   con
 Recipe:   k4-source/k4_build.sh (SRC_COMMIT 93b49d0ccd89, clang r530567 tarball sha256 8527a2d3...) + k4-source/k4-patches/0001-0016;
           the resulting .config is k4-source/uvc8.config. Verified 2026-10-22 (hardening part 5): the zip is byte-identical to the
           build output ~/git/kernel_a52sxq_bone/k4-out/uvc8, and that build's patch snapshot equals k4-patches/0009-0016.
+
+2026-11-01: k4-patches/0017-dm-ioctl-send-add-uevent-again-after-hash-insert.patch added to the series (dm KOBJ_ADD re-sent after the
+  name hash insert, so ueventd can name/label new dm devices on this < 5.15 kernel: root cause of apexd "Failed to set mtime"
+  and the recoverydecompressedapex reboot, see target/a52sxq/patches/apex_dm_relabel). git apply --check OK against
+  93b49d0ccd89; NOT BUILT YET - next kernel build with K4_BACKPORTS=1 picks it up (kernel_bone_machine must then pin the new zip).

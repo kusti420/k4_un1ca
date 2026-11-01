@@ -18,5 +18,41 @@ else
         ABORT "tethering_trains: failed to write a52_netd.known"
     SET_METADATA "system" "system/etc/bpf/a52_netd.known" 0 0 644 "u:object_r:system_file:s0"
     unset TT_KNOWN TT_OUT TT_RC
+
+    # Runtime half, for the train nobody has seen yet (k4-tethering-gate, k4_tethering_gate.rc, see module.prop): on an
+    # update boot, before the loader runs, compare the activated Tethering's netd.o map pins with a52_netd.o and on a gap
+    # take apexd's own revert path (sys.init.updatable_crashing) instead of the crash loop. Runs in the k4apexdm domain of
+    # apex_dm_relabel (applied earlier: a < t), reports through sys.k4.tethering_gap (own property type).
+    TT_SYS="$WORK_DIR/system/system"
+    TT_CIL="$TT_SYS/etc/selinux/plat_sepolicy.cil"
+    TT_PC="$TT_SYS/etc/selinux/plat_property_contexts"
+    [ -f "$TT_CIL" ] && [ -f "$TT_PC" ] || ABORT "tethering_trains: plat_sepolicy.cil or plat_property_contexts not found"
+    grep -q -x -F "(type k4apexdm)" "$TT_CIL" || \
+        ABORT "tethering_trains: domain k4apexdm is not in plat_sepolicy.cil (patch apex_dm_relabel must be enabled; it runs before this one)"
+    EVAL "cp -f \"$MODPATH/k4-tethering-gate\" \"$TT_SYS/bin/k4-tethering-gate\"" || ABORT "tethering_trains: gate copy failed"
+    SET_METADATA "system" "system/bin/k4-tethering-gate" 0 2000 755 "u:object_r:system_file:s0"
+    EVAL "cp -f \"$MODPATH/k4_tethering_gate.rc\" \"$TT_SYS/etc/init/k4_tethering_gate.rc\"" || ABORT "tethering_trains: rc copy failed"
+    SET_METADATA "system" "system/etc/init/k4_tethering_gate.rc" 0 0 644 "u:object_r:system_file:s0"
+    # init parses /system/etc/init alphabetically: evidence capture (a52sxq_mainline.rc) first, then the gate, then the
+    # loader (netbpfload.rc), all on the same load-bpf-programs trigger
+    [[ "a52sxq_mainline.rc" < "k4_tethering_gate.rc" && "k4_tethering_gate.rc" < "netbpfload.rc" ]] || \
+        ABORT "tethering_trains: k4_tethering_gate.rc must sort between a52sxq_mainline.rc and netbpfload.rc"
+    [ -f "$TT_SYS/etc/init/a52sxq_mainline.rc" ] || \
+        LOGW "tethering_trains: no a52sxq_mainline.rc (play_system_updates disabled?) - the gate still runs, but a reverted boot leaves no evidence in /cache"
+    grep -q "sys.init.updatable_crashing" "$TT_SYS/bin/apexd" || \
+        ABORT "tethering_trains: this apexd does not watch sys.init.updatable_crashing - the gate's revert path is gone, review k4_tethering_gate.rc"
+    if ! grep -q -x -F "(type k4_tethering_prop)" "$TT_CIL"; then
+        for t in k4apexdm system_file apex_mnt_dir property_socket init shell; do
+            grep -q -x -F "(type $t)" "$TT_CIL" || ABORT "tethering_trains: type $t not in plat_sepolicy.cil, review sepolicy.cil"
+        done
+        [ -z "$(tail -c 1 "$TT_CIL")" ] || echo >> "$TT_CIL"
+        cat "$MODPATH/sepolicy.cil" >> "$TT_CIL"
+    fi
+    grep -q -x -F "(allow k4apexdm k4_tethering_prop (property_service (set)))" "$TT_CIL" || ABORT "tethering_trains: rules missing from plat_sepolicy.cil"
+    grep -q -E "^sys\.k4\.tethering_gap" "$TT_PC" && ABORT "tethering_trains: sys.k4.tethering_gap already in plat_property_contexts"
+    [ -z "$(tail -c 1 "$TT_PC")" ] || echo >> "$TT_PC"
+    echo "sys.k4.tethering_gap        u:object_r:k4_tethering_prop:s0" >> "$TT_PC"
+    LOG "- Tethering train gate: a train whose netd.o needs maps a52_netd.o lacks is reverted by apexd in one reboot"
+    unset TT_SYS TT_CIL TT_PC t
 fi
 unset TT_NETD

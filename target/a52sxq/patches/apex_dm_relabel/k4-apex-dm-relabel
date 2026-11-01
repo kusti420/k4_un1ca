@@ -2,22 +2,36 @@
 # k4-apex-dm-relabel - give every APEX dm block device its apex_dm_device label back before system_server scans them.
 # Installed by target/a52sxq/patches/apex_dm_relabel, run by init at post-fs-data (after apexd.status=activated,
 # blocking, before zygote-start) and again in the background at apexd.status=ready (around zygote-start) and
-# sys.boot_completed=1, for an "add" uevent that lands after the first run. Idempotent and cheap: it only touches wrongly labelled APEX nodes, a
-# clean run is one grep, two ls -Z and a 0.1 s sleep. $1 = the trigger, only used in the kmsg line.
+# sys.boot_completed=1, for an "add" uevent that lands after the first run. Idempotent and cheap: a clean run is one
+# grep, a few readlinks, two ls -Z and a 0.1 s sleep. $1 = the trigger, only used in the kmsg line.
 #
-# On kernels <= 5.10 the dm "add" uevent fires at DM_DEV_CREATE, before the device is in the dm hash, so ueventd's
-# name lookup can fail ("ueventd: Failed to find device dev: 253:N: No such device or address"). ueventd then labels
-# /dev/block/dm-N by its plain path (dm_device) and relabels the node apexd already made as apex_dm_device.
+# Root cause (kernel, < 5.15): the dm KOBJ_ADD uevent is sent by add_disk() inside dm_create(), before dev_create()
+# inserts the device into the name hash (fixed upstream by 89f871af1b26 "dm: delay registering the gendisk", 5.15).
+# ueventd names a dm device from its "add" handler (DM_DEV_STATUS by dev_t); when that lookup loses the race it logs
+# "ueventd: Failed to find device dev: 253:N: No such device or address", gets no /dev/block/mapper link, and
+# MakeDevice() -> EEXIST -> lsetfilecon() relabels the node apexd made itself (apex_dm_device, mount_before_data) to
+# the plain-path label dm_device. The later "change" event only creates the symlinks, it never relabels.
 # system_server may not read dm_device, so PackageManager cannot parse that Play-updated APEX ("Failed to load asset
 # path /dev/block/dm-N") and Samsung's InstallPackageHelper.tryToRecover reboots (reboot,recoverydecompressedapex).
 # Re-sending "add" for that node makes ueventd look it up again, now with its /dev/block/mapper/<name>.apex link, and
 # set apex_dm_device. Only nodes listed as APEX module paths in /apex/apex-info-list.xml and labelled wrongly are touched.
+#
+# Barrier (v2): after coldboot ueventd handles uevents one at a time and the kernel sends "change" (table load /
+# resume) after "add"; ueventd creates the /dev/block/mapper/<name>.apex link on that "change". So a node whose
+# mapper link exists has had its "add" processed and its label is final - wait for every APEX node's link (bounded),
+# then check the labels. Without the links in time it logs loudly and falls back to the timed check alone.
 LIST=/apex/apex-info-list.xml
 PHASE="${1:-post-fs-data}"
 log() { echo "k4-apex-dm-relabel ($PHASE): $*" > /dev/kmsg; }
 [ -f "$LIST" ] || { log "no $LIST"; exit 0; }
 NODES="$(grep -o 'modulePath="/dev/block/dm-[0-9]*"' "$LIST" | sed 's/^modulePath="//; s/"$//' | sort -u)"
 [ -n "$NODES" ] || exit 0
+# the targets of the APEX mapper links (labelled apex_dm_device by file_contexts, so no other link is touched)
+linked() { for l in /dev/block/mapper/*.apex; do readlink "$l"; done 2> /dev/null; }
+unlinked() { L="$(linked)"; for n in $NODES; do printf '%s\n' "$L" | grep -qx -- "$n" || echo "$n"; done; }
+i=0; P="$(unlinked)"
+while [ -n "$P" ] && [ $i -lt 50 ]; do sleep 0.1; i=$((i + 1)); P="$(unlinked)"; done   # at most 5 s
+[ -n "$P" ] && log "WARNING: no /dev/block/mapper link after $((i * 100)) ms for:$(echo $P) - ueventd is behind, falling back to the timed label check"
 # one ls for all nodes: "<label> <path>" per line; print the paths whose label is wrong
 wrong() { ls -Z $NODES 2> /dev/null | grep -v "^u:object_r:apex_dm_device:s0 " | sed 's/^[^ ]* //'; }
 # A ueventd event still in flight can land after a check, so stop only after two clean checks 100 ms apart

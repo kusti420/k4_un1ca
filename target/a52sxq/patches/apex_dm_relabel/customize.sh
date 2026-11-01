@@ -8,7 +8,8 @@ SET_METADATA "system" "system/bin/k4-apex-dm-relabel" 0 2000 755 "u:object_r:sys
 EVAL "cp -f \"$SRC/k4_apex_dm_relabel.rc\" \"$SYS/etc/init/k4_apex_dm_relabel.rc\"" || ABORT "apex_dm_relabel: rc copy failed"
 SET_METADATA "system" "system/etc/init/k4_apex_dm_relabel.rc" 0 0 644 "u:object_r:system_file:s0"
 
-# SELinux: a small enforcing domain that may only read the APEX list, stat dm nodes and write dm uevent files.
+# SELinux: a small enforcing domain that may only read the APEX list, list /dev/block/mapper and read its *.apex links,
+# stat dm nodes and write dm uevent files.
 # init compiles the split policy at boot, so a rule naming a type that does not exist would stop the boot.
 [ -f "$CIL" ] || ABORT "apex_dm_relabel: plat_sepolicy.cil not found"
 if ! grep -q -x -F "(type k4apexdm)" "$CIL"; then
@@ -22,7 +23,7 @@ if ! grep -q -x -F "(type k4apexdm)" "$CIL"; then
     [ -z "$(tail -c 1 "$CIL")" ] || echo >> "$CIL"
     cat "$SRC/sepolicy.cil" >> "$CIL"
 fi
-grep -q -x -F "(allow k4apexdm sysfs_dm (file (getattr write open)))" "$CIL" || ABORT "apex_dm_relabel: rules missing from plat_sepolicy.cil"
+grep -q -x -F "(allow k4apexdm apex_dm_device (lnk_file (read getattr)))" "$CIL" || ABORT "apex_dm_relabel: rules missing from plat_sepolicy.cil"
 
-LOG "- APEX dm block devices get their apex_dm_device label back before PackageManager scans them (5.4 ueventd race)"
+LOG "- APEX dm block devices get their apex_dm_device label back before PackageManager scans them (dm KOBJ_ADD before the name hash insert on kernels < 5.15)"
 unset SRC SYS CIL t

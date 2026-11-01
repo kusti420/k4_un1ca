@@ -212,7 +212,13 @@ explain() {
         *"Build fingerprint has changed"*)
             printf '%s\n' "a new ROM build was flashed while the update was waiting for its reboot; Android drops it by design and Play downloads it again (harmless) - next time: when Play says an update is waiting for a restart, reboot once before flashing a new build" ;;
         *"crashing native process"*)
-            printf '%s\n' "a native service crashed right after the update and apexd rolled it back (${1##*process: }) - if that is netd: Tethering needs newer BPF maps; $DEV_HINT" ;;
+            if [ "$CAP_FRESH" = 1 ] && grep -q "k4-tethering-gate: .*asking apexd to revert" "$CAP/failed_staged_boot_kmsg.txt" 2> /dev/null; then
+                printf '%s\n' "the ROM's Tethering gate reverted this update on purpose before anything crashed (one reboot): Tethering ${CAP_VER:-?} defines BPF maps the ROM does not create (${CAP_MISSING:-see the k4-tethering-gate line in failed_staged_boot_kmsg.txt}); $DEV_HINT"
+            elif [ "$ROOT" = 0 ] && [ "$(echo ${1##*process: })" = netd ]; then
+                printf '%s\n' "apexd rolled the update back because netd was reported crashing - either netd really crashed or the ROM's Tethering gate requested the revert (a Tethering train needs BPF maps the ROM lacks); run with su -v for the kept kernel log; $DEV_HINT"
+            else
+                printf '%s\n' "a native service crashed right after the update and apexd rolled it back (${1##*process: }) - if that is netd: Tethering needs newer BPF maps; $DEV_HINT"
+            fi ;;
         *"Found both applied and failed apex sessions"*)
             printf '%s\n' "one module of the batch failed to activate while others did, so Android rolled the whole batch back - look at the session errors with -v (before 9.3.36 this was the apexd mtime denial)" ;;
         "APEX activation failed.")
