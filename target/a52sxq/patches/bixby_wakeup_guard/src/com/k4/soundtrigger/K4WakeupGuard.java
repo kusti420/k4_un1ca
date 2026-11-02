@@ -103,6 +103,7 @@ public final class K4WakeupGuard {
     private static synchronized String modelName(String hash, int size) throws Exception {
         if (sNames.containsKey(hash)) return sNames.get(hash);
         String found = null;
+        boolean clean = true;
         for (File apk : appApks()) {
             try (java.util.zip.ZipFile z = new java.util.zip.ZipFile(apk)) {
                 java.util.Enumeration<? extends java.util.zip.ZipEntry> en = z.entries();
@@ -116,10 +117,13 @@ public final class K4WakeupGuard {
                 }
             } catch (Throwable t) {
                 Slog.w(TAG, "cannot read " + apk + ": " + t);
+                clean = false;
             }
             if (found != null) break;
         }
-        sNames.put(hash, found);
+        // remember a miss only when every apk was read: one failed read (the Store replacing the app mid-scan) must
+        // not refuse this model until the next reboot
+        if (found != null || clean) sNames.put(hash, found);
         return found;
     }
 

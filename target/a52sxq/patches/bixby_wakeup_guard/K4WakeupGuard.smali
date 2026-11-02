@@ -343,12 +343,12 @@
         }
     .end annotation
 
-    .line 128
+    .line 132
     new-instance v0, Ljava/util/ArrayList;
 
     invoke-direct {v0}, Ljava/util/ArrayList;-><init>()V
 
-    .line 129
+    .line 133
     new-instance v1, Ljava/io/File;
 
     const-string v2, "/data/app"
@@ -359,10 +359,10 @@
 
     move-result-object v1
 
-    .line 130
+    .line 134
     if-eqz v1, :cond_42
 
-    .line 131
+    .line 135
     array-length v2, v1
 
     const/4 v3, 0x0
@@ -374,17 +374,17 @@
 
     aget-object v5, v1, v4
 
-    .line 132
+    .line 136
     invoke-virtual {v5}, Ljava/io/File;->listFiles()[Ljava/io/File;
 
     move-result-object v5
 
-    .line 133
+    .line 137
     if-nez v5, :cond_20
 
     goto :goto_3f
 
-    .line 134
+    .line 138
     :cond_20
     array-length v6, v5
 
@@ -395,7 +395,7 @@
 
     aget-object v8, v5, v7
 
-    .line 135
+    .line 139
     invoke-virtual {v8}, Ljava/io/File;->getName()Ljava/lang/String;
 
     move-result-object v9
@@ -416,20 +416,20 @@
 
     invoke-virtual {v0, v9}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 134
+    .line 138
     :cond_3c
     add-int/lit8 v7, v7, 0x1
 
     goto :goto_22
 
-    .line 131
+    .line 135
     :cond_3f
     :goto_3f
     add-int/lit8 v4, v4, 0x1
 
     goto :goto_15
 
-    .line 139
+    .line 143
     :cond_42
     new-instance v1, Ljava/io/File;
 
@@ -439,7 +439,7 @@
 
     invoke-virtual {v0, v1}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 140
+    .line 144
     return-object v0
 .end method
 
@@ -750,7 +750,7 @@
 .end method
 
 .method private static declared-synchronized modelName(Ljava/lang/String;I)Ljava/lang/String;
-    .registers 14
+    .registers 15
     .annotation system Ldalvik/annotation/Throws;
         value = {
             Ljava/lang/Exception;
@@ -779,7 +779,7 @@
 
     check-cast p0, Ljava/lang/String;
     :try_end_13
-    .catchall {:try_start_3 .. :try_end_13} :catchall_d3
+    .catchall {:try_start_3 .. :try_end_13} :catchall_da
 
     monitor-exit v0
 
@@ -790,7 +790,10 @@
     nop
 
     .line 106
-    :try_start_16
+    nop
+
+    .line 107
+    :try_start_17
     invoke-static {}, Lcom/k4/soundtrigger/K4WakeupGuard;->appApks()Ljava/util/List;
 
     move-result-object v1
@@ -801,208 +804,210 @@
 
     const/4 v2, 0x0
 
-    :goto_1f
+    const/4 v3, 0x1
+
+    :goto_21
     invoke-interface {v1}, Ljava/util/Iterator;->hasNext()Z
 
-    move-result v3
+    move-result v4
 
-    if-eqz v3, :cond_cc
+    if-eqz v4, :cond_cf
 
     invoke-interface {v1}, Ljava/util/Iterator;->next()Ljava/lang/Object;
 
-    move-result-object v3
+    move-result-object v4
 
-    check-cast v3, Ljava/io/File;
-    :try_end_2b
-    .catchall {:try_start_16 .. :try_end_2b} :catchall_d3
-
-    .line 107
-    :try_start_2b
-    new-instance v4, Ljava/util/zip/ZipFile;
-
-    invoke-direct {v4, v3}, Ljava/util/zip/ZipFile;-><init>(Ljava/io/File;)V
-    :try_end_30
-    .catchall {:try_start_2b .. :try_end_30} :catchall_9c
+    check-cast v4, Ljava/io/File;
+    :try_end_2d
+    .catchall {:try_start_17 .. :try_end_2d} :catchall_da
 
     .line 108
-    :try_start_30
-    invoke-virtual {v4}, Ljava/util/zip/ZipFile;->entries()Ljava/util/Enumeration;
+    :try_start_2d
+    new-instance v5, Ljava/util/zip/ZipFile;
 
-    move-result-object v5
+    invoke-direct {v5, v4}, Ljava/util/zip/ZipFile;-><init>(Ljava/io/File;)V
+    :try_end_32
+    .catchall {:try_start_2d .. :try_end_32} :catchall_9e
 
     .line 109
-    :cond_34
-    :goto_34
-    if-nez v2, :cond_8e
-
-    invoke-interface {v5}, Ljava/util/Enumeration;->hasMoreElements()Z
-
-    move-result v6
-
-    if-eqz v6, :cond_8e
-
-    .line 110
-    invoke-interface {v5}, Ljava/util/Enumeration;->nextElement()Ljava/lang/Object;
+    :try_start_32
+    invoke-virtual {v5}, Ljava/util/zip/ZipFile;->entries()Ljava/util/Enumeration;
 
     move-result-object v6
 
-    check-cast v6, Ljava/util/zip/ZipEntry;
+    .line 110
+    :cond_36
+    :goto_36
+    if-nez v2, :cond_90
+
+    invoke-interface {v6}, Ljava/util/Enumeration;->hasMoreElements()Z
+
+    move-result v7
+
+    if-eqz v7, :cond_90
 
     .line 111
-    invoke-virtual {v6}, Ljava/util/zip/ZipEntry;->getName()Ljava/lang/String;
+    invoke-interface {v6}, Ljava/util/Enumeration;->nextElement()Ljava/lang/Object;
 
     move-result-object v7
 
+    check-cast v7, Ljava/util/zip/ZipEntry;
+
     .line 112
-    const-string v8, "assets/kwdModel/"
+    invoke-virtual {v7}, Ljava/util/zip/ZipEntry;->getName()Ljava/lang/String;
 
-    invoke-virtual {v7, v8}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
-
-    move-result v8
-
-    if-eqz v8, :cond_34
-
-    const-string v8, ".bin"
-
-    invoke-virtual {v7, v8}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
-
-    move-result v8
-
-    if-eqz v8, :cond_34
-
-    invoke-virtual {v6}, Ljava/util/zip/ZipEntry;->getSize()J
-
-    move-result-wide v8
-
-    int-to-long v10, p1
-
-    cmp-long v8, v8, v10
-
-    if-eqz v8, :cond_60
-
-    goto :goto_34
+    move-result-object v8
 
     .line 113
-    :cond_60
-    invoke-virtual {v4, v6}, Ljava/util/zip/ZipFile;->getInputStream(Ljava/util/zip/ZipEntry;)Ljava/io/InputStream;
+    const-string v9, "assets/kwdModel/"
 
-    move-result-object v6
-    :try_end_64
-    .catchall {:try_start_30 .. :try_end_64} :catchall_92
+    invoke-virtual {v8, v9}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+
+    move-result v9
+
+    if-eqz v9, :cond_36
+
+    const-string v9, ".bin"
+
+    invoke-virtual {v8, v9}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+
+    move-result v9
+
+    if-eqz v9, :cond_36
+
+    invoke-virtual {v7}, Ljava/util/zip/ZipEntry;->getSize()J
+
+    move-result-wide v9
+
+    int-to-long v11, p1
+
+    cmp-long v9, v9, v11
+
+    if-eqz v9, :cond_62
+
+    goto :goto_36
 
     .line 114
-    :try_start_64
-    invoke-virtual {v6}, Ljava/io/InputStream;->readAllBytes()[B
+    :cond_62
+    invoke-virtual {v5, v7}, Ljava/util/zip/ZipFile;->getInputStream(Ljava/util/zip/ZipEntry;)Ljava/io/InputStream;
 
-    move-result-object v8
-
-    invoke-static {v8}, Lcom/k4/soundtrigger/K4WakeupGuard;->sha256([B)Ljava/lang/String;
-
-    move-result-object v8
-
-    invoke-virtual {p0, v8}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-
-    move-result v8
-
-    if-eqz v8, :cond_7c
-
-    const-string v8, "assets/kwdModel/"
-
-    invoke-virtual {v8}, Ljava/lang/String;->length()I
-
-    move-result v8
-
-    invoke-virtual {v7, v8}, Ljava/lang/String;->substring(I)Ljava/lang/String;
-
-    move-result-object v2
-    :try_end_7c
-    .catchall {:try_start_64 .. :try_end_7c} :catchall_82
+    move-result-object v7
+    :try_end_66
+    .catchall {:try_start_32 .. :try_end_66} :catchall_94
 
     .line 115
-    :cond_7c
-    if-eqz v6, :cond_81
+    :try_start_66
+    invoke-virtual {v7}, Ljava/io/InputStream;->readAllBytes()[B
 
-    :try_start_7e
-    invoke-virtual {v6}, Ljava/io/InputStream;->close()V
-    :try_end_81
-    .catchall {:try_start_7e .. :try_end_81} :catchall_92
+    move-result-object v9
+
+    invoke-static {v9}, Lcom/k4/soundtrigger/K4WakeupGuard;->sha256([B)Ljava/lang/String;
+
+    move-result-object v9
+
+    invoke-virtual {p0, v9}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+
+    move-result v9
+
+    if-eqz v9, :cond_7e
+
+    const-string v9, "assets/kwdModel/"
+
+    invoke-virtual {v9}, Ljava/lang/String;->length()I
+
+    move-result v9
+
+    invoke-virtual {v8, v9}, Ljava/lang/String;->substring(I)Ljava/lang/String;
+
+    move-result-object v2
+    :try_end_7e
+    .catchall {:try_start_66 .. :try_end_7e} :catchall_84
 
     .line 116
-    :cond_81
-    goto :goto_34
+    :cond_7e
+    if-eqz v7, :cond_83
 
-    .line 113
-    :catchall_82
-    move-exception v5
+    :try_start_80
+    invoke-virtual {v7}, Ljava/io/InputStream;->close()V
+    :try_end_83
+    .catchall {:try_start_80 .. :try_end_83} :catchall_94
 
-    if-eqz v6, :cond_8d
+    .line 117
+    :cond_83
+    goto :goto_36
 
-    :try_start_85
-    invoke-virtual {v6}, Ljava/io/InputStream;->close()V
-    :try_end_88
-    .catchall {:try_start_85 .. :try_end_88} :catchall_89
+    .line 114
+    :catchall_84
+    move-exception v3
 
-    goto :goto_8d
+    if-eqz v7, :cond_8f
 
-    :catchall_89
+    :try_start_87
+    invoke-virtual {v7}, Ljava/io/InputStream;->close()V
+    :try_end_8a
+    .catchall {:try_start_87 .. :try_end_8a} :catchall_8b
+
+    goto :goto_8f
+
+    :catchall_8b
     move-exception v6
 
-    :try_start_8a
-    invoke-virtual {v5, v6}, Ljava/lang/Throwable;->addSuppressed(Ljava/lang/Throwable;)V
+    :try_start_8c
+    invoke-virtual {v3, v6}, Ljava/lang/Throwable;->addSuppressed(Ljava/lang/Throwable;)V
 
-    :cond_8d
-    :goto_8d
-    throw v5
-    :try_end_8e
-    .catchall {:try_start_8a .. :try_end_8e} :catchall_92
-
-    .line 117
-    :cond_8e
-    :try_start_8e
-    invoke-virtual {v4}, Ljava/util/zip/ZipFile;->close()V
-    :try_end_91
-    .catchall {:try_start_8e .. :try_end_91} :catchall_9c
-
-    .line 119
-    goto :goto_c7
-
-    .line 107
-    :catchall_92
-    move-exception v5
-
-    :try_start_93
-    invoke-virtual {v4}, Ljava/util/zip/ZipFile;->close()V
-    :try_end_96
-    .catchall {:try_start_93 .. :try_end_96} :catchall_97
-
-    goto :goto_9b
-
-    :catchall_97
-    move-exception v4
-
-    :try_start_98
-    invoke-virtual {v5, v4}, Ljava/lang/Throwable;->addSuppressed(Ljava/lang/Throwable;)V
-
-    :goto_9b
-    throw v5
-    :try_end_9c
-    .catchall {:try_start_98 .. :try_end_9c} :catchall_9c
-
-    .line 117
-    :catchall_9c
-    move-exception v4
+    :cond_8f
+    :goto_8f
+    throw v3
+    :try_end_90
+    .catchall {:try_start_8c .. :try_end_90} :catchall_94
 
     .line 118
-    :try_start_9d
+    :cond_90
+    :try_start_90
+    invoke-virtual {v5}, Ljava/util/zip/ZipFile;->close()V
+    :try_end_93
+    .catchall {:try_start_90 .. :try_end_93} :catchall_9e
+
+    .line 121
+    goto :goto_ca
+
+    .line 108
+    :catchall_94
+    move-exception v3
+
+    :try_start_95
+    invoke-virtual {v5}, Ljava/util/zip/ZipFile;->close()V
+    :try_end_98
+    .catchall {:try_start_95 .. :try_end_98} :catchall_99
+
+    goto :goto_9d
+
+    :catchall_99
+    move-exception v5
+
+    :try_start_9a
+    invoke-virtual {v3, v5}, Ljava/lang/Throwable;->addSuppressed(Ljava/lang/Throwable;)V
+
+    :goto_9d
+    throw v3
+    :try_end_9e
+    .catchall {:try_start_9a .. :try_end_9e} :catchall_9e
+
+    .line 118
+    :catchall_9e
+    move-exception v3
+
+    .line 119
+    :try_start_9f
     const-string v5, "K4WakeupGuard"
-
-    invoke-static {v3}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
-
-    move-result-object v3
 
     invoke-static {v4}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
     move-result-object v4
+
+    invoke-static {v3}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v3
 
     new-instance v6, Ljava/lang/StringBuilder;
 
@@ -1014,17 +1019,17 @@
 
     move-result-object v6
 
-    invoke-virtual {v6, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v6, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object v3
+    move-result-object v4
 
     const-string v6, ": "
 
-    invoke-virtual {v3, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v4, v6}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    move-result-object v3
+    move-result-object v4
 
-    invoke-virtual {v3, v4}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-virtual {v4, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
     move-result-object v3
 
@@ -1035,37 +1040,46 @@
     invoke-static {v5, v3}, Landroid/util/Slog;->w(Ljava/lang/String;Ljava/lang/String;)I
 
     .line 120
-    :goto_c7
-    if-eqz v2, :cond_ca
-
-    goto :goto_cc
-
-    .line 121
-    :cond_ca
-    goto/16 :goto_1f
+    const/4 v3, 0x0
 
     .line 122
-    :cond_cc
-    :goto_cc
+    :goto_ca
+    if-eqz v2, :cond_cd
+
+    goto :goto_cf
+
+    .line 123
+    :cond_cd
+    goto/16 :goto_21
+
+    .line 126
+    :cond_cf
+    :goto_cf
+    if-nez v2, :cond_d3
+
+    if-eqz v3, :cond_d8
+
+    :cond_d3
     sget-object p1, Lcom/k4/soundtrigger/K4WakeupGuard;->sNames:Ljava/util/HashMap;
 
     invoke-virtual {p1, p0, v2}, Ljava/util/HashMap;->put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
-    :try_end_d1
-    .catchall {:try_start_9d .. :try_end_d1} :catchall_d3
+    :try_end_d8
+    .catchall {:try_start_9f .. :try_end_d8} :catchall_da
 
-    .line 123
+    .line 127
+    :cond_d8
     monitor-exit v0
 
     return-object v2
 
     .line 103
-    :catchall_d3
+    :catchall_da
     move-exception p0
 
-    :try_start_d4
+    :try_start_db
     monitor-exit v0
-    :try_end_d5
-    .catchall {:try_start_d4 .. :try_end_d5} :catchall_d3
+    :try_end_dc
+    .catchall {:try_start_db .. :try_end_dc} :catchall_da
 
     throw p0
 .end method
@@ -1078,7 +1092,7 @@
         }
     .end annotation
 
-    .line 144
+    .line 148
     invoke-virtual {p0}, Ljava/io/File;->length()J
 
     move-result-wide v0
@@ -1087,19 +1101,19 @@
 
     new-array v1, v0, [B
 
-    .line 145
+    .line 149
     new-instance v2, Ljava/io/FileInputStream;
 
     invoke-direct {v2, p0}, Ljava/io/FileInputStream;-><init>(Ljava/io/File;)V
 
-    .line 146
+    .line 150
     const/4 v3, 0x0
 
-    .line 147
+    .line 151
     :goto_d
     if-ge v3, v0, :cond_2d
 
-    .line 148
+    .line 152
     sub-int v4, v0, v3
 
     :try_start_11
@@ -1107,16 +1121,16 @@
 
     move-result v4
 
-    .line 149
+    .line 153
     if-ltz v4, :cond_19
 
-    .line 150
+    .line 154
     add-int/2addr v3, v4
 
-    .line 151
+    .line 155
     goto :goto_d
 
-    .line 149
+    .line 153
     :cond_19
     new-instance v0, Ljava/io/EOFException;
 
@@ -1130,7 +1144,7 @@
     :try_end_23
     .catchall {:try_start_11 .. :try_end_23} :catchall_23
 
-    .line 145
+    .line 149
     :catchall_23
     move-exception p0
 
@@ -1149,11 +1163,11 @@
     :goto_2c
     throw p0
 
-    .line 152
+    .line 156
     :cond_2d
     invoke-virtual {v2}, Ljava/io/FileInputStream;->close()V
 
-    .line 153
+    .line 157
     return-object v1
 .end method
 
@@ -1165,7 +1179,7 @@
         }
     .end annotation
 
-    .line 157
+    .line 161
     const-string v0, "SHA-256"
 
     invoke-static {v0}, Ljava/security/MessageDigest;->getInstance(Ljava/lang/String;)Ljava/security/MessageDigest;
@@ -1176,14 +1190,14 @@
 
     move-result-object p0
 
-    .line 158
+    .line 162
     new-instance v0, Ljava/lang/StringBuilder;
 
     const/16 v1, 0x40
 
     invoke-direct {v0, v1}, Ljava/lang/StringBuilder;-><init>(I)V
 
-    .line 159
+    .line 163
     array-length v1, p0
 
     const/4 v2, 0x0
@@ -1219,7 +1233,7 @@
 
     goto :goto_13
 
-    .line 160
+    .line 164
     :cond_31
     invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
