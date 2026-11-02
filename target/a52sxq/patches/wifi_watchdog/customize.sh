@@ -27,5 +27,10 @@ grep -q -x -F "(allow shell k4_metamod_status_prop (property_service (set)))" "$
     [ -z "$(tail -c 1 "$PLAT_CIL")" ] || echo >> "$PLAT_CIL"
     echo "(allow shell k4_metamod_status_prop (property_service (set)))" >> "$PLAT_CIL"
 }
+# `ip route show table all` looks up table names in /data/misc/net/rt_tables, which shell may not search: harmless (it
+# prints numbers) but it was 3 kernel audit lines per 5 s tick, ~1000 per hour of Wi-Fi. Silence that one lookup.
+grep -q -x -F "(type net_data_file)" "$PLAT_CIL" || ABORT "wifi_watchdog: type net_data_file not in plat_sepolicy.cil"
+grep -q -x -F "(dontaudit shell net_data_file (dir (search)))" "$PLAT_CIL" || \
+    echo "(dontaudit shell net_data_file (dir (search)))" >> "$PLAT_CIL"
 LOG "- Wi-Fi data-path watchdog: /system/bin/k4-wifiwatch (k4_wifiwatch.rc)"
 unset PLAT_PC PLAT_CIL
