@@ -81,6 +81,16 @@ else:
     body = pat.sub(lambda g: "invoke-static {p0, %s, %s, %s}, %s->insertDynamic(%sLandroid/database/sqlite/SQLiteDatabase;Ljava/util/List;Ljava/lang/String;)V"
                    % (g.group(1), g.group(2), g.group(3), K4, DIM), body)
     s = s[:m.start()] + body + s[m.end():]
+# 2c) indexDatabase(callback, type): a refresh is queued, the previous verdict is void until it starts
+m = method(s, " indexDatabase(Lcom/android/settings/intelligence/search/indexing/IndexingCallback;I)V")
+body = m.group(0)
+if K4 + "->onIndexingQueued" in body:
+    print("  - indexDatabase already patched")
+else:
+    loc = re.search(r"^    \.locals \d+\n", body, re.M)
+    assert loc, "indexDatabase: .locals"
+    body = body[:loc.end()] + "\n    invoke-static {}, %s->onIndexingQueued()V\n" % K4 + body[loc.end():]
+    s = s[:m.start()] + body + s[m.end():]
 open(f, "w").write(s)
 PYEOF
 unset SSI SSI_DIR DEX_DIR

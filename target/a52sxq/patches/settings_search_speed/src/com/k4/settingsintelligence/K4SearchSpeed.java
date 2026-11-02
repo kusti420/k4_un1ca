@@ -37,6 +37,16 @@ public final class K4SearchSpeed {
 
     private K4SearchSpeed() {}
 
+    /**
+     * DatabaseIndexingManager.indexDatabase(), first instruction: a new refresh is queued. Until it starts and decides
+     * (onIndexingStart) the previous refresh's verdict no longer holds: the queued task may be a full index that drops
+     * and recreates every table (app installed/removed, build or locale change), and the sequential executor can hold it
+     * behind other indexing work. Typed queries wait like stock in that window.
+     */
+    public static void onIndexingQueued() {
+        sIndexUsable = false;
+    }
+
     /** DatabaseIndexingManager.rebuildIndexingDataIfNeeded(isFullIndex, locale), first instruction. */
     public static void onIndexingStart(DatabaseIndexingManager m, boolean isFullIndex) {
         sDynamicClearPending.set(Boolean.FALSE);

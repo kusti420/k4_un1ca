@@ -47,20 +47,20 @@
 .method public static insertDynamic(Lcom/android/settings/intelligence/search/indexing/DatabaseIndexingManager;Landroid/database/sqlite/SQLiteDatabase;Ljava/util/List;Ljava/lang/String;)V
     .registers 7
 
-    .line 66
+    .line 76
     sget-object v0, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
 
     sget-object v1, Lcom/k4/settingsintelligence/K4SearchSpeed;->sDynamicClearPending:Ljava/lang/ThreadLocal;
 
     invoke-virtual {v1}, Ljava/lang/ThreadLocal;->get()Ljava/lang/Object;
 
-    move-result-object v2
+    move-result-object v1
 
-    invoke-virtual {v0, v2}, Ljava/lang/Boolean;->equals(Ljava/lang/Object;)Z
+    invoke-virtual {v0, v1}, Ljava/lang/Boolean;->equals(Ljava/lang/Object;)Z
 
     move-result v0
 
-    if-eqz v0, :cond_47
+    if-eqz v0, :cond_4f
 
     const-string v0, "sec_dynamic_prefs_index"
 
@@ -68,44 +68,56 @@
 
     move-result v0
 
-    if-eqz v0, :cond_47
+    if-eqz v0, :cond_4f
 
-    .line 67
-    sget-object v0, Ljava/lang/Boolean;->FALSE:Ljava/lang/Boolean;
+    .line 77
+    sget-object v0, Lcom/k4/settingsintelligence/K4SearchSpeed;->sDynamicClearPending:Ljava/lang/ThreadLocal;
 
-    invoke-virtual {v1, v0}, Ljava/lang/ThreadLocal;->set(Ljava/lang/Object;)V
+    sget-object v1, Ljava/lang/Boolean;->FALSE:Ljava/lang/Boolean;
 
-    .line 69
-    :try_start_1b
+    invoke-virtual {v0, v1}, Ljava/lang/ThreadLocal;->set(Ljava/lang/Object;)V
+
+    .line 79
+    :try_start_1d
     const-string v0, "DELETE FROM sec_dynamic_prefs_index"
 
     invoke-virtual {p1, v0}, Landroid/database/sqlite/SQLiteDatabase;->execSQL(Ljava/lang/String;)V
-    :try_end_20
-    .catch Landroid/database/sqlite/SQLiteException; {:try_start_1b .. :try_end_20} :catch_21
+    :try_end_22
+    .catch Landroid/database/sqlite/SQLiteException; {:try_start_1d .. :try_end_22} :catch_23
 
-    goto :goto_47
+    .line 83
+    goto :goto_4f
 
-    :catch_21
+    .line 80
+    :catch_23
     move-exception v0
 
-    .line 71
+    .line 81
     invoke-static {v0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
     move-result-object v0
 
     new-instance v1, Ljava/lang/StringBuilder;
 
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
     const-string v2, "in-transaction clear failed ("
 
-    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
 
     invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    const-string v0, "), recreating the table"
+    move-result-object v0
 
-    invoke-virtual {v1, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, "), recreating the table"
 
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    invoke-virtual {v0, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object v0
 
@@ -113,7 +125,7 @@
 
     invoke-static {v1, v0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 72
+    .line 82
     iget-object v0, p0, Lcom/android/settings/intelligence/search/indexing/DatabaseIndexingManager;->mContext:Landroid/content/Context;
 
     invoke-static {v0}, Lcom/android/settings/intelligence/search/indexing/IndexDatabaseHelper;->getInstance(Landroid/content/Context;)Lcom/android/settings/intelligence/search/indexing/IndexDatabaseHelper;
@@ -122,18 +134,19 @@
 
     invoke-virtual {v0, p1}, Lcom/android/settings/intelligence/search/indexing/IndexDatabaseHelper;->reconstructDynamicIndexDb(Landroid/database/sqlite/SQLiteDatabase;)V
 
-    .line 75
-    :cond_47
-    :goto_47
+    .line 85
+    :cond_4f
+    :goto_4f
     invoke-virtual {p0, p1, p2, p3}, Lcom/android/settings/intelligence/search/indexing/DatabaseIndexingManager;->insertIndexData(Landroid/database/sqlite/SQLiteDatabase;Ljava/util/List;Ljava/lang/String;)V
 
+    .line 86
     return-void
 .end method
 
 .method public static isIndexingComplete(Lcom/android/settings/intelligence/search/SearchFeatureProvider;Landroid/content/Context;)Z
     .registers 5
 
-    .line 80
+    .line 90
     invoke-interface {p0, p1}, Lcom/android/settings/intelligence/search/SearchFeatureProvider;->isIndexingComplete(Landroid/content/Context;)Z
 
     move-result v0
@@ -142,73 +155,105 @@
 
     if-eqz v0, :cond_8
 
+    .line 91
     return v1
 
-    .line 83
+    .line 93
     :cond_8
     sget-boolean v0, Lcom/k4/settingsintelligence/K4SearchSpeed;->sIndexUsable:Z
 
     const/4 v2, 0x0
 
-    if-eqz v0, :cond_25
+    if-eqz v0, :cond_29
 
     if-nez p1, :cond_10
 
-    goto :goto_25
+    goto :goto_29
 
-    .line 87
+    .line 97
     :cond_10
     :try_start_10
     invoke-interface {p0, p1}, Lcom/android/settings/intelligence/search/SearchFeatureProvider;->getIndexingManager(Landroid/content/Context;)Lcom/android/settings/intelligence/search/indexing/DatabaseIndexingManager;
 
     move-result-object p0
 
-    if-eqz p0, :cond_25
+    .line 98
+    if-eqz p0, :cond_26
 
-    .line 88
     invoke-virtual {p0}, Lcom/android/settings/intelligence/search/indexing/DatabaseIndexingManager;->isLocaleChanged()Z
 
     move-result p0
     :try_end_1a
-    .catch Ljava/lang/RuntimeException; {:try_start_10 .. :try_end_1a} :catch_25
+    .catch Ljava/lang/RuntimeException; {:try_start_10 .. :try_end_1a} :catch_27
 
     if-eqz p0, :cond_1d
 
-    goto :goto_25
+    goto :goto_26
 
-    .line 94
+    .line 103
     :cond_1d
+    nop
+
+    .line 104
     const-string p0, "K4SearchSpeed"
 
     const-string p1, "refresh running: querying the existing index"
 
     invoke-static {p0, p1}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I
 
+    .line 105
     return v1
 
-    :catch_25
-    :cond_25
-    :goto_25
+    .line 99
+    :cond_26
+    :goto_26
     return v2
+
+    .line 101
+    :catch_27
+    move-exception p0
+
+    .line 102
+    return v2
+
+    .line 94
+    :cond_29
+    :goto_29
+    return v2
+.end method
+
+.method public static onIndexingQueued()V
+    .registers 1
+
+    .line 47
+    const/4 v0, 0x0
+
+    sput-boolean v0, Lcom/k4/settingsintelligence/K4SearchSpeed;->sIndexUsable:Z
+
+    .line 48
+    return-void
 .end method
 
 .method public static onIndexingStart(Lcom/android/settings/intelligence/search/indexing/DatabaseIndexingManager;Z)V
     .registers 5
 
-    .line 42
+    .line 52
     sget-object v0, Lcom/k4/settingsintelligence/K4SearchSpeed;->sDynamicClearPending:Ljava/lang/ThreadLocal;
 
     sget-object v1, Ljava/lang/Boolean;->FALSE:Ljava/lang/Boolean;
 
     invoke-virtual {v0, v1}, Ljava/lang/ThreadLocal;->set(Ljava/lang/Object;)V
 
-    .line 44
+    .line 53
+    nop
+
+    .line 54
     const-string v0, "K4SearchSpeed"
 
-    if-nez p1, :cond_2a
+    if-nez p1, :cond_30
 
-    .line 46
-    :try_start_b
+    .line 56
+    :try_start_c
     iget-object p0, p0, Lcom/android/settings/intelligence/search/indexing/DatabaseIndexingManager;->mContext:Landroid/content/Context;
 
     const-string v1, "essential_indexing_finished"
@@ -216,84 +261,105 @@
     invoke-static {p0, v1}, Lcom/android/settings/intelligence/search/indexing/IndexDatabaseHelper;->isIndexingFinished(Landroid/content/Context;Ljava/lang/String;)Z
 
     move-result p0
-    :try_end_13
-    .catch Ljava/lang/RuntimeException; {:try_start_b .. :try_end_13} :catch_14
+    :try_end_14
+    .catch Ljava/lang/RuntimeException; {:try_start_c .. :try_end_14} :catch_15
 
-    goto :goto_2b
+    .line 59
+    goto :goto_31
 
-    :catch_14
+    .line 57
+    :catch_15
     move-exception p0
 
-    .line 48
+    .line 58
     invoke-static {p0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
 
     move-result-object p0
 
     new-instance v1, Ljava/lang/StringBuilder;
 
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
+
     const-string v2, "isIndexingFinished failed: "
 
-    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
 
     invoke-virtual {v1, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object p0
+
+    invoke-virtual {p0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object p0
 
     invoke-static {v0, p0}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I
 
-    :cond_2a
+    .line 61
+    :cond_30
     const/4 p0, 0x0
 
-    .line 51
-    :goto_2b
+    :goto_31
     sput-boolean p0, Lcom/k4/settingsintelligence/K4SearchSpeed;->sIndexUsable:Z
 
-    .line 52
+    .line 62
     new-instance v1, Ljava/lang/StringBuilder;
+
+    invoke-direct {v1}, Ljava/lang/StringBuilder;-><init>()V
 
     const-string v2, "refresh start: fullIndex="
 
-    invoke-direct {v1, v2}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v1, v2}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+
+    move-result-object v1
 
     invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
 
-    const-string p1, " queryExistingIndex="
+    move-result-object p1
 
-    invoke-virtual {v1, p1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    const-string v1, " queryExistingIndex="
 
-    invoke-virtual {v1, p0}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+    invoke-virtual {p1, v1}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-    invoke-virtual {v1}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object p1
+
+    invoke-virtual {p1, p0}, Ljava/lang/StringBuilder;->append(Z)Ljava/lang/StringBuilder;
+
+    move-result-object p0
+
+    invoke-virtual {p0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
 
     move-result-object p0
 
     invoke-static {v0, p0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
+    .line 63
     return-void
 .end method
 
 .method public static rebuildDynamic(Lcom/android/settings/intelligence/search/indexing/DatabaseIndexingManager;)V
     .registers 2
 
-    .line 57
+    .line 67
     sget-boolean v0, Lcom/k4/settingsintelligence/K4SearchSpeed;->sIndexUsable:Z
 
     if-eqz v0, :cond_c
 
-    .line 58
+    .line 68
     sget-object p0, Lcom/k4/settingsintelligence/K4SearchSpeed;->sDynamicClearPending:Ljava/lang/ThreadLocal;
 
     sget-object v0, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
 
     invoke-virtual {p0, v0}, Ljava/lang/ThreadLocal;->set(Ljava/lang/Object;)V
 
-    return-void
+    goto :goto_f
 
-    .line 60
+    .line 70
     :cond_c
     invoke-virtual {p0}, Lcom/android/settings/intelligence/search/indexing/DatabaseIndexingManager;->rebuildDynamicIndexDatabase()V
 
+    .line 72
+    :goto_f
     return-void
 .end method
