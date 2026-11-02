@@ -1,0 +1,123 @@
+#!/system/bin/sh
+# One-time removal of what the ROM's old Play Integrity stack (target/a52sxq/patches/pif_stack, k4-gmscompat, removed
+# 2026-11-02) left in /data. See module.prop. Runs from k4_pif_cleanup.rc after boot in KernelSU's domain; does nothing
+# when that stack never ran here (/data/adb/.k4_gmscompat missing) or once it is done (the state dir is deleted last).
+#
+# Host tests: K4PC_ROOT (path prefix), K4PC_PROPFILE (properties in a file), K4PC_KSUD (ksud to run), K4PC_SETTINGS
+# (the `settings` command), K4PC_KMSG (kernel log file). test/run.sh.
+
+R="${K4PC_ROOT:-}"
+ADB="$R/data/adb"
+ST="$ADB/.k4_gmscompat"
+KSUD="${K4PC_KSUD:-$ADB/ksud}"
+SETTINGS="${K4PC_SETTINGS:-settings}"
+IDS="zygisksu teesim playintegrityfix"
+# sha256 of the files pif_stack seeded (seed/pif.prop, seed/teesim_config.json, seed/teesim_overrides.json) and of
+# every keybox.xml a release shipped (seed/keybox.history)
+SHA_PIF_PROP=55eff3acbd9bff2bfbf79b8828e826aeafcaf5572dbc8d74dbe88c021ed4e0db
+SHA_TEESIM_CONFIG=06ffc1d3ecbeede95b0d92667c83149e242d97252a23bc934b08824cd26e01bf
+SHA_TEESIM_OVERRIDES=eb6648ac44c9cda391f74a342322b3e14612fbdc67d7cc89743920ed3333dcdc
+SHA_SHIPPED_KEYBOXES="182ae9c288a61ce8e78223e3a71dc5b2d8098b9f3887a5f9ab9bb55d17a028ab"
+
+log() {
+    echo "k4-pif-cleanup: $*" 2> /dev/null > "${K4PC_KMSG:-/dev/kmsg}"
+}
+
+sp() {
+    if [ -n "$K4PC_PROPFILE" ]; then
+        echo "$1=$2" >> "$K4PC_PROPFILE"
+    else
+        setprop "$1" "$2"
+    fi
+}
+
+sha_of() {
+    sha256sum "$1" 2> /dev/null | cut -d ' ' -f 1
+}
+
+vc_of() {
+    sed -n 's/^versionCode=//p' "$1" 2> /dev/null | head -n 1 | tr -dc 0-9
+}
+
+active() {
+    [ -d "$ADB/modules/$1" ] && [ ! -e "$ADB/modules/$1/remove" ] && [ ! -e "$ADB/modules/$1/disable" ]
+}
+
+# module $1 is the one k4-gmscompat installed, unchanged since (same versionCode, no update staged by the user)
+ours() {
+    [ -f "$ST/$1.ours" ] || return 1
+    v="$(tr -dc 0-9 < "$ST/$1.ours")"
+    [ -n "$v" ] && [ -d "$ADB/modules/$1" ] && [ "$(vc_of "$ADB/modules/$1/module.prop")" = "$v" ] || return 1
+    [ ! -d "$ADB/modules_update/$1" ] || [ "$(vc_of "$ADB/modules_update/$1/module.prop")" = "$v" ]
+}
+
+# an active module other than $GOING still loads a Zygisk library (LSPosed, the user's own PIF, ...)
+zygisk_needed() {
+    for z in "$ADB"/modules/*/zygisk; do
+        [ -d "$z" ] || continue
+        m="${z%/zygisk}"
+        m="${m##*/}"
+        case " $GOING " in *" $m "*) continue ;; esac
+        active "$m" && return 0
+    done
+    return 1
+}
+
+# delete $1 when it is byte-identical to one of the hashes in $2 and module $3 is no longer there for the user
+drop_seed() {
+    [ -f "$1" ] || return 0
+    case " $GOING " in *" $3 "*) ;; *) [ -d "$ADB/modules/$3" ] && return 0 ;; esac
+    h="$(sha_of "$1")"
+    case " $2 " in *" $h "*) rm -f "$1" && log "deleted $1 (shipped by the ROM)" ;; esac
+}
+
+[ -d "$ST" ] || { sp sys.k4.pifcleanup none; exit 0; }
+[ -x "$KSUD" ] || { sp sys.k4.pifcleanup noksud; exit 0; }
+log "removing the old ROM Play Integrity stack"
+
+GOING=""
+for id in teesim playintegrityfix; do
+    ours "$id" && GOING="$GOING $id"
+done
+if ours zygisksu; then
+    if zygisk_needed; then
+        log "zygisksu kept: another module still uses Zygisk"
+    else
+        GOING="$GOING zygisksu"
+    fi
+fi
+
+fail=0
+for id in $GOING; do
+    [ -e "$ADB/modules/$id/remove" ] && continue
+    if "$KSUD" module uninstall "$id" > /dev/null 2>&1; then
+        log "$id: uninstalled (gone from the next boot)"
+    else
+        log "$id: ksud module uninstall failed, trying again next boot"
+        fail=1
+    fi
+    [ -d "$ADB/modules_update/$id" ] && rm -rf "$ADB/modules_update/$id"
+done
+for id in $IDS; do
+    case " $GOING " in *" $id "*) ;; *) [ -d "$ADB/modules/$id" ] && log "$id: kept (installed or updated by the user)" ;; esac
+done
+
+drop_seed "$ADB/pif.prop" "$SHA_PIF_PROP" playintegrityfix
+drop_seed "$ADB/teesim/config.json" "$SHA_TEESIM_CONFIG" teesim
+drop_seed "$ADB/teesim/overrides.json" "$SHA_TEESIM_OVERRIDES" teesim
+drop_seed "$ADB/teesim/keybox.xml" "$SHA_SHIPPED_KEYBOXES" teesim
+rmdir "$ADB/teesim" 2> /dev/null
+
+# the Settings keybox import kept a private key in Settings.Secure; nothing reads it any more
+"$SETTINGS" --user 0 delete secure unica_keybox_data > /dev/null 2>&1
+for p in persist.sys.unica.pif persist.sys.unica.keybox persist.sys.unica.keybox_import; do
+    [ -n "$K4PC_PROPFILE" ] || [ -n "$(getprop $p)" ] && sp "$p" ""
+done
+
+if [ "$fail" = 0 ]; then
+    rm -rf "$ST" "$ADB/.k4_gmscompat.log"
+    sp sys.k4.pifcleanup "done${GOING:+:}$(echo $GOING | tr ' ' ',')"
+    log "done"
+else
+    sp sys.k4.pifcleanup retry
+fi

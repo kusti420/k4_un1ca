@@ -1,3 +1,0 @@
-# sha256 of every keybox.xml a release shipped (seed/keybox.xml of that build): k4-gmscompat may replace these with a
-# newer shipped keybox; anything else in /data/adb/teesim/keybox.xml is the user's. One per line, oldest first.
-182ae9c288a61ce8e78223e3a71dc5b2d8098b9f3887a5f9ab9bb55d17a028ab
