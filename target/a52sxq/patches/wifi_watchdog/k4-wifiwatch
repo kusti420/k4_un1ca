@@ -112,7 +112,14 @@ while true; do
         log "gateway $gw $st, tx moving and no rx for $((NEED * TICK)) s: restarting Wi-Fi (try $actions)"
         status "unwedge:wifi$actions"
         cmd connectivity reevaluate > /dev/null 2>&1
-        svc wifi disable; sleep 3; svc wifi enable
+        ap="$(settings get global airplane_mode_on 2> /dev/null)"
+        svc wifi disable; sleep 3
+        # the user may have turned on airplane mode in those 3 s: do not switch Wi-Fi back on over that
+        if [ "$(settings get global airplane_mode_on 2> /dev/null)" = "$ap" ]; then
+            svc wifi enable
+        else
+            log "airplane mode changed during the restart: leaving Wi-Fi off"
+        fi
         since=0
         sleep 15
         gw="$(gw_ip)"
