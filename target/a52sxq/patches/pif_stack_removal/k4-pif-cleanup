@@ -73,6 +73,21 @@ drop_seed() {
 
 [ -d "$ST" ] || { sp sys.k4.pifcleanup none; exit 0; }
 [ -x "$KSUD" ] || { sp sys.k4.pifcleanup noksud; exit 0; }
+# Two phases. Boot 1 uninstalls (ksud only marks the modules; they keep running until the next boot, and a live
+# TEESimulator rewrites its files) and records them in $ST/phase2. Boot 2, once their directories are gone, removes
+# the files they left. Settings / props are cleared in boot 1 already (nothing running reads them any more).
+if [ -f "$ST/phase2" ]; then
+    GOING="$(cat "$ST/phase2")"
+    for id in $GOING; do
+        if [ -d "$ADB/modules/$id" ]; then
+            sp sys.k4.pifcleanup "pending: $id still installed, next boot"
+            log "$id still installed (removed at the next boot), file cleanup waits"
+            exit 0
+        fi
+    done
+    log "modules gone, removing their files"
+    fail=0
+else
 log "removing the old ROM Play Integrity stack"
 
 GOING=""
@@ -102,6 +117,31 @@ for id in $IDS; do
     case " $GOING " in *" $id "*) ;; *) [ -d "$ADB/modules/$id" ] && log "$id: kept (installed or updated by the user)" ;; esac
 done
 
+# the Settings keybox import kept a private key in Settings.Secure (per user); nothing reads it any more
+users="$(ls "$R/data/system/users" 2> /dev/null | grep -E '^[0-9]+$')"
+for u in ${users:-0}; do
+    "$SETTINGS" --user "$u" delete secure unica_keybox_data > /dev/null 2>&1
+done
+for p in persist.sys.unica.pif persist.sys.unica.keybox persist.sys.unica.keybox_import; do
+    [ -n "$K4PC_PROPFILE" ] || [ -n "$(getprop $p)" ] && sp "$p" ""
+done
+
+if [ "$fail" != 0 ]; then
+    sp sys.k4.pifcleanup retry
+    exit 0
+fi
+if true; then
+    still=""
+    for id in $GOING; do [ -d "$ADB/modules/$id" ] && still="$still $id"; done
+    if [ -n "$still" ]; then
+        echo $GOING > "$ST/phase2"
+        sp sys.k4.pifcleanup "pending:$(echo $GOING | tr ' ' ',')"
+        log "uninstall marked for:$still; their files are removed after the next boot"
+        exit 0
+    fi
+fi
+fi
+
 # TEESimulator keeps its runtime state next to its config (it rewrites config.json, adds harvest/usage/... files) and
 # has no uninstall script: when it was ours and is going, empty /data/adb/teesim so a TEESimulator the user installs
 # later starts clean. Only a keybox.xml that is not the shipped one (the user's own or their Settings import) stays.
@@ -118,12 +158,6 @@ drop_seed "$ADB/teesim/config.json" "$SHA_TEESIM_CONFIG" teesim
 drop_seed "$ADB/teesim/overrides.json" "$SHA_TEESIM_OVERRIDES" teesim
 drop_seed "$ADB/teesim/keybox.xml" "$SHA_SHIPPED_KEYBOXES" teesim
 rmdir "$ADB/teesim" 2> /dev/null
-
-# the Settings keybox import kept a private key in Settings.Secure; nothing reads it any more
-"$SETTINGS" --user 0 delete secure unica_keybox_data > /dev/null 2>&1
-for p in persist.sys.unica.pif persist.sys.unica.keybox persist.sys.unica.keybox_import; do
-    [ -n "$K4PC_PROPFILE" ] || [ -n "$(getprop $p)" ] && sp "$p" ""
-done
 
 if [ "$fail" = 0 ]; then
     rm -rf "$ST" "$ADB/.k4_gmscompat.log"
