@@ -60,6 +60,15 @@ eq settings "$(cat "$T/root/settings.log")" "--user 0 delete secure unica_keybox
 eq "pif prop cleared" "$(prop persist.sys.unica.pif)" ""; grep -q '^persist.sys.unica.keybox_import=$' "$T/props" && ok || bad "keybox_import not cleared"
 CASE="second run"; rm -f "$T/root/settings.log"; run; eq status "$(prop sys.k4.pifcleanup)" none; no_ "no second settings call" "$T/root/settings.log"
 
+fresh "teesim runtime files go with our teesim, the user's keybox stays"
+echo '{"rewritten":1}' > "$ADB/teesim/config.json"; echo x > "$ADB/teesim/harvest.json"; echo x > "$ADB/teesim/.state"
+echo "<AndroidAttestation>mine</AndroidAttestation>" > "$ADB/teesim/keybox.xml"; run
+eq "only the user's keybox left" "$(ls -A "$ADB/teesim")" keybox.xml
+
+fresh "user's own teesim: its runtime files stay"
+mod teesim 80; echo x > "$ADB/teesim/harvest.json"; run
+has "harvest kept" "$ADB/teesim/harvest.json"; has "config kept" "$ADB/teesim/config.json"
+
 fresh "LSPosed keeps zygisksu"
 mod zygisk_lsposed 7000 z; run
 no_ "zygisksu kept" "$ADB/modules/zygisksu/remove"; has "teesim removed" "$ADB/modules/teesim/remove"; has "pif removed" "$ADB/modules/playintegrityfix/remove"

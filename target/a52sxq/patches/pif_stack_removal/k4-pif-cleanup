@@ -102,6 +102,17 @@ for id in $IDS; do
     case " $GOING " in *" $id "*) ;; *) [ -d "$ADB/modules/$id" ] && log "$id: kept (installed or updated by the user)" ;; esac
 done
 
+# TEESimulator keeps its runtime state next to its config (it rewrites config.json, adds harvest/usage/... files) and
+# has no uninstall script: when it was ours and is going, empty /data/adb/teesim so a TEESimulator the user installs
+# later starts clean. Only a keybox.xml that is not the shipped one (the user's own or their Settings import) stays.
+case " $GOING " in *" teesim "*)
+    for f in "$ADB"/teesim/* "$ADB"/teesim/.[!.]*; do
+        [ -e "$f" ] || continue
+        [ "$f" = "$ADB/teesim/keybox.xml" ] && continue
+        rm -rf "$f"
+    done
+    log "emptied $ADB/teesim" ;;
+esac
 drop_seed "$ADB/pif.prop" "$SHA_PIF_PROP" playintegrityfix
 drop_seed "$ADB/teesim/config.json" "$SHA_TEESIM_CONFIG" teesim
 drop_seed "$ADB/teesim/overrides.json" "$SHA_TEESIM_OVERRIDES" teesim
