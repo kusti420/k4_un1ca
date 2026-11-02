@@ -102,6 +102,26 @@ system/etc/default-permissions/default-permissions-com.samsung.videoscan.xml
 "
 fi
 
+# Galaxy S26 Ultra on-device AI indexers that run on the CPU here and scale with the user's data (2026-11-02 heat hunt;
+# neither app is on stock A52s). Their callers check that the package is installed (Story, Smart Suggestions);
+# post_mods.sh deletes the matching floating features.
+# - MediaSearch (com.samsung.mediasearch, Gallery natural-language search): 95 MB image-embedding TFLite on 4 CPU
+#   threads, no NPU/GPU delegate, job every 15 min indexing the whole gallery + videos (up to 1000 items/run on charge)
+# - MFContents (com.samsung.mfcontents, "My favorite contents"): per-photo feature vectors + on-device training
+if [[ "$SOURCE_FIRMWARE" == "SM-S948"* ]]; then
+    SYSTEM_DEBLOAT+="
+system/priv-app/MediaSearch
+system/etc/permissions/privapp-permissions-com.samsung.mediasearch.xml
+system/etc/default-permissions/default-permissions-com.samsung.mediasearch.xml
+system/etc/sysconfig/preinstalled-packages-com.samsung.mediasearch.xml
+system/priv-app/MFContents
+system/etc/mfcontents
+system/etc/permissions/privapp-permissions-com.samsung.mfcontents.xml
+system/etc/default-permissions/default-permissions-com.samsung.mfcontents.xml
+system/etc/sysconfig/preinstalled-packages-com.samsung.mfcontents.xml
+"
+fi
+
 # On-device Gauss LLM (com.samsung.android.offline.languagemodel): unica already drops the S26 store stub and there is
 # no SM7325 runtime for it (see post_mods.sh); its leftover preinstall whitelist goes too
 SYSTEM_DEBLOAT+="

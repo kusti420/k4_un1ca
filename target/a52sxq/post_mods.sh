@@ -7,6 +7,10 @@ SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_ACCESSIBILITY_SUPPORT_AI_CORE_
 # Game Booster "Touch response speed": secinputdev sends the TSP command set_fast_response, which the A52s stm_ts.ko
 # doesn't implement (it has set_game_mode/glove_mode/set_sip_mode only, same module as stock); stock had no such option
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_GRAPHICS_SUPPORT_TOUCH_FAST_RESPONSE" --delete
+# Gallery natural-language search / "My favorite contents": their apps (MediaSearch, MFContents) are debloated (CPU-only
+# indexers of the whole gallery, see debloat.sh); without the keys Gallery and Smart Suggestions don't offer them
+SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_MSCH_SUPPORT_NLSEARCH" --delete
+SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_VISION_SUPPORT_AI_MY_FAVORITE_CONTENTS" --delete
 # On-device Gauss LLM ("Samsung Language Core", com.samsung.android.offline.languagemodel): no model ships (unica
 # debloats the S26 store stub) and SamsungAiCore's supported_config.json only lists LLM/LVM runtimes for
 # sm8850/sm8750/s5e9965/s5e9955 (QNN HTP V79+/ENN). With the keys set Keyboard "Style and grammar" (on-device), Smart
