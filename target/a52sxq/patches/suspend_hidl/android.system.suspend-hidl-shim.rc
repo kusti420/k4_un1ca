@@ -3,3 +3,21 @@ service system_suspend_hidl /system/bin/hw/android.system.suspend-hidl-shim
     user system
     group system wakelock
     capabilities BLOCK_SUSPEND
+    # The vendor clients' VNDK v30 libpower caches ISystemSuspend::getService() in a function static with no death
+    # recipient, so after a shim restart their wakelock calls hit a dead proxy for good (and the shim's start-up
+    # release of stale kernel wakelocks drops what they still think they hold). Restart them with it. Only services
+    # running on a normal boot: `restart` would START one that is not running (dummy rilds, ril-daemon2/3).
+    # wpa_supplicant is left out: the Wi-Fi framework starts and stops it on demand (Wi-Fi off/on recovers it).
+    onrestart restart ril-daemon
+    onrestart restart vendor.audio-hal
+    onrestart restart sec-camera-provider-4-0
+    onrestart restart gnss_service
+    onrestart restart nfc_hal_service
+    onrestart restart vendor.qti.hardware.display.composer
+    onrestart restart display-color-hal-1-0
+    onrestart restart perf-hal-2-2
+    onrestart restart drk_hal
+    onrestart restart emservice
+    onrestart restart cass
+    onrestart restart vendor.ipacm
+    onrestart restart vendor.cnss_diag
