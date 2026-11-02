@@ -574,6 +574,8 @@ gpu_guard_script() {
 }
 
 apply_inner() {
+    # keep the previous run's log: a system_server restart re-runs this within the same boot
+    [ -s "$LOGF" ] && mv -f "$LOGF" "$LOGF.prev" 2> /dev/null
     : > "$LOGF" 2> /dev/null
     mode="$(gp $P)"
     if [ ! -f "$KSUD" ]; then
