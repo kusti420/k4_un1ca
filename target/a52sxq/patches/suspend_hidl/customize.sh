@@ -11,8 +11,9 @@
 # The kernel wake locks belong to no process, so if the shim restarts while it holds one (e.g. radio-interface.<pid>),
 # a fresh instance would start with an empty refcount map and never release it - no deep sleep until reboot. Since the
 # 2026-11-01 build (shim_release_stale_wakelocks.patch, applied in the IchthysOS tree) main() first wake_unlocks every
-# "<name>.<digits>" entry of /sys/power/wake_lock left by a previous instance; the old clients hold dead proxies and
-# acquire again through the new one.
+# "<name>.<digits>" entry of /sys/power/wake_lock left by a previous instance. The old clients do NOT reconnect by
+# themselves (VNDK v30 libpower caches the service in a function static, no death recipient), so the rc restarts them
+# with the shim (onrestart lines, 2026-11-02 race review).
 # It runs in the stock system_suspend domain (sysfs_wake_lock rw, block_suspend, add system_suspend_hwservice; the
 # vendor policy already lets the HAL domains find system_suspend_hwservice_30_0 and binder-call system_suspend_server).
 SRC="$SRC_DIR/target/a52sxq/patches/suspend_hidl"
