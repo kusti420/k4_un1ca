@@ -814,6 +814,15 @@ settle() {
         log "settle: the stock driver needs no trial, trial ok"
         return 0
     fi
+    # A system_server restart re-sets sys.boot_completed=1 and init starts this again. A settle that starts after a
+    # restart (start_count > 1) is that re-run: the first run already saw the restart and left the trial testing, and
+    # a fresh window counted from the restart would promote a driver that just crashed the framework.
+    c0="$(gp sys.system_server.start_count)"
+    if [ -n "$c0" ] && [ "$c0" != 1 ]; then
+        sp ${S}settle "failed: system_server restarted this boot (start_count $c0), trial stays testing"
+        log "settle: started after a system_server restart (start_count $c0), trial stays testing"
+        return 0
+    fi
     window="${1:-150}"
     sp ${S}settle "running: ${window}s window for $(gp ${P}driver)"
     log "settle: ${window}s window for $(gp ${P}driver)"

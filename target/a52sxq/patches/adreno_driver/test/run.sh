@@ -516,6 +516,13 @@ device; setp persist.sys.k4.gpu_driver 530; setp persist.sys.k4.gpu_trial testin
 eq "trial ok" "$(prop persist.sys.k4.gpu_trial)" ok
 eq "no gpu_failed=530" "$(prop persist.sys.k4.gpu_failed)" ""
 
+CASE="race review: settle re-run after a system_server restart (start_count 2) never promotes"
+device
+printf 'persist.sys.k4.gpu_trial=testing\nsys.boot_completed=1\nsys.system_server.start_count=2\n' > "$T/props"
+K4GPU_ROOT="$R" K4GPU_PROPFILE="$T/props" K4GPU_KMSG=/dev/null K4GPU_SLEEP=0 "$SH" "$SCRIPT" settle 20 > /dev/null 2>&1
+eq "trial stays testing" "$(prop persist.sys.k4.gpu_trial)" testing
+eq "status prop" "$(prop sys.k4.gpu_settle)" "failed: system_server restarted this boot (start_count 2), trial stays testing"
+
 CASE="polish 3: settle on the stock driver promotes at once (no 150 s window)"
 device
 printf 'persist.sys.k4.gpu_driver=530\npersist.sys.k4.gpu_trial=testing\nsys.boot_completed=1\n' > "$T/props"
