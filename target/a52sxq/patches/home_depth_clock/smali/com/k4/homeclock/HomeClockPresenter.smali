@@ -41,7 +41,7 @@
         }
     .end annotation
 
-    .line 176
+    .line 180
     const/4 v0, -0x1
 
     if-nez p1, :cond_5
@@ -55,7 +55,7 @@
 
     move-result p1
 
-    .line 177
+    .line 181
     :goto_9
     if-ltz p1, :cond_82
 
@@ -73,7 +73,7 @@
 
     goto :goto_82
 
-    .line 180
+    .line 184
     :cond_18
     const/4 v1, 0x0
 
@@ -85,7 +85,7 @@
 
     move-result p2
 
-    .line 181
+    .line 185
     const-string v1, ")"
 
     const-string v2, "/"
@@ -94,10 +94,10 @@
 
     if-le p2, p1, :cond_59
 
-    .line 182
+    .line 186
     add-int/lit8 p2, p2, 0x1
 
-    .line 183
+    .line 187
     invoke-interface {p0}, Ljava/util/List;->size()I
 
     move-result p1
@@ -134,7 +134,7 @@
 
     invoke-static {v3, p1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 184
+    .line 188
     invoke-interface {p0}, Ljava/util/List;->size()I
 
     move-result p0
@@ -146,11 +146,11 @@
     :cond_58
     return v0
 
-    .line 186
+    .line 190
     :cond_59
     if-ltz p2, :cond_81
 
-    .line 187
+    .line 191
     invoke-interface {p0}, Ljava/util/List;->size()I
 
     move-result p0
@@ -187,11 +187,11 @@
 
     invoke-static {v3, p0}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
 
-    .line 189
+    .line 193
     :cond_81
     return p1
 
-    .line 178
+    .line 182
     :cond_82
     :goto_82
     return p1
@@ -200,17 +200,17 @@
 .method private static create(IILandroid/graphics/Bitmap$Config;Landroid/graphics/ColorSpace;Z)Landroid/graphics/Bitmap;
     .registers 5
 
-    .line 160
+    .line 164
     if-nez p3, :cond_7
 
-    .line 161
+    .line 165
     invoke-static {p0, p1, p2}, Landroid/graphics/Bitmap;->createBitmap(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;
 
     move-result-object p0
 
     return-object p0
 
-    .line 163
+    .line 167
     :cond_7
     invoke-static {p0, p1, p2, p4, p3}, Landroid/graphics/Bitmap;->createBitmap(IILandroid/graphics/Bitmap$Config;ZLandroid/graphics/ColorSpace;)Landroid/graphics/Bitmap;
 
@@ -222,27 +222,27 @@
 .method static subjectTop(Li3/c;)F
     .registers 13
 
-    .line 194
+    .line 198
     const/high16 v0, -0x40800000    # -1.0f
 
     if-nez p0, :cond_5
-
-    .line 195
-    return v0
-
-    .line 197
-    :cond_5
-    iget-object p0, p0, Li3/c;->c:Landroid/graphics/drawable/Drawable;
-
-    .line 198
-    instance-of v1, p0, Landroid/graphics/drawable/BitmapDrawable;
-
-    if-nez v1, :cond_c
 
     .line 199
     return v0
 
     .line 201
+    :cond_5
+    iget-object p0, p0, Li3/c;->c:Landroid/graphics/drawable/Drawable;
+
+    .line 202
+    instance-of v1, p0, Landroid/graphics/drawable/BitmapDrawable;
+
+    if-nez v1, :cond_c
+
+    .line 203
+    return v0
+
+    .line 205
     :cond_c
     move-object v1, p0
 
@@ -252,12 +252,12 @@
 
     move-result-object v2
 
-    .line 202
+    .line 206
     invoke-virtual {p0}, Landroid/graphics/drawable/Drawable;->getBounds()Landroid/graphics/Rect;
 
     move-result-object p0
 
-    .line 203
+    .line 207
     if-eqz v2, :cond_70
 
     invoke-virtual {v2}, Landroid/graphics/Bitmap;->isRecycled()Z
@@ -282,21 +282,21 @@
 
     goto :goto_70
 
-    .line 206
+    .line 210
     :cond_2e
     invoke-virtual {v2}, Landroid/graphics/Bitmap;->getWidth()I
 
     move-result v5
 
-    .line 207
+    .line 211
     invoke-virtual {v2}, Landroid/graphics/Bitmap;->getHeight()I
 
     move-result v1
 
-    .line 208
+    .line 212
     new-array v3, v5, [I
 
-    .line 209
+    .line 213
     div-int/lit8 v4, v5, 0x64
 
     const/4 v6, 0x3
@@ -305,7 +305,7 @@
 
     move-result v10
 
-    .line 210
+    .line 214
     const/4 v11, 0x0
 
     move v7, v11
@@ -313,7 +313,7 @@
     :goto_41
     if-ge v7, v1, :cond_6f
 
-    .line 211
+    .line 215
     const/4 v6, 0x0
 
     const/4 v9, 0x1
@@ -324,10 +324,10 @@
 
     invoke-virtual/range {v2 .. v9}, Landroid/graphics/Bitmap;->getPixels([IIIIIII)V
 
-    .line 212
+    .line 216
     nop
 
-    .line 213
+    .line 217
     move v4, v11
 
     move v6, v4
@@ -335,7 +335,7 @@
     :goto_4d
     if-ge v4, v5, :cond_6c
 
-    .line 214
+    .line 218
     aget v8, v3, v4
 
     ushr-int/lit8 v8, v8, 0x18
@@ -348,7 +348,7 @@
 
     if-lt v6, v10, :cond_69
 
-    .line 215
+    .line 219
     iget v0, p0, Landroid/graphics/Rect;->top:I
 
     int-to-float v0, v0
@@ -371,23 +371,23 @@
 
     return v0
 
-    .line 213
+    .line 217
     :cond_69
     add-int/lit8 v4, v4, 0x2
 
     goto :goto_4d
 
-    .line 210
+    .line 214
     :cond_6c
     add-int/lit8 v7, v7, 0x2
 
     goto :goto_41
 
-    .line 219
+    .line 223
     :cond_6f
     return v0
 
-    .line 204
+    .line 208
     :cond_70
     :goto_70
     return v0
@@ -890,8 +890,8 @@
     :try_end_199
     .catchall {:try_start_f8 .. :try_end_199} :catchall_19a
 
-    .line 102
-    goto :goto_1e5
+    .line 106
+    goto :goto_1e9
 
     .line 90
     :catchall_19a
@@ -944,98 +944,104 @@
     .line 94
     invoke-static {v6, v11}, Lcom/k4/homeclock/HomeDepthClock;->built(Lh3/a;Ljava/lang/String;)V
 
-    .line 95
+    .line 97
+    iput-object v11, v6, Lcom/k4/homeclock/HomeClockPresenter;->clock:Lcom/k4/homeclock/DepthClock;
+
+    .line 98
+    iput-object v11, v6, Lcom/k4/homeclock/HomeClockPresenter;->frontNode:Li3/c;
+
+    .line 99
     iget-object v0, v15, Li3/k;->c:Ljava/util/ArrayList;
 
     invoke-virtual {v0}, Ljava/util/ArrayList;->clear()V
 
-    .line 96
+    .line 100
     invoke-virtual/range {p1 .. p1}, Ljava/util/ArrayList;->iterator()Ljava/util/Iterator;
 
     move-result-object v0
 
-    :goto_1c7
+    :goto_1cb
     invoke-interface {v0}, Ljava/util/Iterator;->hasNext()Z
 
     move-result v1
 
-    if-eqz v1, :cond_1d7
+    if-eqz v1, :cond_1db
 
     invoke-interface {v0}, Ljava/util/Iterator;->next()Ljava/lang/Object;
 
     move-result-object v1
 
-    .line 97
+    .line 101
     iget-object v2, v15, Li3/k;->c:Ljava/util/ArrayList;
 
     invoke-virtual {v2, v1}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
 
-    .line 98
-    goto :goto_1c7
+    .line 102
+    goto :goto_1cb
 
-    .line 99
-    :cond_1d7
+    .line 103
+    :cond_1db
     move-object/from16 v1, v16
 
     iget-object v0, v1, Lg0/a;->c:Ljava/lang/Object;
 
     iput-object v0, v8, Lg0/a;->c:Ljava/lang/Object;
 
-    .line 100
+    .line 104
     iget-object v0, v1, Lg0/a;->d:Ljava/lang/Object;
 
     iput-object v0, v8, Lg0/a;->d:Ljava/lang/Object;
 
-    .line 101
+    .line 105
     iget-object v0, v1, Lg0/a;->e:Ljava/io/Serializable;
 
     iput-object v0, v8, Lg0/a;->e:Ljava/io/Serializable;
 
-    .line 103
-    :goto_1e5
+    .line 107
+    :goto_1e9
     return-void
 .end method
 
 .method public d()V
     .registers 3
 
-    .line 107
+    .line 111
     const/4 v0, 0x0
 
     invoke-static {p0, v0}, Lcom/k4/homeclock/HomeDepthClock;->setClock(Lh3/a;Lcom/k4/homeclock/DepthClock;)V
 
-    .line 108
+    .line 112
     iget-object v1, p0, Lcom/k4/homeclock/HomeClockPresenter;->f:Li3/k;
 
     invoke-virtual {v1}, Li3/k;->b()V
 
-    .line 109
+    .line 113
     iput-object v0, p0, Lcom/k4/homeclock/HomeClockPresenter;->clock:Lcom/k4/homeclock/DepthClock;
 
-    .line 110
+    .line 114
     iput-object v0, p0, Lcom/k4/homeclock/HomeClockPresenter;->frontNode:Li3/c;
 
-    .line 111
+    .line 115
     return-void
 .end method
 
 .method drawAbove(Landroid/graphics/Canvas;F)V
     .registers 9
 
-    .line 124
+    .line 128
     iget-object v0, p0, Lcom/k4/homeclock/HomeClockPresenter;->clock:Lcom/k4/homeclock/DepthClock;
 
-    .line 125
+    .line 129
     if-eqz v0, :cond_7
 
-    .line 126
+    .line 130
     invoke-virtual {v0, p1}, Lcom/k4/homeclock/DepthClock;->a(Landroid/graphics/Canvas;)V
 
-    .line 128
+    .line 132
     :cond_7
     iget-object v0, p0, Lcom/k4/homeclock/HomeClockPresenter;->frontNode:Li3/c;
 
-    .line 129
+    .line 133
     if-eqz v0, :cond_48
 
     iget-object v1, v0, Li3/c;->c:Landroid/graphics/drawable/Drawable;
@@ -1044,7 +1050,7 @@
 
     goto :goto_48
 
-    .line 132
+    .line 136
     :cond_10
     const/4 v1, 0x0
 
@@ -1052,7 +1058,7 @@
 
     if-lez v1, :cond_33
 
-    .line 133
+    .line 137
     const/high16 v2, 0x3f800000    # 1.0f
 
     sub-float/2addr v2, p2
@@ -1065,7 +1071,7 @@
 
     move-result p2
 
-    .line 134
+    .line 138
     iget-object v2, v0, Li3/c;->c:Landroid/graphics/drawable/Drawable;
 
     new-instance v3, Landroid/graphics/LightingColorFilter;
@@ -1088,7 +1094,7 @@
 
     invoke-virtual {v2, v3}, Landroid/graphics/drawable/Drawable;->setColorFilter(Landroid/graphics/ColorFilter;)V
 
-    .line 137
+    .line 141
     :cond_33
     const/4 p2, 0x0
 
@@ -1097,34 +1103,34 @@
     :try_end_37
     .catchall {:try_start_34 .. :try_end_37} :catchall_3f
 
-    .line 139
+    .line 143
     if-lez v1, :cond_3e
 
-    .line 140
+    .line 144
     iget-object p1, v0, Li3/c;->c:Landroid/graphics/drawable/Drawable;
 
     invoke-virtual {p1, p2}, Landroid/graphics/drawable/Drawable;->setColorFilter(Landroid/graphics/ColorFilter;)V
 
-    .line 143
+    .line 147
     :cond_3e
     return-void
 
-    .line 139
+    .line 143
     :catchall_3f
     move-exception p1
 
     if-lez v1, :cond_47
 
-    .line 140
+    .line 144
     iget-object v0, v0, Li3/c;->c:Landroid/graphics/drawable/Drawable;
 
     invoke-virtual {v0, p2}, Landroid/graphics/drawable/Drawable;->setColorFilter(Landroid/graphics/ColorFilter;)V
 
-    .line 142
+    .line 146
     :cond_47
     throw p1
 
-    .line 130
+    .line 134
     :cond_48
     :goto_48
     return-void

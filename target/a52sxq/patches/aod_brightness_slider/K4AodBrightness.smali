@@ -9,7 +9,7 @@
 #   2          always 10 nit  (backlight 12)
 #   3          always 30 nit  (backlight 32)
 #   4          always 60 nit  (backlight 55)
-#   5          Automatic, one step brighter (2 -> 10, 10 -> 30, 30 -> 60 nit; "no value yet" -> 10 nit)
+#   5          Automatic, one step brighter (2 -> 10, 10 -> 30, 30 -> 60 nit; -1 "no value" passed through like stock)
 #
 # The backlight numbers are the "from" column of the S6E3FC3 samsung,aod_candela_map_table_revA
 # (0-11 = 2 nit, 12-31 = 10, 32-54 = 30, 55-255 = 60) = stock config_aodBrightnessValues {0, 12, 32, 55}.
@@ -79,7 +79,13 @@
 
     if-ne v0, v1, :cond_6
 
-    # Automatic, one HLPM step brighter
+    # Automatic, one HLPM step brighter. -1 is AODService's "no new value": stock SystemUI turns it into a no-op
+    # (unless the doze mode changed), so keep it; mapping it to 10 nit undid the brighter step after every real value.
+    if-gez p0, :k4_auto_up
+
+    return p0
+
+    :k4_auto_up
     const/16 v1, 0xc
 
     if-ge p0, v1, :cond_4

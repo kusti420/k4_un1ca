@@ -32,15 +32,15 @@
         }
     .end annotation
 
-    .line 147
+    .line 151
     iput-object p1, p0, Lcom/k4/homeclock/HomeClockPresenter$InPlace;->this$0:Lcom/k4/homeclock/HomeClockPresenter;
 
-    .line 148
+    .line 152
     const-string p1, "K4ClockInPlace"
 
     invoke-direct {p0, p2, p1}, Li3/j;-><init>(Landroid/content/Context;Ljava/lang/String;)V
 
-    .line 149
+    .line 153
     return-void
 .end method
 
@@ -49,7 +49,7 @@
 .method public a(Landroid/graphics/Canvas;)V
     .registers 4
 
-    .line 153
+    .line 157
     iget-object v0, p0, Lcom/k4/homeclock/HomeClockPresenter$InPlace;->this$0:Lcom/k4/homeclock/HomeClockPresenter;
 
     invoke-static {v0}, Lcom/k4/homeclock/HomeDepthClock;->postDimInstalled(Lh3/a;)Z
@@ -58,14 +58,14 @@
 
     if-nez v0, :cond_e
 
-    .line 154
+    .line 158
     iget-object v0, p0, Lcom/k4/homeclock/HomeClockPresenter$InPlace;->this$0:Lcom/k4/homeclock/HomeClockPresenter;
 
     const/4 v1, 0x0
 
     invoke-virtual {v0, p1, v1}, Lcom/k4/homeclock/HomeClockPresenter;->drawAbove(Landroid/graphics/Canvas;F)V
 
-    .line 156
+    .line 160
     :cond_e
     return-void
 .end method

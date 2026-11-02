@@ -92,6 +92,10 @@ final class HomeClockPresenter extends h3.a {
             Log.e(HomeDepthClock.TAG, "build failed, showing the layers without a clock", t);
             HomeDepthClock.setClock(this, null);
             HomeDepthClock.built(this, null);
+            // a re-build (resolution switch, surface re-create) must not leave the previous build's clock and subject
+            // for drawAbove to paint over the stock layers
+            clock = null;
+            frontNode = null;
             group.c.clear();
             for (Object n : nodes) {
                 group.c.add(n);
