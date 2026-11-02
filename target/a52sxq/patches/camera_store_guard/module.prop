@@ -1,0 +1,4 @@
+id=a52sxq_camera_store_guard
+name=Galaxy A52s 5G: drop a /data copy of Samsung Camera at boot
+author=kusti420
+description=The port ships the A52s-compatible r9qxxx Samsung Camera 16.0.00.74 (re-signed with the build key). The package manager treats packages signed with that key as platform-signed and therefore accepts a Samsung-signed update for them; the Galaxy Store offers the S26 Ultra Camera 17.x for SM-S948B (robustness review B#1). Installed (Store, or a sideloaded APK), it would shadow /system's camera and its fixes (camera_stability, arcsoft) and the camera breaks until "Uninstall updates". At every boot_completed /system/bin/k4-camera-guard checks `pm path com.sec.android.app.camera` and, when it is not the /system copy, runs `pm uninstall-system-updates` for it (shell domain; idempotent, so a framework restart re-run is harmless). Log tag k4-camera-guard.

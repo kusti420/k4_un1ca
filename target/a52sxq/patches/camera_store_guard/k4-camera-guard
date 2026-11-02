@@ -1,0 +1,13 @@
+#!/system/bin/sh
+# Drop a /data update of Samsung Camera so the /system r9qxxx camera runs (see module.prop).
+PKG=com.sec.android.app.camera
+SYS=/system/priv-app/SamsungCamera/SamsungCamera.apk
+p="$(pm path "$PKG" 2> /dev/null | head -n 1)"
+p="${p#package:}"
+[ -n "$p" ] || exit 0
+[ "$p" = "$SYS" ] && exit 0
+if pm uninstall-system-updates "$PKG" > /dev/null 2>&1; then
+    log -p w -t k4-camera-guard "removed the update of $PKG at $p (the S26 Ultra camera does not work here)"
+else
+    log -p e -t k4-camera-guard "could not remove the update of $PKG at $p"
+fi
