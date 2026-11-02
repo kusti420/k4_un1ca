@@ -897,7 +897,8 @@ static int g_renders;       // open sessions (g_use_mu)
 static void ren_close(Ren* s) {     // s->mu held
     if (!s->open) return;
     s->open = 0; k4n_render_destroy(s->r); s->r = NULL; munmap(s->mem, s->size);
-    pthread_mutex_lock(&g_use_mu); int last = --g_renders == 0; g_live_pipes--; g_last_use = k4n_now_ms(); pthread_mutex_unlock(&g_use_mu);
+    // wake the idle thread: it waits without a timeout while g_live_pipes > 0 and nothing else will touch the engine
+    pthread_mutex_lock(&g_use_mu); int last = --g_renders == 0; g_live_pipes--; g_last_use = k4n_now_ms(); g_used = 1; pthread_cond_broadcast(&g_use_cv); pthread_mutex_unlock(&g_use_mu);
     if (last) k4n_film_release();
     K4N_LOG("render session closed");
 }
@@ -948,7 +949,7 @@ static binder_status_t ren_open(const AParcel* in, AParcel* out) {
     if (!why) {
         pthread_mutex_lock(&g_use_mu); g_live_pipes++; g_renders++; g_last_use = k4n_now_ms(); pthread_mutex_unlock(&g_use_mu);
         if (engine_wait(K4N_BUILD_WAIT_MS, err, sizeof err) || k4n_film_init(&g_cfg, err, sizeof err)) why = err;
-        if (why) { pthread_mutex_lock(&g_use_mu); g_live_pipes--; int last = --g_renders == 0; pthread_mutex_unlock(&g_use_mu); if (last) k4n_film_release(); }
+        if (why) { pthread_mutex_lock(&g_use_mu); g_live_pipes--; int last = --g_renders == 0; g_last_use = k4n_now_ms(); g_used = 1; pthread_cond_broadcast(&g_use_cv); pthread_mutex_unlock(&g_use_mu); if (last) k4n_film_release(); }
     }
     if (why) { if (mem != MAP_FAILED) munmap(mem, size); K4N_LOG("render session refused (uid %d): %s", (int) AIBinder_getCallingUid(), why); return write_err(out, -38); }
     Ren* s = calloc(1, sizeof *s); pthread_mutex_init(&s->mu, NULL);
