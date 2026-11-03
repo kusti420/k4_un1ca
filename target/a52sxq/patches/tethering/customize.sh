@@ -1,14 +1,17 @@
-# All shipped binaries are generated from the SOURCE firmware's com.google.android.tethering APEX by regen.py: since
-# 2026-10-09 the Galaxy S25 / S26 Ultra Tethering 371021120 (Fold8 370547200 before). The source system also ships a
-# precompiled odex for that APEX's service-connectivity.jar, so the APEX must match the source exactly (guard below).
-# netbpfload_a52 = /apex/com.android.tethering/bin/netbpfload from com.google.android.tethering 371021120
-# Also: the "/apex/com.android.tethering/etc/bpf/mainline/netd.o" string is redirected to /system/etc/bpf/a52_netd.o,
-# a copy of Google's netd.o whose ingress/egress_stats_5_4_25q2 programs get max_api_level 3610 -> 65536: Google ships
-# no 5.4 stats variant for API >= 3610, so nothing got pinned and netd aborts (IchthysOS fixed the same gap in source).
-# Also: the b.ne at 0x98c4 (object file st_dev != /proc/self/exe st_dev -> abort) is a nop, since we run from /system
-# while the objects live in the APEX.
-# (sha256 775d705134ac47146a536d31e76af3d439d0e29d48087bc6c64d04c102c4bed6) with the TBZ at 0xa5a4 (25Q4 >= 5.10) and 0xa5cc (26Q3 >= 5.15) turned into B past the error;
-# netd.o max_api_level words at 0x2917c/0x29884. netd path string at 0x308e.
+# The BPF objects (netd_a52*.o, libbpf.so, the re-signed APEX) are generated from the SOURCE firmware's
+# com.google.android.tethering APEX by regen.py: since 2026-10-09 the Galaxy S25 / S26 Ultra Tethering 371021120
+# (Fold8 370547200 before). The source system also ships a precompiled odex for that APEX's service-connectivity.jar,
+# so the APEX must match the source exactly (guard below).
+# The loader netbpfload_a52b is built from source by build_netbpfload.sh (IchthysOS tree, AOSP NetBpfLoad.cpp of
+# 26Q2 with the 5.10/5.15 kernel floors relaxed to 5.4, plus netbpfload_a52.patch: both struct bpf_map_def layouts,
+# 192 bytes up to Tethering 26Q3 and 180 bytes since the 26Q4 train 373041100; netd.o taken from
+# /system/etc/bpf/a52_netd.<active Tethering versionCode>.o when present, else /system/etc/bpf/a52_netd.o; the
+# st_dev check relaxed since we run from /system while the objects live in the APEX). Until 2026-11-03 it was
+# Google's 371021120 binary with those gates patched (git history), which SIGABRTed on the 180-byte objects of the
+# 26Q4 train -> reboot,bpfloader-failed -> apexd reverted the whole 25-module train (2026-11-02).
+# a52_netd.o is a copy of Google's netd.o whose ingress/egress_stats_5_4 programs get max_api_level 3610 -> 65536:
+# Google ships no 5.4 stats variant for API >= 3610, so nothing got pinned and netd aborts (IchthysOS fixed the same
+# gap in source); a52_netd.<versionCode>.o the same for a train whose userspace needs other map layouts (regen.py).
 #
 # Two modes (TARGET_TETHERING_RESIGN_APEX, scripts/internal/gen_config_file.sh):
 # - false (default): Google's ORIGINAL, Google-signed com.google.android.tethering_compressed.apex stays untouched, so
@@ -40,19 +43,22 @@
 #   stubbed (below) and the plain netd_a52.o. Play system updates then fail with INSTALL_FAILED_VERIFICATION_FAILURE
 #   ("APK container signature ... is not compatible") for Tethering.
 #
-# Known risk of the default mode: our loader (netbpfload 371021120 from /system) and a52_netd.o are FROZEN. After a
-# Play train updates Tethering, the new APEX's own netbpfload/netd.o are not used (offload.o, clatd.o, dscpPolicy.o
-# are still read from the live APEX), while its new libservice-connectivity.so/libnetd_updatable.so may expect maps or
-# programs that only a newer netd.o defines -> netd/system_server abort -> bootloop (bpfloader and netd have
-# reboot_on_failure). Covered up to Tethering 372038420 (map union above); a later train that adds maps again needs
-# regen.py rerun with that train's APEX as an extra input. Reading the live APEX netd.o instead is not done on purpose: the 5.4 stats max_api relaxation is
-# name-specific (a newer netd.o may rename the variants or add its own 5.4 ones, which would then collide on the same
-# pin path) and a newer object may need a newer loader (bpfloader_min_ver). After every Tethering train: check
-# `logcat -b all | grep -iE "netbpfload|LibBpfLoader|bpf map|ringbuf"` and the stats/maps pins; when Google's netd.o
-# changes, rerun regen.py on the updated APEX's netd.o (Android 17 keeps updated APEXes as pinned images that cannot be
-# copied as files: pull /apex/com.android.tethering/etc/bpf/mainline/netd.o, or /cache/k4_mainline/failed_staged_tethering_netd.o
-# after a rolled-back update boot, see play_system_updates), add it to tethering_trains/known/ and rebuild; the
-# tethering_trains patch aborts the build while a52_netd.o does not cover every known train.
+# Known risk of the default mode: our loader and netd objects live in /system and only know the Tethering versions
+# this build has seen. After a Play train updates Tethering, the new APEX's own netbpfload/netd.o are not used
+# (offload.o, test.o, clatd.o, dscpPolicy.o are read from the live APEX), while its new
+# libservice-connectivity.so/libnetd_updatable.so may expect maps or programs that only its own netd.o defines, or
+# its objects may need loader/kernel features 5.4 lacks -> netd/system_server abort or bpfloader failure -> bootloop
+# (both have reboot_on_failure). Covered: Tethering 371021120 and 372038420 by a52_netd.o (map union above),
+# 373041100 by a52_netd.373041100.o. A train nobody has seen is reverted by tethering_trains' k4-tethering-gate in one
+# clean reboot (versionCode not in /system/etc/bpf/a52_netd.known) - it still fails, so after every new Tethering
+# train: copy its five objects from /cache/k4_mainline/failed_staged_tethering_<obj>.o (play_system_updates; Android
+# 17 keeps updated APEXes as pinned images that cannot be copied as files) to tethering_trains/known/
+# <versionCode>_train_<obj>.o, rerun regen.py --train-progs with every known train's netd.o, rebuild; the
+# tethering_trains patch aborts the build while the netd objects do not cover every known train. Reading the live
+# APEX netd.o instead is not done on purpose: the 5.4 stats max_api relaxation is name-specific (a newer netd.o may
+# rename the variants or add its own 5.4 ones, which would then collide on the same pin path) and the 5.10-only
+# ringbuf maps need their min_kver lowered. After a train has been applied check
+# `logcat -b all | grep -iE "netbpfload|LibBpfLoader|bpf map|ringbuf"`, `dmesg | grep a52sxq:` and k4-mainline-diag.
 # Recovery if a Tethering train breaks boot. A fresh update boot is reverted automatically (netd is `updatable`, so
 # its crash loop makes apexd revert; a boot that never completes is reverted by apexd's boot timeout; a bpfloader
 # reboot loop by the vold checkpoint). The unprotected case is a ROM flashed under an already active train that the
@@ -74,12 +80,13 @@ TETH_SRC="$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/apex/com.google.android.te
 (cd "$SRC_DIR/target/a52sxq/patches/tethering" && sha256sum --quiet --strict -c SHA256SUMS) || \
     ABORT "tethering: netbpfload_a52*, lib*B.so, netd_a52*.o or the re-signed APEX differ from SHA256SUMS - rerun regen.py"
 unset TETH_SRC
-# netbpfload_a52 (the patched loader, linked against the system libbase/libc++ and libbpf.so) stays in the patch dir
-# and in SHA256SUMS, because regen.py derives netbpfload_a52b from it, but it is not installed: nothing runs it (the
-# rc below starts netbpfload_a52b) and a second binary labelled bpfloader_exec (root, SYS_ADMIN, writes every BPF
-# pin) has no business in the image. Run it by hand from the patch dir for diagnostics if needed.
-# netbpfload_a52b: same binary, but linked against the APEX's own libbase/libc++/libbpf shipped under renamed
-# sonames (libbasB/libcBB/libbpB), in case the system libbase/libc++ is what made netbpfload_a52 abort at exec.
+# netbpfload_a52 (the built loader with its original NEEDED names) stays in the patch dir and in SHA256SUMS
+# (build_netbpfload.sh derives netbpfload_a52b from it) but is not installed: nothing runs it (the rc below starts
+# netbpfload_a52b) and a second binary labelled bpfloader_exec (root, SYS_ADMIN, writes every BPF pin) has no
+# business in the image. netbpfload_a52b: same binary linked against the libbase/libbpf/libc++ it was built with,
+# shipped under the sonames libbasB/libbpB/libcBB so the ROM's own /system/lib64 copies (Samsung's builds) are
+# never involved. `netbpfload_a52b parse <object>` prints an object's map/program definitions as the loader reads
+# them (any user; no kernel state touched) - the check to run on a new train's objects before its update boot.
 for f in bin/netbpfload_a52b lib64/libbasB.so lib64/libcBB.so lib64/libbpB.so; do
     EVAL "cp -a \"$SRC_DIR/target/a52sxq/patches/tethering/$(basename $f)\" \"$WORK_DIR/system/system/$f\""
 done
@@ -104,6 +111,19 @@ else
 fi
 EVAL "cp -a \"$SRC_DIR/target/a52sxq/patches/tethering/$NETD_O\" \"$WORK_DIR/system/system/etc/bpf/a52_netd.o\""
 SET_METADATA "system" "system/etc/bpf/a52_netd.o" 0 0 644 "u:object_r:system_file:s0"
+if ! $TETH_RESIGN; then
+    # One object per Play train whose userspace cannot share a52_netd.o (regen.py): the loader picks
+    # /system/etc/bpf/a52_netd.<versionCode>.o when that Tethering version is active. The re-signed APEX can never be
+    # updated by Play, so these are pointless there.
+    for f in "$SRC_DIR"/target/a52sxq/patches/tethering/netd_a52_[0-9]*.o; do
+        [ -f "$f" ] || continue
+        TT_V="$(basename "$f" .o)"; TT_V="${TT_V#netd_a52_}"
+        LOG "- Tethering train $TT_V: /system/etc/bpf/a52_netd.$TT_V.o"
+        EVAL "cp -a \"$f\" \"$WORK_DIR/system/system/etc/bpf/a52_netd.$TT_V.o\""
+        SET_METADATA "system" "system/etc/bpf/a52_netd.$TT_V.o" 0 0 644 "u:object_r:system_file:s0"
+    done
+    unset TT_V
+fi
 unset NETD_O
 
 LOG "- Pointing bpfloader/mdnsd_netbpfload at /system/bin/netbpfload_a52b"

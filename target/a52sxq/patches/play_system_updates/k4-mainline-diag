@@ -35,8 +35,8 @@ fi
 
 CAP=/cache/k4_mainline
 LIVE_NETD=/apex/com.android.tethering/etc/bpf/mainline/netd.o
-OURS_NETD=/system/etc/bpf/a52_netd.o
-KNOWN=/system/etc/bpf/a52_netd.known
+OURS_NETD=/system/etc/bpf/a52_netd.o          # the object the loader loads while the active Tethering has no
+KNOWN=/system/etc/bpf/a52_netd.known          # version-specific /system/etc/bpf/a52_netd.<versionCode>.o (set below)
 
 ms2date() { # epoch milliseconds -> local date (mksh arithmetic is 32-bit: cut the digits instead)
     case "$1" in ''|*[!0-9]*|?|??|???) echo "?"; return ;; esac
@@ -162,10 +162,12 @@ TETH_VER="$(pm list packages --apex-only --show-versioncode 2> /dev/null | \
     sed -n 's/^package:com\.\(google\.\)\{0,1\}android\.tethering versionCode://p' | head -n 1)"
 case " $PKGS " in *tethering*) TETH_IN=1 ;; *) TETH_IN=0 ;; esac
 
-# --- Tethering BPF coverage: our frozen loader only loads /system/etc/bpf/a52_netd.o -------------------------------
-# A Tethering train whose netd.o defines a map that a52_netd.o lacks aborts netd/system_server at boot ("Cannot open
-# ... map") -> apexd reverts the whole update. Checked for the live APEX and for the one captured from the last update
-# boot (root only), by map pin path.
+# --- Tethering BPF coverage: our loader never loads the APEX's netd.o but /system/etc/bpf/a52_netd.<version>.o, or ---
+# a52_netd.o when the ROM ships no such object (NetBpfLoad.cpp netdObjectPath()). A Tethering train whose netd.o
+# defines a map that object lacks aborts netd/system_server at boot ("Cannot open ... map") -> apexd reverts the
+# whole update; one whose versionCode is not in a52_netd.known is reverted by k4-tethering-gate before the loader
+# runs. Checked for the live APEX and for the one captured from the last update boot (root only), by map pin path.
+[ -n "$TETH_VER" ] && [ -r "/system/etc/bpf/a52_netd.$TETH_VER.o" ] && OURS_NETD="/system/etc/bpf/a52_netd.$TETH_VER.o"
 pins "$OURS_NETD" > "$T/ours.pins"
 pins "$LIVE_NETD" > "$T/live.pins"
 LIVE_MISSING="$(comm -23 "$T/live.pins" "$T/ours.pins" | sed 's|.*/map_netd_||; s|.*/map_||' | tr '\n' ' ')"
@@ -182,9 +184,12 @@ CAPF="$CAP/failed_staged_tethering"
 CAP_MISSING=""; CAP_VER=""; CAP_KNOWN=""
 if [ "$ROOT" = 1 ] && [ -s "${CAPF}_netd.o" ]; then
     pins "${CAPF}_netd.o" > "$T/staged.pins"
-    CAP_MISSING="$(comm -23 "$T/staged.pins" "$T/ours.pins" | sed 's|.*/map_netd_||; s|.*/map_||' | tr '\n' ' ')"
     CAP_VER="$(grep -o '<apex-info [^>]*moduleName="com.android.tethering"[^>]*isActive="true"[^>]*>' \
         "$CAP/failed_staged_apex-info-list.xml" 2> /dev/null | sed -n 's/.*versionCode="\([0-9]*\)".*/\1/p' | head -n 1)"
+    CAP_OURS=/system/etc/bpf/a52_netd.o   # what the loader would have loaded for that version
+    [ -n "$CAP_VER" ] && [ -r "/system/etc/bpf/a52_netd.$CAP_VER.o" ] && CAP_OURS="/system/etc/bpf/a52_netd.$CAP_VER.o"
+    pins "$CAP_OURS" > "$T/cap_ours.pins"
+    CAP_MISSING="$(comm -23 "$T/staged.pins" "$T/cap_ours.pins" | sed 's|.*/map_netd_||; s|.*/map_||' | tr '\n' ' ')"
     CAP_SET="$(for o in netd offload test clatd dscpPolicy; do sha256sum "${CAPF}_$o.o" 2> /dev/null | cut -d ' ' -f 1; done)"
     CAP_ALL="$(printf '%s\n' "$CAP_SET" | sha256sum | cut -d ' ' -f 1)"
     CAP_KNOWN="$(grep "^$CAP_ALL " "$KNOWN" 2> /dev/null | head -n 1 | cut -d ' ' -f 3-)"
@@ -200,7 +205,7 @@ if [ -s "${CAPF}_netd.o" ]; then
         *) [ "$CAP_S" -ge "$((WHEN_S - 60))" ] && CAP_FRESH=1 ;;
     esac
 fi
-DEV_HINT="developer: copy /cache/k4_mainline/failed_staged_tethering_<obj>.o for obj = netd offload test clatd dscpPolicy (root) to tethering_trains/known/<versionCode>_train_<obj>.o and rerun tethering/regen.py --train-progs with that netd.o"
+DEV_HINT="developer: copy /cache/k4_mainline/failed_staged_tethering_<obj>.o for obj = netd offload test clatd dscpPolicy (root) to tethering_trains/known/<versionCode>_train_<obj>.o, rerun tethering/regen.py --train-progs with every known train's netd.o (a 180-byte-map-def train gets its own netd_a52_<versionCode>.o) and rebuild"
 
 # --- the one line ---------------------------------------------------------------------------------------------------
 explain() {
@@ -212,7 +217,9 @@ explain() {
         *"Build fingerprint has changed"*)
             printf '%s\n' "a new ROM build was flashed while the update was waiting for its reboot; Android drops it by design and Play downloads it again (harmless) - next time: when Play says an update is waiting for a restart, reboot once before flashing a new build" ;;
         *"crashing native process"*)
-            if [ "$CAP_FRESH" = 1 ] && grep -q "k4-tethering-gate: .*asking apexd to revert" "$CAP/failed_staged_boot_kmsg.txt" 2> /dev/null; then
+            if [ "$CAP_FRESH" = 1 ] && grep -q "k4-tethering-gate: .*is not a version this ROM build knows" "$CAP/failed_staged_boot_kmsg.txt" 2> /dev/null; then
+                printf '%s\n' "the ROM's Tethering gate reverted this update on purpose before anything crashed (one reboot): Tethering ${CAP_VER:-?} is a version this ROM build has not verified for the 5.4 kernel; $DEV_HINT"
+            elif [ "$CAP_FRESH" = 1 ] && grep -q "k4-tethering-gate: .*asking apexd to revert" "$CAP/failed_staged_boot_kmsg.txt" 2> /dev/null; then
                 printf '%s\n' "the ROM's Tethering gate reverted this update on purpose before anything crashed (one reboot): Tethering ${CAP_VER:-?} defines BPF maps the ROM does not create (${CAP_MISSING:-see the k4-tethering-gate line in failed_staged_boot_kmsg.txt}); $DEV_HINT"
             elif [ "$ROOT" = 0 ] && [ "$(echo ${1##*process: })" = netd ]; then
                 printf '%s\n' "apexd rolled the update back because netd was reported crashing - either netd really crashed or the ROM's Tethering gate requested the revert (a Tethering train needs BPF maps the ROM lacks); run with su -v for the kept kernel log; $DEV_HINT"
@@ -339,12 +346,14 @@ batches 5
 echo
 echo "== Tethering BPF"
 echo "  active Tethering $TETH_VER, netd.o sha256 $LIVE_SHA, BPF set sha256 $LIVE_ALL ${LIVE_KNOWN:+($LIVE_KNOWN)}"
-echo "  ROM a52_netd.o: $(wc -l < "$T/ours.pins") maps; active netd.o: $(wc -l < "$T/live.pins") maps; missing: ${LIVE_MISSING:-none}"
-grep -q "netbpfload_a52" /system/etc/init/netbpfload.rc 2> /dev/null && echo "  bpfloader runs /system/bin/netbpfload_a52* (frozen loader)" || \
+echo "  ROM ${OURS_NETD##*/}: $(wc -l < "$T/ours.pins") maps; active netd.o: $(wc -l < "$T/live.pins") maps; missing: ${LIVE_MISSING:-none}"
+echo "  ROM objects: $(cd /system/etc/bpf 2> /dev/null && ls a52_netd*.o 2> /dev/null | tr '\n' ' ')| known Tethering versions: $(sed -n 's/.*Tethering \([0-9]*\) (\([a-z]*\)).*/\1(\2)/p' "$KNOWN" 2> /dev/null | tr '\n' ' ')"
+grep -q "netbpfload_a52" /system/etc/init/netbpfload.rc 2> /dev/null && echo "  bpfloader runs /system/bin/netbpfload_a52* (the ROM's loader)" || \
     echo "  WARNING: /system/etc/init/netbpfload.rc does not run netbpfload_a52*"
+grep -q "a52sxq: Tethering APEX version" /dev/kmsg 2> /dev/null; dmesg 2> /dev/null | grep -m1 "a52sxq: Tethering APEX version" | sed 's/^/  loader: /' 
 if [ "$ROOT" = 1 ]; then
     if [ -s "${CAPF}_netd.o" ]; then
-        echo "  last update boot that did not finish ($(stat -c %y "${CAPF}_netd.o" | cut -c 1-16)): Tethering ${CAP_VER:-?}${CAP_KNOWN:+ (BPF objects = verified $CAP_KNOWN)}, maps a52_netd.o lacks: ${CAP_MISSING:-none}"
+        echo "  last update boot that did not finish ($(stat -c %y "${CAPF}_netd.o" | cut -c 1-16)): Tethering ${CAP_VER:-?}${CAP_KNOWN:+ (BPF objects = verified $CAP_KNOWN)}, maps ${CAP_OURS##*/} lacks: ${CAP_MISSING:-none}"
         [ -n "$CAP_VER" ] && [ "$CAP_VER" = "$TETH_VER" ] && echo "    (that is the Tethering active now)"
         [ "$CAP_FRESH" = 1 ] || echo "    (older than the newest update batch, so the verdict above does not use it)"
         for o in netd offload test clatd dscpPolicy; do [ -s "${CAPF}_$o.o" ] || echo "    ($o.o was not in that APEX)"; done

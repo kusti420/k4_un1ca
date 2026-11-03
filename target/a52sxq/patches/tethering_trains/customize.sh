@@ -1,4 +1,5 @@
-# See module.prop. Runs after "tethering" (modules apply in C-locale name order), so a52_netd.o is already in place.
+# See module.prop. Runs after "tethering" (modules apply in C-locale name order), so a52_netd.o and the
+# a52_netd.<versionCode>.o next to it are already in place (check_netd.py finds the versioned ones by itself).
 TT_NETD="$WORK_DIR/system/system/etc/bpf/a52_netd.o"
 if [ ! -f "$TT_NETD" ]; then
     LOGW "tethering_trains: no system/etc/bpf/a52_netd.o (tethering patch disabled?) - skipped"
@@ -13,15 +14,16 @@ else
     # (apply_modules.sh runs with set -e: keep the failing check inside an if)
     if TT_OUT="$(python3 "$MODPATH/check_netd.py" "$TT_NETD" "${TT_KNOWN[@]}" 2>&1)"; then TT_RC=0; else TT_RC=$?; fi
     while IFS= read -r l; do [ "$l" ] && LOG "- $l"; done <<< "$TT_OUT"
-    [ "$TT_RC" = 0 ] || ABORT "tethering_trains: a52_netd.o or the frozen loader no longer covers a Tethering version phones may run (see above) - a52_netd.o map/program lines: rerun tethering/regen.py --train-progs with every train in known/; \"(load fails)\" lines: that train cannot load on 5.4 with our frozen loader (bpfloader reboot loop), fix the ROM side first; \"pin gap\" lines: review, then fix or add the printed line to known/tolerated.txt"
+    [ "$TT_RC" = 0 ] || ABORT "tethering_trains: the netd objects or the loader no longer cover a Tethering version phones may run (see above) - a52_netd*.o map/program lines: rerun tethering/regen.py --train-progs with every train in known/; \"(load fails)\" lines: that train cannot load on 5.4 with our loader (bpfloader reboot loop), fix the ROM side first; \"pin gap\" lines: review, then fix or add the printed line to known/tolerated.txt"
     python3 "$MODPATH/check_netd.py" --list "${TT_KNOWN[@]}" > "$WORK_DIR/system/system/etc/bpf/a52_netd.known" || \
         ABORT "tethering_trains: failed to write a52_netd.known"
     SET_METADATA "system" "system/etc/bpf/a52_netd.known" 0 0 644 "u:object_r:system_file:s0"
     unset TT_KNOWN TT_OUT TT_RC
 
     # Runtime half, for the train nobody has seen yet (k4-tethering-gate, k4_tethering_gate.rc, see module.prop): on an
-    # update boot, before the loader runs, compare the activated Tethering's netd.o map pins with a52_netd.o and on a gap
-    # take apexd's own revert path (sys.init.updatable_crashing) instead of the crash loop. Runs in the k4apexdm domain of
+    # update boot, before the loader runs, check the activated Tethering's versionCode against a52_netd.known and its
+    # netd.o map pins against the object the loader picks, and on a miss take apexd's own revert path
+    # (sys.init.updatable_crashing) instead of the bpfloader / netd crash loop. Runs in the k4apexdm domain of
     # apex_dm_relabel (applied earlier: a < t), reports through sys.k4.tethering_gap (own property type).
     TT_SYS="$WORK_DIR/system/system"
     TT_CIL="$TT_SYS/etc/selinux/plat_sepolicy.cil"

@@ -1,0 +1,309 @@
+diff --git a/bpf/loader/NetBpfLoad.cpp b/bpf/loader/NetBpfLoad.cpp
+index 0bcc3a948f..de88a5f71d 100644
+--- a/bpf/loader/NetBpfLoad.cpp
++++ b/bpf/loader/NetBpfLoad.cpp
+@@ -161,9 +161,10 @@ class ElfObject {
+         }();
+ 
+         if (st.st_dev != self_dev) {
+-            ALOGE("file %s is on device %llu, while we are on device %llu",
++            // a52sxq (netbpfload_a52b): this loader runs from /system while the objects live in the
++            // Tethering APEX (and a52_netd.o in /system), so the devices legitimately differ.
++            ALOGW("file %s is on device %llu, while we are on device %llu",
+                   path, (unsigned long long)st.st_dev, (unsigned long long)self_dev);
+-            abort();
+         }
+ 
+         size = static_cast<size_t>(st.st_size);
+@@ -214,7 +215,13 @@ class ElfObject {
+         if (id >= sh.size()) return {};
+         const auto& s = sh[id];
+         if (s.sh_offset > size || s.sh_size > size - s.sh_offset) return {};
+-        if (s.sh_size % sizeof(T)) abort();
++        if (s.sh_size % sizeof(T)) {
++            // a52sxq: a layout the loader does not know (e.g. a new struct bpf_map_def) must be a
++            // logged load failure, not a silent SIGABRT (2026-11-02 bpfloader-failed reboots).
++            ALOGE("file %s section %u size %llu is not a multiple of %zu", path, id,
++                  (unsigned long long)s.sh_size, sizeof(T));
++            return {};
++        }
+         return {reinterpret_cast<const T*>(bytes.data() + s.sh_offset),
+                 static_cast<size_t>(s.sh_size / sizeof(T))};
+     }
+@@ -306,8 +313,134 @@ class ElfObject {
+         }
+         return -1;  // not found
+     }
++
++    // a52sxq: index of a section by name, -1 if there is none
++    int getSectionIdxByName(const char* name) const {
++        for (unsigned i = 0; i < sh.size(); i++) {
++            const char* secname = getStr(sh[i].sh_name);
++            if (secname && !strcmp(secname, name)) return i;
++        }
++        return -1;
++    }
++
++    // a52sxq: the st_size every sized symbol of section idx shares, i.e. sizeof the struct the
++    // compiler laid the section out with; 0 if there is no sized symbol, -1 if they differ
++    long getSectionSymSize(int idx) const {
++        long sz = 0;
++        for (const auto& sym : symtab) {
++            if (sym.st_shndx != idx || !sym.st_size) continue;
++            if (sz && sz != (long)sym.st_size) return -1;
++            sz = sym.st_size;
++        }
++        return sz;
++    }
+ };
+ 
++// a52sxq: the loader is frozen in /system while Google Play keeps updating the Tethering APEX whose
++// offload.o/test.o/clatd.o/dscpPolicy.o it loads, and Google changed the layout of struct bpf_map_def
++// in the 26Q4 train (com.google.android.tethering 373041100): key_size, value_size and max_entries
++// left the struct (192 -> 180 bytes; libbpf takes them from the BTF .maps definition instead), the
++// rest is unchanged. Objects of either layout are read into the v1 struct the rest of this file
++// uses; for v2 objects the three sizes come from libbpf's view of the same object.
++struct bpf_map_def_v2 {
++    enum bpf_map_type type;
++    unsigned int map_flags;
++    unsigned int uid;
++    unsigned int gid;
++    unsigned int mode;
++    int min_api_level_full;
++    int max_api_level_full;
++    unsigned int min_kver;
++    unsigned int max_kver;
++    char create_location[BPF_DEF_CHAR_ARRAY_SIZE];
++    char pin_location[BPF_DEF_CHAR_ARRAY_SIZE];
++    unsigned int name_idx;
++    const char * name() const { return this->pin_location + this->name_idx; }
++};
++static_assert(sizeof(struct bpf_map_def_v2) == 180, "wrong sizeof struct bpf_map_def_v2");
++static_assert(sizeof(struct bpf_map_def) == 192, "wrong sizeof struct bpf_map_def");
++
++// Reads .android_maps of either layout into md. obj: the object as opened by libbpf, or null (then
++// it is opened here for the v2 sizes). Returns 0, -2 when there is no .android_maps section, else -1.
++static int readMapDefs(const ElfObject& elfObj, struct bpf_object* obj, vector<struct bpf_map_def>& md) {
++    md.clear();
++    const int idx = elfObj.getSectionIdxByName(".android_maps");
++    if (idx < 0) return -2;
++    const Elf64_Shdr& s = elfObj.SH(idx);
++    if (!s.sh_size) return 0;
++    const long symSize = elfObj.getSectionSymSize(idx);
++    size_t recSize = 0;
++    if (symSize == (long)sizeof(struct bpf_map_def) || symSize == (long)sizeof(struct bpf_map_def_v2)) {
++        recSize = symSize;
++    } else if (symSize <= 0) {
++        // no usable symbols: let the section size decide, if it is unambiguous
++        const bool v1 = !(s.sh_size % sizeof(struct bpf_map_def));
++        const bool v2 = !(s.sh_size % sizeof(struct bpf_map_def_v2));
++        if (v1 != v2) recSize = v1 ? sizeof(struct bpf_map_def) : sizeof(struct bpf_map_def_v2);
++    }
++    if (!recSize || s.sh_size % recSize) {
++        ALOGE("%s: unknown struct bpf_map_def layout (symbol size %ld, section size %llu) - "
++              "this loader knows 192 (<= 26Q3) and 180 (26Q4) bytes", elfObj.path, symSize,
++              (unsigned long long)s.sh_size);
++        return -1;
++    }
++    if (recSize == sizeof(struct bpf_map_def)) {
++        auto v1 = elfObj.getSectionByIdx<struct bpf_map_def>(idx);
++        if (v1.empty()) return -1;
++        md.assign(v1.begin(), v1.end());
++        ALOGD("%s: %zu maps, struct bpf_map_def v1 (%zu bytes)", elfObj.path, md.size(), recSize);
++        return 0;
++    }
++    auto v2 = elfObj.getSectionByIdx<struct bpf_map_def_v2>(idx);
++    if (v2.empty()) return -1;
++    struct bpf_object* own = nullptr;
++    if (!obj) {
++        LIBBPF_OPTS(bpf_object_open_opts, opts,
++            .bpf_token_path = "",
++        );
++        own = bpf_object__open_file(elfObj.path, &opts);
++        if (!own) {
++            ALOGE("%s: bpf_object__open_file failed: %s", elfObj.path, strerror(errno));
++            return -1;
++        }
++        obj = own;
++    }
++    auto ownGuard = base::make_scope_guard([own] { if (own) bpf_object__close(own); });
++    for (const auto& d : v2) {
++        if (d.name_idx >= sizeof(d.pin_location)) {
++            ALOGE("%s: map def with name_idx %u out of range", elfObj.path, d.name_idx);
++            return -1;
++        }
++        struct bpf_map* bm = bpf_object__find_map_by_name(obj, d.name());
++        if (!bm) {
++            ALOGE("%s: map %s has no libbpf (.maps) definition", elfObj.path, d.name());
++            return -1;
++        }
++        struct bpf_map_def m = {};
++        m.type = d.type;
++        m.key_size = bpf_map__key_size(bm);
++        m.value_size = bpf_map__value_size(bm);
++        m.max_entries = bpf_map__max_entries(bm);
++        m.map_flags = d.map_flags;
++        m.uid = d.uid;
++        m.gid = d.gid;
++        m.mode = d.mode;
++        m.min_api_level_full = d.min_api_level_full;
++        m.max_api_level_full = d.max_api_level_full;
++        m.min_kver = d.min_kver;
++        m.max_kver = d.max_kver;
++        memcpy(m.create_location, d.create_location, sizeof(m.create_location));
++        memcpy(m.pin_location, d.pin_location, sizeof(m.pin_location));
++        m.name_idx = d.name_idx;
++        ALOGD("%s: v2 map %s: type %u key %u value %u entries %u flags %#x", elfObj.path, m.name(),
++              (unsigned)m.type, m.key_size, m.value_size, m.max_entries, m.map_flags);
++        md.push_back(m);
++    }
++    ALOGD("%s: %zu maps, struct bpf_map_def v2 (%zu bytes, sizes from libbpf)", elfObj.path, md.size(),
++          recSize);
++    return 0;
++}
++
+ // Read a section by its index - for ex to get sec hdr strtab blob
+ int readCodeSections(const ElfObject& elfObj, vector<codeSection>& cs) {
+     int entries = elfObj.SHsize();
+@@ -1249,7 +1382,7 @@ static int pinProgs(const struct bpf_object * obj,
+ 
+ static int loadProgByLibbpf(const char* const elfPath) {
+     ElfObject elfObj(elfPath);
+-    span<const struct bpf_map_def> md;
++    vector<struct bpf_map_def> mdv;
+     vector<codeSection> cs;
+     int ret;
+ 
+@@ -1260,8 +1393,9 @@ static int loadProgByLibbpf(const char* const elfPath) {
+     if (!obj) return -1;
+     auto objGuard = base::make_scope_guard([&obj] { bpf_object__close(obj); });
+ 
+-    ret = elfObj.readSectionByName(".android_maps", md);
++    ret = readMapDefs(elfObj, obj, mdv);
+     if (ret) return ret;
++    const span<const struct bpf_map_def> md(mdv);
+ 
+     ret = prepareLoadMaps(obj, md);
+     if (ret) return ret;
+@@ -1290,7 +1424,7 @@ int loadProg(const char* const elfPath) {
+     ElfObject elfObj(elfPath);
+     span<const char> license;
+     vector<codeSection> cs;
+-    span<const struct bpf_map_def> md;
++    vector<struct bpf_map_def> mdv;
+     vector<unique_fd> mapFds;
+ 
+     // Read license section - must exist and be NUL terminated.
+@@ -1300,9 +1434,10 @@ int loadProg(const char* const elfPath) {
+ 
+     ALOGD("Processing ELF object %s (license %s)", elfPath, license.data());
+ 
+-    int ret = elfObj.readSectionByName(".android_maps", md);
++    int ret = readMapDefs(elfObj, nullptr, mdv);
+     if (ret == -2) ret = 0; // -2 means there were no maps to read
+     if (ret) return ret;
++    const span<const struct bpf_map_def> md(mdv);
+ 
+     ret = createMaps(elfObj, md, mapFds);
+     if (ret) {
+@@ -1348,21 +1483,39 @@ static bool loadObject(const char* const progPath, const bool useLibbpf = true)
+ #define APEXROOT "/apex/com.android.tethering"
+ #define BPFROOT APEXROOT "/etc/bpf/mainline/"
+ 
++// a52sxq: the version of the active Tethering APEX, as logged by logApexVersion() ("" if unknown)
++static string tetheringApexVersion;
++
++// a52sxq: netd.o is not taken from the APEX but from /system (target/a52sxq/patches/tethering): a copy
++// of Google's object adjusted for the 5.4 kernel (stats program variants, ringbuf maps). Its map
++// layout must match the userspace of the ACTIVE Tethering APEX, which Google Play updates, so a
++// version-specific copy wins when the ROM ships one; the default serves the pre-installed APEX.
++static string netdObjectPath() {
++    const string dflt = "/system/etc/bpf/a52_netd.o";
++    if (!tetheringApexVersion.empty()) {
++        const string v = "/system/etc/bpf/a52_netd." + tetheringApexVersion + ".o";
++        if (exists(v.c_str())) return v;
++    }
++    return dflt;
++}
++
+ static bool loadAllObjects() {
+     // Enable on kernels that have the BPF CFI backports, see: b/488034908
+     // b/494690861: funcs may trigger Real-time Kernel Protection (RKP)
+     bool funcs = isAtLeast26Q2 && isAtLeastKernelVersion(6, 6, 118);
++    const string netd = netdObjectPath();
++    ALOGI("a52sxq: Tethering APEX version '%s' -> netd object %s", tetheringApexVersion.c_str(),
++          netd.c_str());
+ 
+     if (!loadObject(BPFROOT "offload.o", /*libbpf*/false)) return false;
+     if (!loadObject(BPFROOT "test.o")) return false;
+     if (!loadObject(BPFROOT "clatd.o")) return false;
+     if (funcs) {
+         if (!loadObject(BPFROOT "dscpPolicy@funcs.o")) return false;
+-        if (!loadObject(BPFROOT "netd@funcs.o")) return false;
+     } else {
+         if (!loadObject(BPFROOT "dscpPolicy.o")) return false;
+-        if (!loadObject(BPFROOT "netd.o")) return false;
+     }
++    if (!loadObject(netd.c_str())) return false;
+     return true;
+ }
+ 
+@@ -1465,6 +1618,14 @@ static int logApexVersion(const char* const apex_pretty_name, const char* const
+         } else {
+             ALOGI("%s APEX version %s (system: %s)", apex_pretty_name, ver, src_apex);
+         }
++        if (!strcmp(apex_mount_point, APEXROOT) && tetheringApexVersion.empty()) {
++            tetheringApexVersion = ver;   // a52sxq: selects the netd object, see netdObjectPath()
++            // fgets() keeps the newline / the rest of the line is cut above; keep digits only
++            tetheringApexVersion.erase(
++                std::find_if_not(tetheringApexVersion.begin(), tetheringApexVersion.end(),
++                                 [](unsigned char ch) { return ch >= '0' && ch <= '9'; }),
++                tetheringApexVersion.end());
++        }
+     }
+     fclose(f);
+     free(found_blockdev);
+@@ -1899,7 +2060,43 @@ static int doLoad(char** argv, char * const envp[]) {
+ }  // namespace bpf
+ }  // namespace android
+ 
++// a52sxq diagnostics: `netbpfload_a52b parse <object>` only parses the object the way the loader would (map
++// definitions of either layout, with the sizes libbpf reports, and the program definitions) and prints them; no
++// kernel state is touched, so it runs as any user. Used to verify a new Tethering train's objects on the device.
++static int parseOnly(const char* const path) {
++    using namespace android::bpf;
++    ElfObject elfObj(path);
++    vector<struct bpf_map_def> md;
++    int ret = readMapDefs(elfObj, nullptr, md);
++    printf("%s: readMapDefs -> %d, %zu maps\n", path, ret, md.size());
++    if (ret && ret != -2) return 1;
++    for (const auto& m : md) {
++        printf("  map %-36s type %2u key %4u value %5u entries %6u flags %#5x %u:%u 0%o api [%d,%d) kver [%07x,%07x) create '%s' pin '%s'\n",
++               m.name(), (unsigned)m.type, m.key_size, m.value_size, m.max_entries, m.map_flags, m.uid, m.gid,
++               m.mode, m.min_api_level_full, m.max_api_level_full, m.min_kver, m.max_kver, m.create_location,
++               m.pin_location);
++    }
++    vector<codeSection> cs;
++    ret = readCodeSections(elfObj, cs);
++    printf("%s: readCodeSections -> %d, %zu programs\n", path, ret, cs.size());
++    if (ret && ret != -ENOENT) return 1;
++    for (const auto& c : cs) {
++        if (!c.prog_def) { printf("  prog %s: no definition\n", c.program_name); continue; }
++        printf("  prog %-40s type %2u attach %2u opt %u %u:%u api [%d,%d) kver [%07x,%07x) insns %zu relocs %zu pin '%s'\n",
++               c.prog_def->name(), (unsigned)c.prog_def->type, (unsigned)c.prog_def->attach_type,
++               (unsigned)c.prog_def->optional, c.prog_def->uid, c.prog_def->gid, c.prog_def->min_api_level_full,
++               c.prog_def->max_api_level_full, c.prog_def->min_kver, c.prog_def->max_kver,
++               c.data.size() / sizeof(struct bpf_insn), c.rel_data.size(), c.prog_def->pin_location);
++    }
++    return 0;
++}
++
+ int main(int argc, char** argv, char * const envp[]) {
++    if (argc == 3 && !strcmp(argv[1], "parse")) {
++        android::base::InitLogging(argv, &android::base::StderrLogger);
++        return parseOnly(argv[2]);
++    }
++
+     if (android::bpf::isAtLeastT) {
+         InitLogging(argv, &KernelLogger);
+     } else {

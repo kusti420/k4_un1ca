@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
-# Does our frozen BPF loader + frozen netd.o load what every Tethering version we know about needs?
+# Does our BPF loader + our netd.o objects load what every Tethering version we know about needs?
 #
 #   check_netd.py <a52_netd.o> <known netd.o>...    exit 0: all covered; 1: something missing (printed)
+#       a52_netd.<versionCode>.o files next to a52_netd.o are the version-specific objects the loader prefers for
+#       that Tethering version (NetBpfLoad.cpp netdObjectPath()); each known train is checked against the object the
+#       loader would pick for it, and every such object gets the program/loadability checks too.
 #   check_netd.py --list <known netd.o>...          prints the /system/etc/bpf/a52_netd.known lines:
 #       "<set sha256> <netd.o sha256> Tethering <versionCode> (<label>)", set sha256 = sha256 of the five lines
 #       "<sha256 of X.o>\n" for X = netd offload test clatd dscpPolicy (k4-mainline-diag computes the same on the phone,
 #       so a train that only changes offload.o is not mistaken for a verified one)
 #
-# Our loader (netbpfload_a52*) only ever loads /system/etc/bpf/a52_netd.o, whatever Tethering APEX is active. The
-# APEX's userspace (libservice-connectivity.so in system_server, libnetd_updatable.so in netd) opens the map and
-# program pins its own netd.o defines and abort()s when one is missing -> crash loop -> apexd reverts the update (a
-# staged boot) or, after a ROM flash under an already active train, a real boot loop. So a52_netd.o must define:
-#   * every map of every known netd.o with an identical bpf_map_def (ringbuf maps: min_kver may be lowered to 5.4,
-#     regen.py does that on purpose; maps both sides only create on >= 5.10, e.g. sk_storage, may differ), and
-#   * every program pin a known netd.o would pin on this kernel at API 37.
+# Our loader (netbpfload_a52b) never loads the APEX's own netd.o but /system/etc/bpf/a52_netd.<active version>.o, or
+# /system/etc/bpf/a52_netd.o when there is none, whatever Tethering APEX is active. The APEX's userspace
+# (libservice-connectivity.so in system_server, libnetd_updatable.so in netd) opens the map and program pins its own
+# netd.o defines and abort()s when one is missing or sized differently -> crash loop -> apexd reverts the update (a
+# staged boot) or, after a ROM flash under an already active train, a real boot loop. So the object chosen for a
+# version must define:
+#   * every map of that netd.o with an identical bpf_map_def (layout-independent fields plus key/value size and
+#     max_entries - struct bpf_map_def is 192 bytes up to 26Q3 and 180 since the 26Q4 train 373041100, bpf_union.py;
+#     ringbuf maps: min_kver may be lowered to 5.4, regen.py does that on purpose; maps both sides only create on
+#     >= 5.10, e.g. sk_storage, may differ), and
+#   * every program pin that netd.o would pin on this kernel at API 37.
 # Known objects live in known/ as <versionCode>_<label>_netd.o (the factory one and each Play train's, pulled from
 # /apex/com.android.tethering/etc/bpf/mainline/netd.o or /cache/k4_mainline/failed_staged_tethering_netd.o).
 #
@@ -51,7 +58,8 @@
 #     at 0xaac4..0xab24 into the mkdir() wrapper at 0xf1e8) and bpfFdPin()/renameat2() create no parent, so any other
 #     directory is ENOENT (load fails) - a newer loader that adds a directory (as T added net_shared, U loader) and
 #     a train pinning into it would loop on ours,
-#   * struct bpf_map_def/bpf_prog_def sizes are the ones the loader reads (192/180), a license section exists.
+#   * struct bpf_map_def is one of the two layouts the loader reads (192/180, by the _def symbols' st_size) and
+#     struct bpf_prog_def is 180 bytes, a license section exists.
 # The same instruction checks also run on the programs a52_netd.o itself loads.
 # Also refused: a code section name with a second '/' (readCodeSections abort()s), a libbpf object whose .android_maps
 # entry has no .maps map ("bpf_object does not contain map") or whose .maps map has no .android_maps entry (created
@@ -65,12 +73,12 @@
 import hashlib, os, re, struct, sys
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tethering"))
-from bpf_union import Elf, Btf, map_defs
+from bpf_union import Elf, Btf, map_defs, map_rec_size, MAP_LAYOUTS, M_SZ
 
 KV = lambda a, b, c: (a << 24) | (b << 16) | c
 KERNEL = KV(5, 4, 302)          # bone-machine 5.4.302
 API = 3700                      # Android 17 (sdk_full 37.0 -> netbpfload api 3700)
-M_SZ, P_SZ = 192, 180           # struct bpf_map_def, struct bpf_prog_def
+P_SZ = 180                      # struct bpf_prog_def (struct bpf_map_def: bpf_union.MAP_LAYOUTS)
 RINGBUF = 27
 LOADER_OBJS = ("offload", "test", "clatd", "dscpPolicy")   # loaded from the active APEX's etc/bpf/mainline/
 NON_LIBBPF = {"offload"}        # loadObject(offload.o, libbpf=false): BTF only sanitized by sanitizeBtf()
@@ -162,8 +170,11 @@ def insn_problems(code, ptype):
 
 def pin_dirs(r, create_at, pin_at):
     """the first directory of a def record's create_location/pin_location the loader does not create, or None"""
-    for a in (create_at, pin_at):
-        loc = r[a:a + 70].split(b"\0")[0].decode()
+    return bad_pin_dir(*(r[a:a + 70].split(b"\0")[0].decode() for a in (create_at, pin_at)))
+
+
+def bad_pin_dir(*locs):
+    for loc in locs:
         if loc and os.path.dirname(loc) not in LOADER_DIRS: return os.path.dirname(loc)
     return None
 
@@ -235,19 +246,20 @@ def parse_obj(path):
     for n in e.names:                                    # readCodeSections: abort() on a second '/' in any code section
         if not n.startswith(".") and n.count("/") > 1: probs.append(f"section {n} has more than one '/' (loader aborts)")
     if e.has(".android_maps"):
-        d = e.sh[e.idx(".android_maps")]["data"]
-        if len(d) % M_SZ or def_sizes(".android_maps") - {M_SZ}:
-            return [f"struct bpf_map_def is not {M_SZ} bytes (loader would misread every map)"], req, made
-        for o in range(0, len(d), M_SZ):
-            r = bytes(d[o:o + M_SZ]); typ, = struct.unpack_from("<I", r, 0)
-            mina, maxa = struct.unpack_from("<2i", r, 32); mink, maxk = struct.unpack_from("<2I", r, 40)
-            pin = r[118:188].split(b"\0")[0].decode(); name = pin[struct.unpack_from("<I", r, 188)[0]:]
+        try:
+            msz = map_rec_size(e)
+        except AssertionError as x:
+            return [f"struct bpf_map_def layout is none the loader knows ({'/'.join(map(str, MAP_LAYOUTS))} bytes): {x}"], req, made
+        if def_sizes(".android_maps") - {msz}:
+            return [f"struct bpf_map_def symbols are {def_sizes('.android_maps')} bytes, records {msz} (loader would misread every map)"], req, made
+        for name, (_, m) in map_defs(e).items():    # v2 records: key/value/max_entries from the BTF .maps definition
+            pin = m.pin_path
             maps_all.add(name)
-            if mina <= API < maxa: req.add(pin)
-            if not in_window(mink, maxk, mina, maxa): continue
-            bad_dir = pin_dirs(r, 48, 118)
+            if m.min_api <= API < m.max_api: req.add(pin)
+            if not in_window(m.min_kver, m.max_kver, m.min_api, m.max_api): continue
+            bad_dir = bad_pin_dir(m.create_path, pin)
             if bad_dir: probs.append(f"map {pin}: pins into {bad_dir}, which the frozen loader does not create (load fails)")
-            elif typ not in MAP_TYPES: probs.append(f"map {pin}: type {typ} is not registered in this kernel build (load fails)")
+            elif m.type not in MAP_TYPES: probs.append(f"map {pin}: type {m.type} is not registered in this kernel build (load fails)")
             else: made.add(pin); maps_made.add(name)
     if libbpf:                                           # prepareLoadMaps: every .android_maps entry needs its .maps map
         mi = e.idx(".maps") if e.has(".maps") else None
@@ -318,30 +330,46 @@ if sys.argv[1] == "--list":
         print(whole, netd, " = ".join(labs))
     sys.exit(0)
 
-ours = Elf(open(sys.argv[1], "rb").read())
-om, op = map_defs(ours), loaded(prog_pins(ours))
+# --- our objects: a52_netd.o and the a52_netd.<versionCode>.o next to it, each checked like the loader objects -----
+OURS_DIR = os.path.dirname(os.path.abspath(sys.argv[1]))
+ours = {}                                                # path -> (map defs, program pins loaded on this kernel)
 bad = 0
-for p in parse_obj(sys.argv[1])[0]:
-    print(f"a52_netd.o: {p}"); bad += 1
+def our_obj(path):
+    if path not in ours:
+        for p in parse_obj(path)[0]:
+            print(f"{os.path.basename(path)}: {p}"); globals()["bad"] += 1
+        e = Elf(open(path, "rb").read()); ours[path] = (map_defs(e), loaded(prog_pins(e)))
+    return ours[path]
+def obj_for(ver):
+    """the object the loader loads while Tethering <ver> is active (NetBpfLoad.cpp netdObjectPath())"""
+    v = os.path.join(OURS_DIR, f"a52_netd.{ver}.o")
+    return v if os.path.exists(v) else sys.argv[1]
+our_obj(sys.argv[1])
 for k in sys.argv[2:]:
     ver, lab = label(k)
+    opath = obj_for(ver); oname = os.path.basename(opath); om, op = our_obj(opath)
     e = Elf(open(k, "rb").read())
     km, kp = map_defs(e), loaded(prog_pins(e))
     before = bad
-    for name, (_, rec) in sorted(km.items()):
+    for name, (_, b) in sorted(km.items()):
         if name not in om:
-            print(f"Tethering {ver} ({lab}): map {name} missing from a52_netd.o"); bad += 1; continue
-        a, b = bytearray(om[name][1]), bytearray(rec)
-        kv_a, kv_b = struct.unpack_from("<I", a, 40)[0], struct.unpack_from("<I", b, 40)[0]
-        if struct.unpack_from("<I", b, 0)[0] == RINGBUF and kv_a <= kv_b:
-            a[40:44] = b[40:44]
-        if a != b and not (kv_a > KERNEL and kv_b > KERNEL):
-            diff = [i for i in range(len(a)) if a[i] != b[i]]
-            print(f"Tethering {ver} ({lab}): map {name} defined differently (bytes {diff[:8]})"); bad += 1
+            print(f"Tethering {ver} ({lab}): map {name} missing from {oname}"); bad += 1; continue
+        a = om[name][1]
+        ac, bc = bytearray(a.canon()), bytearray(b.canon())   # layout-independent fields; min_kver at 28 there
+        if b.type == RINGBUF and a.min_kver <= b.min_kver:
+            ac[28:32] = bc[28:32]
+        if (ac != bc or a.sizes != b.sizes) and not (a.min_kver > KERNEL and b.min_kver > KERNEL):
+            diff = [i for i in range(len(ac)) if ac[i] != bc[i]]
+            print(f"Tethering {ver} ({lab}): map {name} defined differently in {oname} "
+                  f"(key/value/max {a.sizes} vs {b.sizes}, differing bytes {diff[:8]})"); bad += 1
     for pin in sorted(kp - op):
-        print(f"Tethering {ver} ({lab}): program {pin} would not be pinned by a52_netd.o"); bad += 1
+        print(f"Tethering {ver} ({lab}): program {pin} would not be pinned by {oname}"); bad += 1
     if bad == before:
-        print(f"Tethering {ver} ({lab}): {len(km)} maps, {len(kp)} programs covered")
+        print(f"Tethering {ver} ({lab}): {oname}: {len(km)} maps, {len(kp)} programs covered")
+for f in sorted(os.listdir(OURS_DIR)):                   # a versioned object no known train uses is a stale leftover
+    m = re.fullmatch(r"a52_netd\.(\d+)\.o", f)
+    if m and not any(label(k)[0] == m.group(1) for k in sys.argv[2:]):
+        print(f"{f}: no known Tethering {m.group(1)} (add known/{m.group(1)}_train_*.o or drop the object)"); bad += 1
 
 # --- the objects the loader takes from the active APEX ----------------------------------------------------------
 known = {label(k): os.path.dirname(os.path.abspath(k)) for k in sys.argv[2:]}

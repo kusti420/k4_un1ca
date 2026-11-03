@@ -1,21 +1,31 @@
 #!/usr/bin/env python3
-# Regenerate the tethering module's binaries from a source firmware's com.google.android.tethering APEX.
-# Every patch site is located by pattern (strings / symbols / JNI table / BPF prog defs), never by fixed offsets,
-# and every edit asserts the original instruction shape first. Not run by the build: run it by hand after a base
-# switch, then update TETH_SRC's sha256 in customize.sh.
+# Regenerate the tethering module's BPF objects and the re-signed APEX from a source firmware's
+# com.google.android.tethering APEX. Every patch site is located by pattern (symbols / JNI table / BPF defs), never
+# by fixed offsets, and every edit asserts the original shape first. Not run by the build: run it by hand after a
+# base switch or a new Play train, then update TETH_SRC's sha256 in customize.sh and SHA256SUMS.
+# (The loader itself, netbpfload_a52*, is no longer a patched Google binary: build_netbpfload.sh builds it from
+# the IchthysOS source tree.)
 #
 #   regen.py <tethering_compressed.apex> <out_dir> <keys_dir> <android_host_out> [--train-progs]
-#            [<train tethering .apex | netd.o>...]
+#            [<train tethering .apex | <versionCode>_train_netd.o>...]
 #
-# Produces in out_dir: netbpfload_a52, netbpfload_a52b, libbpf.so, libbasB.so, libbpB.so, libcBB.so, netd_a52.o,
-# netd_a52rb.o (default build: + ringbuf maps on 5.4, + the maps of every extra Tethering APEX given, see below),
+# Produces in out_dir: libbpf.so (the APEX's, see customize.sh), netd_a52.o, netd_a52rb.o (default build: + ringbuf
+# maps on 5.4, + the maps of every v1-layout train given, see below), netd_a52_<versionCode>.o per v2-layout train,
 # com.google.android.tethering.apex (re-signed with keys_dir, inner APKs PRESIGNED; only shipped with
 # TARGET_TETHERING_RESIGN_APEX=true).
 #
 # The extra arguments are Google Play train Tethering APEXes (as pulled from /data/apex/active, or their
-# etc/bpf/mainline/netd.o). Their userspace must find every map pin it opens, but our loader only ever loads our
-# frozen a52_netd.o: bpf_union.py adds each map that a train's netd.o defines and ours does not (programs untouched).
-# --train-progs also writes netd_a52rb_train.o: the reverse union (newest train's programs + maps, + the factory's).
+# etc/bpf/mainline/netd.o named like tethering_trains/known/). Their userspace must find every map pin it opens,
+# while our loader loads a netd.o from /system, never the APEX's own. Two generations of trains:
+# * v1 layout (192-byte struct bpf_map_def, up to 26Q3: 371021120 factory, 372038420 train): one object serves the
+#   factory and the train userspace. bpf_union.py adds each map that a train's netd.o defines and ours does not
+#   (programs untouched); --train-progs also writes netd_a52rb_train.o: the reverse union (newest v1 train's
+#   programs + maps, + the factory's) - the object the ROM installs as /system/etc/bpf/a52_netd.o.
+# * v2 layout (180 bytes, since the 26Q4 train 373041100): Google also changed map value layouts the factory
+#   userspace opens unconditionally (ingress_discard_map value 8 -> 4), so no single object can serve both. Each
+#   such train gets its own netd_a52_<versionCode>.o (its netd.o with just the 5.4 relaxations), installed as
+#   /system/etc/bpf/a52_netd.<versionCode>.o; the loader picks it when that APEX version is active and falls back
+#   to a52_netd.o otherwise (see build_netbpfload.sh / NetBpfLoad.cpp netdObjectPath()).
 # Current shipped netd_a52rb.o: + com.google.android.tethering 372038420
 #   (apex sha256 6e1d70ee4d41b8537245c13564eb7f43c9948115a7aae9e5edf7527d29c480f4,
 #    netd.o sha256 44151790d74e159bc7c3bc3c06a1219a993a153ff4cd7d44d7da7998193bccf2)
@@ -26,7 +36,7 @@ from capstone import Cs, CS_ARCH_ARM64, CS_MODE_ARM
 from capstone.arm64 import ARM64_OP_IMM
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bpf_union import union
+from bpf_union import union, map_rec_size, M_OFF, M_SZ
 
 SRC, OUT, KEYS, HOST = sys.argv[1:5]
 TRAIN_PROGS = "--train-progs" in sys.argv[5:]
@@ -89,49 +99,11 @@ orig = os.path.join(W, "original_apex")
 zipfile.ZipFile(orig).extract("apex_payload.img", W)
 img = os.path.join(W, "apex_payload.img")
 def dbg(cmd, image=img): return subprocess.run(["debugfs", "-R", cmd, image], capture_output=True, text=True).stdout
-for p in ["bin/netbpfload", "lib64/libbpf.so", "lib64/libbase.so", "lib64/libc++.so", "etc/bpf/mainline/netd.o",
-          "lib64/libservice-connectivity.so"]:
+for p in ["lib64/libbpf.so", "etc/bpf/mainline/netd.o", "lib64/libservice-connectivity.so"]:
     dbg(f"dump /{p} {os.path.join(W, os.path.basename(p))}")
 J = lambda n: os.path.join(W, n)
 
-# --- netbpfload: kernel gates, st_dev check, netd.o path -----------------------------------------------------------
-nb = J("netbpfload"); data = open(nb, "rb").read(); insns = list(text_insns(nb))
-edits = []
-for msg in (b"requires kernel 5.10", b"requires kernel 5.15"):
-    s = str_start(data, msg); refs = xrefs(insns, s)
-    assert len(refs) == 1, (msg, refs)
-    # the gate: nearest conditional branch before the error block's string load that jumps past it
-    cond = [i for i in insns if refs[0] - 0x40 <= i.address < refs[0]
-            and (i.mnemonic in ("tbz", "tbnz", "cbz", "cbnz") or i.mnemonic.startswith("b."))
-            and i.operands[-1].imm > refs[0]]
-    assert cond, (msg, hex(refs[0]))
-    prev = max(cond, key=lambda i: i.address)
-    tgt = prev.operands[-1].imm
-    edits.append((vaddr_to_off(nb, prev.address), bytes(prev.bytes), b_to(prev.address, tgt)))
-    print(f"netbpfload: {msg.decode()} gate {prev.address:#x} {prev.mnemonic} -> b {tgt:#x}")
-s = str_start(data, b"is on device"); ref = xrefs(insns, s); assert len(ref) == 1, ref
-cands = [i for i in insns if i.mnemonic == "b.ne" and 0 <= ref[0] - i.operands[0].imm <= 0x40]
-assert len(cands) == 1, [hex(c.address) for c in cands]
-c = cands[0]; prv = [i for i in insns if i.address == c.address - 4][0]
-assert prv.mnemonic == "cmp", prv.mnemonic
-edits.append((vaddr_to_off(nb, c.address), bytes(c.bytes), B_NOP))
-print(f"netbpfload: st_dev check b.ne {c.address:#x} -> nop")
-old = b"/apex/com.android.tethering/etc/bpf/mainline/netd.o\0"; i = data.find(old)
-assert i >= 0 and data.find(old, i + 1) < 0
-edits.append((i, old, b"/system/etc/bpf/a52_netd.o".ljust(len(old), b"\0")))
-patch(nb, os.path.join(OUT, "netbpfload_a52"), edits)
-b2 = bytearray(open(os.path.join(OUT, "netbpfload_a52"), "rb").read())
-for o, n in [(b"libbase.so\0", b"libbasB.so\0"), (b"libbpf.so\0", b"libbpB.so\0"), (b"libc++.so\0", b"libcBB.so\0")]:
-    assert b2.count(o) == 1, o; k = b2.find(o); b2[k:k + len(o)] = n
-open(os.path.join(OUT, "netbpfload_a52b"), "wb").write(b2)
-
-def rename(src, dst, pairs):
-    b = open(J(src), "rb").read()
-    for o, n in pairs: assert o in b, (src, o); b = b.replace(o, n)
-    open(os.path.join(OUT, dst), "wb").write(b)
-rename("libbase.so", "libbasB.so", [(b"libbase.so\0", b"libbasB.so\0"), (b"libc++.so\0", b"libcBB.so\0")])
-rename("libbpf.so", "libbpB.so", [(b"libbpf.so\0", b"libbpB.so\0"), (b"libc++.so\0", b"libcBB.so\0")])
-rename("libc++.so", "libcBB.so", [(b"libc++.so\0", b"libcBB.so\0")])
+# --- libbpf.so: the APEX's copy, installed as /system/lib64/libbpf.so (customize.sh) -----------------------------
 open(os.path.join(OUT, "libbpf.so"), "wb").write(open(J("libbpf.so"), "rb").read())
 
 # --- netd.o: let the 5.4 25q2 stats programs load at any API level -------------------------------------------------
@@ -169,10 +141,12 @@ def train_netd(path):
     z.extract("apex_payload.img", d)
     dbg("dump /etc/bpf/mainline/netd.o " + os.path.join(d, "netd.o"), os.path.join(d, "apex_payload.img"))
     return open(os.path.join(d, "netd.o"), "rb").read()
-donors = []
+from bpf_union import Elf as UElf
+donors, donors_v2 = [], []      # v1-layout trains (union) / v2-layout trains (own object each)
 for t in TRAINS:
-    b = train_netd(t); donors.append((os.path.basename(t), b))
-    print(f"netd.o: union input {t} (netd.o sha256 {hashlib.sha256(b).hexdigest()})")
+    b = train_netd(t); sz = map_rec_size(UElf(b))
+    print(f"netd.o: train input {t} (netd.o sha256 {hashlib.sha256(b).hexdigest()}, struct bpf_map_def {sz} bytes)")
+    (donors if sz == M_SZ else donors_v2).append((os.path.basename(t), b))
 nd, added = union(bytes(nd), donors, log=print)
 nd = bytearray(nd)
 # AOSP's DEFINE_BPF_RINGBUF_EXT hard-codes min_kver KVER_5_10, so netbpfload (prepareLoadMaps) sets autocreate=false
@@ -181,20 +155,24 @@ nd = bytearray(nd)
 # loader itself then creates, pins (create_location /sys/fs/bpf/net_shared/tmp -> rename to the netd_shared pin, i.e.
 # label fs_bpf_net_shared), chmods and chowns them exactly as on a 5.10 device. Only the 5.10+ program variants
 # reference these maps (and they still are not loaded on 5.4), so the rings stay empty - consumers just never get
-# events. struct bpf_map_def: type@0 ... uid@20 gid@24 mode@28 min_api@32 max_api@36 min_kver@40 max_kver@44.
-M_SZ, KV = 192, lambda a, b, c: (a << 24) | (b << 16) | c
+# events. struct bpf_map_def v1: type@0 ... uid@20 gid@24 mode@28 min_api@32 max_api@36 min_kver@40 max_kver@44;
+# v2 (26Q4+, no key/value/max_entries): uid@8 ... min_kver@28 (bpf_union.M_OFF).
+KV = lambda a, b, c: (a << 24) | (b << 16) | c
 def relax_ringbufs(nd):
+    from bpf_union import Elf as UElf
+    msz = map_rec_size(UElf(bytes(nd))); o = M_OFF[msz]
     with io.BytesIO(bytes(nd)) as f:
         e = ELFFile(f); s = e.get_section_by_name(".android_maps"); base = s["sh_offset"]
         idx = [k for k, x in enumerate(e.iter_sections()) if x.name == ".android_maps"][0]
         rbs = {sym["st_value"]: sym.name for sym in e.get_section_by_name(".symtab").iter_symbols()
-               if sym["st_shndx"] == idx and sym["st_size"] == M_SZ and struct.unpack_from("<I", nd, base + sym["st_value"])[0] == 27}
+               if sym["st_shndx"] == idx and sym["st_size"] == msz and struct.unpack_from("<I", nd, base + sym["st_value"])[0] == 27}
     assert len(rbs) >= 2, rbs
     for v, name in sorted(rbs.items()):
-        off = base + v; uid, gid, mode, mina, maxa, mink, maxk = struct.unpack_from("<3I2i2I", nd, off + 20)
-        assert mink == KV(5, 10, 0), (name, hex(mink)); struct.pack_into("<I", nd, off + 40, KV(5, 4, 0))
-        pin = nd[off + 118:off + 188].split(b"\0")[0].decode()
-        print(f"netd.o: {name} min_kver 5.10 -> 5.4 ({pin} {uid}:{gid} {mode:04o} api {mina}-{maxa})")
+        off = base + v; uid, gid, mode = struct.unpack_from("<3I", nd, off + o["uid"])
+        mina, maxa = struct.unpack_from("<2i", nd, off + o["api"]); mink, maxk = struct.unpack_from("<2I", nd, off + o["kver"])
+        assert mink == KV(5, 10, 0), (name, hex(mink)); struct.pack_into("<I", nd, off + o["kver"], KV(5, 4, 0))
+        pin = nd[off + o["pin"]:off + o["pin"] + 70].split(b"\0")[0].decode()
+        print(f"netd.o: {name} min_kver 5.10 -> 5.4 ({pin} {uid}:{gid} {mode:04o} api {mina}-{maxa}, layout {msz})")
     return nd
 open(os.path.join(OUT, "netd_a52rb.o"), "wb").write(relax_ringbufs(nd))
 
@@ -228,12 +206,48 @@ def relax_stats_5_4(nd):
         print(f"netd.o (train): {name} max_api {maxa} -> 65536 (api {mina}-, pin {pin})")
     return nd
 if TRAIN_PROGS:
+    assert donors, "--train-progs needs a v1-layout (192-byte struct bpf_map_def) train for netd_a52rb_train.o"
     tb_name, tb = donors[-1]
     rdonors = [("factory netd.o", open(J("netd.o"), "rb").read())] + donors[:-1]
     print(f"netd.o (train): base {tb_name}")
     tnd, _ = union(tb, rdonors, log=print)
     tnd = relax_ringbufs(relax_stats_5_4(bytearray(tnd)))
     open(os.path.join(OUT, "netd_a52rb_train.o"), "wb").write(tnd)
+
+# --- netd_a52_<versionCode>.o: one object per v2-layout train, no union ---------------------------------------------
+# Only that train's userspace ever runs with it (the loader selects it by the active APEX version), so it is Google's
+# netd.o of that train with the two 5.4 relaxations above and nothing else. The version comes from the known/-style
+# file name (<versionCode>_train_netd.o) or the APEX's manifest.
+def train_version(path):
+    m = re.match(r"(\d{9,})_", os.path.basename(path))
+    if m: return m.group(1)
+    z = zipfile.ZipFile(path)
+    if "original_apex" in z.namelist():
+        z = zipfile.ZipFile(io.BytesIO(z.read("original_apex")))
+    pb = z.read("apex_manifest.pb")           # protobuf: field 2 = version (varint)
+    i = 0
+    while i < len(pb):
+        tag = pb[i]; i += 1; fld, wt = tag >> 3, tag & 7
+        if wt == 0:
+            v, sh = 0, 0
+            while True:
+                c = pb[i]; i += 1; v |= (c & 0x7F) << sh; sh += 7
+                if not c & 0x80: break
+            if fld == 2: return str(v)
+        elif wt == 2:
+            ln, sh = 0, 0
+            while True:
+                c = pb[i]; i += 1; ln |= (c & 0x7F) << sh; sh += 7
+                if not c & 0x80: break
+            i += ln
+        else: raise AssertionError(("apex_manifest.pb wire type", wt))
+    raise AssertionError(f"{path}: no version in apex_manifest.pb")
+for (tname, tb), t in zip(donors_v2, [t for t in TRAINS if map_rec_size(UElf(train_netd(t))) != M_SZ]):
+    ver = train_version(t)
+    print(f"netd.o ({ver}): base {tname}, no union")
+    vnd = relax_ringbufs(relax_stats_5_4(bytearray(tb)))
+    out = os.path.join(OUT, f"netd_a52_{ver}.o"); open(out, "wb").write(vnd)
+    print(f"netd.o ({ver}): wrote {out} (sha256 {hashlib.sha256(bytes(vnd)).hexdigest()})")
 
 # --- libservice-connectivity.so: no BPF ringbuf on 5.4 ------------------------------------------------------------
 lsc = J("libservice-connectivity.so"); ldata = open(lsc, "rb").read(); ledits = []

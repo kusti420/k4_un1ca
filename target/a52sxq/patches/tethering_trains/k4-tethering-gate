@@ -3,32 +3,60 @@
 # init runs it at load-bpf-programs on an update boot (apexd.packages.updated=true), after the evidence capture of
 # a52sxq_mainline.rc and before netbpfload.rc starts the loader (k4_tethering_gate.rc sorts between them).
 #
-# Our loader is frozen: it only ever loads /system/etc/bpf/a52_netd.o. A Play Tethering whose own netd.o defines map
-# pins a52_netd.o does not create makes that APEX's userspace abort at boot ("Cannot open ... map" in netd /
-# system_server) -> crash loop -> RescueParty / Samsung bootchecker escalation -> apexd revert after several reboots
-# (2026-10-10 evidence). Instead: compare the pin paths now and, on a gap, set sys.k4.tethering_gap; the rc then sets
-# sys.init.updatable_crashing (what init sets when an `updatable` service died 4 times) and apexd's
-# WaitForBootStatus reverts the staged session and reboots once, before anything crashes. Verdict only: it never
-# fires when nothing is missing, when Tethering was not updated in this boot, or when an object cannot be read.
-# Host test: tethering_trains/test/run.sh (K4TG_LIVE, K4TG_OURS, K4TG_UPDATED, K4TG_KMSG, K4TG_PROPFILE).
+# Our loader never loads the APEX's own netd.o but /system/etc/bpf/a52_netd.<active Tethering versionCode>.o, or
+# a52_netd.o when the ROM ships no such object (NetBpfLoad.cpp netdObjectPath()), while the other BPF objects come
+# from the live APEX. A Play Tethering the ROM build has not seen can therefore break the boot in two ways: its own
+# objects use something our loader or the 5.4 kernel cannot load (bpfloader reboot_on_failure -> reboot,
+# bpfloader-failed, vold checkpoint retry, revert after two reboots - the 26Q4 train 373041100 on 2026-11-02), or its
+# userspace opens map pins our netd.o does not create or sizes differently ("Cannot open ... map" / size mismatch
+# abort in netd / system_server -> crash loop -> RescueParty / Samsung bootchecker escalation -> apexd revert after
+# several reboots, 2026-10-10). Instead, before anything runs: an activated Tethering whose versionCode is not in
+# /system/etc/bpf/a52_netd.known (every version the build verified, tethering_trains/check_netd.py --list) is
+# unsupported, and so is a known one whose netd.o map pins our object lacks (defense in depth). Either sets
+# sys.k4.tethering_gap; the rc then sets sys.init.updatable_crashing (what init sets when an `updatable` service died
+# 4 times) and apexd's WaitForBootStatus reverts the staged session and reboots once, before anything crashes.
+# Verdict only: it never fires when Tethering was not updated in this boot, and the pin check gives no verdict when
+# an object cannot be read. Host test: tethering_trains/test/run.sh (K4TG_LIVE, K4TG_OURS, K4TG_OURS_DIR,
+# K4TG_UPDATED, K4TG_KNOWN, K4TG_KMSG, K4TG_PROPFILE).
 LIVE="${K4TG_LIVE:-/apex/com.android.tethering/etc/bpf/mainline/netd.o}"
-OURS="${K4TG_OURS:-/system/etc/bpf/a52_netd.o}"
+OURS_DIR="${K4TG_OURS_DIR:-/system/etc/bpf}"
 UPDATED="${K4TG_UPDATED:-/apex/apex-updated-list.xml}"
-log() { echo "k4-tethering-gate: $*" 2> /dev/null > "${K4TG_KMSG:-/dev/kmsg}"; }
+KNOWN="${K4TG_KNOWN:-/system/etc/bpf/a52_netd.known}"
+log() { echo "k4-tethering-gate: $*" 2> /dev/null >> "${K4TG_KMSG:-/dev/kmsg}"; }
 sp() { if [ -n "${K4TG_PROPFILE:-}" ]; then echo "$1=$2" >> "$K4TG_PROPFILE"; else setprop "$1" "$2"; fi; }
-grep -q 'moduleName="com.android.tethering"' "$UPDATED" 2> /dev/null || { log "Tethering not updated in this boot"; exit 0; }
-[ -r "$LIVE" ] && [ -r "$OURS" ] || { log "cannot read $LIVE or $OURS, no verdict"; exit 0; }
+TETH="$(grep -o '<apex-info [^>]*moduleName="com.android.tethering"[^>]*>' "$UPDATED" 2> /dev/null | head -n 1)"
+[ -n "$TETH" ] || { log "Tethering not updated in this boot"; exit 0; }
+VER="$(printf '%s\n' "$TETH" | sed -n 's/.*versionCode="\([0-9]*\)".*/\1/p')"
+# 1. the version: known to the build (a52_netd.known line "<set sha> <netd sha> Tethering <ver> (<label>)[ = ...]")?
+if [ -z "$VER" ]; then
+    log "updated Tethering has no versionCode in $UPDATED, version not checked"
+elif [ ! -r "$KNOWN" ]; then
+    log "cannot read $KNOWN, version $VER not checked"
+elif grep -q "Tethering $VER (" "$KNOWN" 2> /dev/null; then
+    log "updated Tethering $VER is a version this ROM build verified"
+else
+    log "updated Tethering $VER is not a version this ROM build knows ($KNOWN) - its BPF objects may not load on this kernel with our loader, asking apexd to revert this update (see k4-mainline-diag)"
+    sp sys.k4.tethering_gap "unknown Tethering $VER"
+    exit 0
+fi
+# 2. the map pins, against the object the loader will load for this version
+OURS="${K4TG_OURS:-}"
+if [ -z "$OURS" ]; then
+    OURS="$OURS_DIR/a52_netd.o"
+    [ -n "$VER" ] && [ -r "$OURS_DIR/a52_netd.$VER.o" ] && OURS="$OURS_DIR/a52_netd.$VER.o"
+fi
+[ -r "$LIVE" ] && [ -r "$OURS" ] || { log "cannot read $LIVE or $OURS, no verdict on the map pins"; exit 0; }
 # map pin paths an object defines (/sys/fs/bpf/<dir>/map_<obj>_<name>), like k4-mainline-diag and check_netd.py
 pins() { strings -n 8 "$1" 2> /dev/null | grep '^/sys/fs/bpf/[^/]*/map_' | sort -u; }
 OP="$(pins "$OURS")"
 LP="$(pins "$LIVE")"
-[ -n "$OP" ] && [ -n "$LP" ] || { log "no map pin list from $OURS or $LIVE, no verdict"; exit 0; }
+[ -n "$OP" ] && [ -n "$LP" ] || { log "no map pin list from $OURS or $LIVE, no verdict on the map pins"; exit 0; }
 MISSING=""
 for p in $LP; do printf '%s\n' "$OP" | grep -qx -- "$p" || MISSING="$MISSING ${p##*/map_}"; done
 if [ -n "$MISSING" ]; then
-    log "the updated Tethering defines BPF maps a52_netd.o does not create:$MISSING - asking apexd to revert this update (see k4-mainline-diag)"
+    log "the updated Tethering defines BPF maps ${OURS##*/} does not create:$MISSING - asking apexd to revert this update (see k4-mainline-diag)"
     sp sys.k4.tethering_gap "$(echo $MISSING | cut -c 1-90)"
 else
-    log "updated Tethering: every map pin is in a52_netd.o"
+    log "updated Tethering ${VER:-?}: every map pin is in ${OURS##*/}"
 fi
 exit 0

@@ -52,7 +52,9 @@ TARGET_BOOT_SEANDROID_MAGIC=false
 
 # Ship Google's original Tethering APEX (Play system updates work; needs the k4 ringbuf kernel). true = old re-signed
 # APEX with the ringbuf users stubbed, see target/a52sxq/patches/tethering/customize.sh
-# false: a52_netd.o carries the maps of every known Play train (tethering_trains guards it at build
-# time), so trains apply. A train adding new maps still needs tethering/regen.py --train-progs + a rebuild; until then
-# apexd reverts it after the update boot (k4-mainline-diag says why).
+# false: our own build of the loader reads both BPF map-def layouts and loads /system/etc/bpf/a52_netd.o (the maps of
+# every known 26Q3-era Play train) or a52_netd.<versionCode>.o (one per newer train, 373041100 first; tethering_trains
+# guards all of them at build time), so trains apply. A train nobody has seen still needs its objects in
+# tethering_trains/known/, tethering/regen.py --train-progs + a rebuild; until then k4-tethering-gate makes apexd revert it
+# in one reboot (k4-mainline-diag says why).
 TARGET_TETHERING_RESIGN_APEX=false
