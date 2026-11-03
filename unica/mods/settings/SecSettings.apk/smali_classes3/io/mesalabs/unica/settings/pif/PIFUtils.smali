@@ -81,7 +81,7 @@
 
     const-string v0, "persist.sys.unica.pif"
 
-    const/4 v1, 0x1
+    const/4 v1, 0x0
 
     invoke-static {v0, v1}, Landroid/os/SemSystemProperties;->getBoolean(Ljava/lang/String;Z)Z
 

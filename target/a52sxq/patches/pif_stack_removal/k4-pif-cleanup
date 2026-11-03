@@ -114,9 +114,9 @@ for id in $IDS; do
     case " $GOING " in *" $id "*) ;; *) [ -d "$ADB/modules/$id" ] && log "$id: kept (installed or updated by the user)" ;; esac
 done
 
-# Since 9.3.101 persist.sys.unica.pif is the switch of the framework PlayIntegrityHooks again (unset = on). On a
-# phone coming from the module-stack builds it was that stack's switch; a "false" left there would keep the framework
-# hooks off, so it is reset to the default once. The keybox switch and the imported keybox (unica_keybox_data) are
+# Since 9.3.101 persist.sys.unica.pif is the switch of the framework PlayIntegrityHooks again (unset = OFF since 9.3.104:
+# owner: users bring their own Play Integrity setup). On a phone coming from the module-stack builds it was that stack's
+# switch, so it is reset to the default once. The keybox switch and the imported keybox (unica_keybox_data) are
 # the user's own and stay.
 [ -n "$K4PC_PROPFILE" ] || [ -n "$(getprop persist.sys.unica.pif)" ] && sp persist.sys.unica.pif ""
 
