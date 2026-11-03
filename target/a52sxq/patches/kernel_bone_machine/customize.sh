@@ -10,8 +10,12 @@
 # NOTE 2026-11-01: the k4 0017 build (bone-machine_k4btf_ringbuf_su_pt_uvc8_dm_a52sxq.zip, sha256 d23e294f...) reset the
 # phone at 7.5 s on its first boot, in the middle of apexd's dm-verity activation (console-ramoops: no panic text), so
 # the dm uevent fix is NOT shipped; back on the 10-17 build until it is understood (scratch/bootloop_9395/).
-KZIP="$SRC_DIR/prebuilts/kernel/bone-machine/bone-machine_k4btf_ringbuf_su_pt_uvc8_test_a52sxq.zip"
-KSHA="af1e005a6855b634670d93f9564271c795524233da5ad55e6d401eacfd4a99a4"
+# NOTE 2026-11-03: bone-machine_k4btf_ringbuf_su_pt_uvc8_susfs_a52sxq.zip = the uvc8_test kernel (k4-patches 0001-0016, 0017
+# still parked) plus SUSFS v2.3.0 (k4-patches/0018-susfs-v2.3.0-for-5.4.patch, KSU_SUSFS=y with ReSukiSU's inline hook, see
+# prebuilts/kernel/bone-machine/k4-source/susfs/). Same uname, boot.img byte-size identical (avb padding). Owner asked for
+# SUSFS so root-hiding/SELinux checks pass; ReSukiSU's own selinux_hide stays the SELinux sanitizer.
+KZIP="$SRC_DIR/prebuilts/kernel/bone-machine/bone-machine_k4btf_ringbuf_su_pt_uvc8_susfs_a52sxq.zip"
+KSHA="6db9ab9ab13f5db84871f60a76b8f9ab79738396a673dab0a06a322fa99eb956"
 KVER="5.4.302-bone-machine-qgki"
 [ -f "$KZIP" ] || ABORT "kernel_bone_machine: $KZIP not found"
 [ "$(sha256sum "$KZIP" | cut -d " " -f 1)" = "$KSHA" ] || ABORT "kernel_bone_machine: sha256 mismatch for $KZIP"

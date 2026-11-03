@@ -1,0 +1,4 @@
+Patches here are NOT applied by k4_build.sh (it globs k4-patches/*.patch only).
+
+0017-dm-ioctl-send-add-uevent-again-after-hash-insert.patch: reset ~7.5 s into boot during apexd dm-verity
+activation on 9.3.95 (2026-11-01, no panic text). Kept for reference; do not re-enable without a serial log.

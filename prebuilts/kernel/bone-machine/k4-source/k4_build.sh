@@ -4,6 +4,8 @@
 #
 #   ./k4_build.sh                 # exact release reproduction
 #   K4_BACKPORTS=1 ./k4_build.sh  # same, plus k4-patches/*.patch (Android 17 kernel-feature backports)
+#                                 # incl. 0018 SUSFS v2.3.0 (CONFIG_KSU_SUSFS inline hook instead of the
+#                                 # ReSukiSU manual hooks); K4_SUSFS=0 skips 0018 and keeps the manual hooks
 #   K4_STOCK=1 ./k4_build.sh      # "stock mode": k4-patches/*.patch + k4-patches/stock/*.patch, and the kernel
 #                                 # config is the community stock-kernel5.4.302 config (k4-patches/stock/
 #                                 # stock_kernel.config, IKCONFIG of 5.4.302-qgki-g7e297f4af6a3) with ReSukiSU,
@@ -138,6 +140,7 @@ export KBUILD_BUILD_TIMESTAMP="${KBUILD_BUILD_TIMESTAMP:-Sun Oct 4 12:00:42 UTC 
 if [ "${K4_BACKPORTS:-0}" = "1" ]; then
     for p in "$ROOT"/k4-patches/*.patch; do
         [ -e "$p" ] || continue
+        case "$(basename "$p")" in *-susfs-*) [ "${K4_SUSFS:-1}" = "1" ] || { log "Skipping $(basename "$p") (K4_SUSFS=0)"; continue; } ;; esac
         log "Backport: $(basename "$p")"
         git apply --check "$p"
         git apply "$p"
@@ -197,6 +200,28 @@ if [ "$K4_STOCK" = "1" ]; then
     log "Stock-mode defconfig written from $(basename "$STOCK_CONFIG") ($(wc -l < "$DEFCONFIG") lines)"
 fi
 
+# 5c. SUSFS (k4-patches/0018-susfs-*): 0018 swaps the ReSukiSU manual hooks for the susfs inline hooks, so
+#     whenever it is applied the hook choice MUST be KSU_SUSFS (KSU_MANUAL_HOOK on top of 0018 = no root hooks).
+K4_SUSFS_ON=0
+if grep -q 'susfs_init' fs/susfs.c 2>/dev/null; then
+    K4_SUSFS_ON=1
+    f="$DEFCONFIG"
+    set_cfg "$f" KSU_MANUAL_HOOK n                  # exclusive choice with KSU_SUSFS; 0018 removed its call sites
+    set_cfg "$f" KSU_SUSFS y                        # ReSukiSU "SUSFS Inline Hook"; kernel side = 0018
+    set_cfg "$f" KSU_SUSFS_SUS_PATH y               # hide paths from app UIDs (namei/readdir/statfs hooks)
+    set_cfg "$f" KSU_SUSFS_SUS_MOUNT y              # hide ksu/module mounts from /proc/*/mount{s,info,stats}, mnt_id
+    set_cfg "$f" KSU_SUSFS_SUS_KSTAT y              # spoof ino/dev/times of bind-mounted/overlaid files (vfs_getattr)
+    set_cfg "$f" KSU_SUSFS_SPOOF_UNAME y            # uname -r/-v spoof (kernel/sys.c); bone-machine string is a tell
+    set_cfg "$f" KSU_SUSFS_ENABLE_LOG y             # susfs printk, runtime toggle (ksu_susfs enable_log 0/1)
+    set_cfg "$f" KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS y # filter ksu_/susfs_ symbols out of /proc/kallsyms
+    set_cfg "$f" KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG y # 5.4 has no bootconfig: hook is in fs/proc/cmdline.c
+    set_cfg "$f" KSU_SUSFS_OPEN_REDIRECT y          # path open redirect (namei) + statfs/fdinfo spoof
+    set_cfg "$f" KSU_SUSFS_SUS_MAP y                # hide mmapped sus files from /proc/*/maps,smaps,map_files,mem
+    # Not ported (no Kconfig in ReSukiSU 8770c7e3 or no 5.4 hook): PRIORITY_UID_FILTER (block/ioprio.c) and
+    # the susfs selinuxfs/status/services selinux hide - ReSukiSU's own selinux_hide (auto hook) stays in charge.
+    log "SUSFS: KSU_SUSFS=y (manual hook off) + SUS_PATH/MOUNT/KSTAT/MAP, uname/cmdline spoof, open redirect"
+fi
+
 # 6. Toolchain: the CI's clang-r530567 release, placed where build_kernel_zip.sh looks for it
 if [ ! -x toolchain/clang/bin/clang ]; then
     TC="$HOME/toolchains/clang-r530567"
@@ -228,7 +253,12 @@ ln -sfn "$ROOT" "$LINKDIR/android_kernel_samsung_sm7325_a52s_5g"
 make -C . O=out ARCH=arm64 olddefconfig
 grep -q '^CONFIG_NOMOUNT=y' out/.config
 grep -q '^CONFIG_BBG=y' out/.config
-if grep -q '^CONFIG_KSU_SUSFS=y' out/.config; then echo "resukisu-oneui must not enable SUSFS"; exit 1; fi
+if [ "$K4_SUSFS_ON" = "1" ]; then
+    grep -qx 'CONFIG_KSU_SUSFS=y' out/.config || { echo "k4: 0018 applied but CONFIG_KSU_SUSFS=y missing"; exit 1; }
+    ! grep -qx 'CONFIG_KSU_MANUAL_HOOK=y' out/.config || { echo "k4: KSU_MANUAL_HOOK must be off with 0018"; exit 1; }
+elif grep -q '^CONFIG_KSU_SUSFS=y' out/.config; then
+    echo "k4: SUSFS is on but the 0018 kernel side was not applied"; exit 1
+fi
 RELZIP="$(ls -t "$ROOT"/bone-machine_*_One-UI_*.zip | head -1)"
 if [ "$K4_STOCK" = "1" ]; then
     for s in KSU=y DEBUG_INFO_BTF=y LTO_CLANG=y CFI_CLANG=y SHADOW_CALL_STACK=y NOMOUNT=y BBG=y; do

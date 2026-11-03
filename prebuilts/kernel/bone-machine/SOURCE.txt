@@ -55,3 +55,18 @@ Recipe:   k4-source/k4_build.sh (SRC_COMMIT 93b49d0ccd89, clang r530567 tarball 
   name hash insert, so ueventd can name/label new dm devices on this < 5.15 kernel: root cause of apexd "Failed to set mtime"
   and the recoverydecompressedapex reboot, see target/a52sxq/patches/apex_dm_relabel). git apply --check OK against
   93b49d0ccd89; BUILT 2026-11-01 14:57 (k4_build_dm.log, incremental, ReSukiSU 8770c7e3 re-inited) = bone-machine_k4btf_ringbuf_su_pt_uvc8_dm_a52sxq.zip sha256 d23e294f..., pinned in kernel_bone_machine.
+
+2026-11-03: SUSFS. Same kernel as uvc8_test (k4-patches 0001-0016; 0017 parked in k4-patches/disabled/ since the 9.3.95 reset)
+  plus k4-patches/0018-susfs-v2.3.0-for-5.4.patch = SUSFS v2.3.0 core (fs/susfs.c, include/linux/susfs*.h) + the maintained
+  samsung-delta and ReSukiSU integration patch (the same set the upstream resukisu-susfs-oneui CI floats), baked into one static
+  patch generated from a clean 93b49d0ccd89 tree with NoMount+BBG+0001-0016 applied. k4_build.sh gained a K4_SUSFS gate (default 1):
+  KSU_MANUAL_HOOK=n, KSU_SUSFS=y, sub-features SUS_PATH SUS_MOUNT SUS_KSTAT SUS_MAP SPOOF_UNAME SPOOF_CMDLINE_OR_BOOTCONFIG
+  OPEN_REDIRECT ENABLE_LOG HIDE_KSU_SUSFS_SYMBOLS (PRIORITY_UID_FILTER dropped: newer than ReSukiSU 8770c7e3; the susfs SELinux-hide
+  hooks dropped: ReSukiSU's own runtime selinux_hide feature owns that and is enabled). ReSukiSU pin unchanged (8770c7e3).
+File:     bone-machine_k4btf_ringbuf_su_pt_uvc8_susfs_a52sxq.zip (= k4-out/susfs/bone-machine_2026-11-03_One-UI_ReSukiSU-v4.2.0-rc3_a52sxq.zip)
+SHA-256:  6db9ab9ab13f5db84871f60a76b8f9ab79738396a673dab0a06a322fa99eb956   config: aadaced16df54d296bbad7a1971434742b45c0d6f7a441b48d2d4d0041b34cf2
+Image:    strings "susfs is initialized! version: v2.3.0", uname 5.4.302-bone-machine-qgki; boot.img 49545232 bytes (same as uvc8_test:
+          avb padding), vendor_boot/dtbo unchanged. CONFIG_KSU_SUSFS=y, DEBUG_INFO_BTF=y, NOMOUNT=y, BBG=y in out/.config.
+Recipe:   k4-source/k4_build.sh (K4_BACKPORTS=1, K4_SUSFS=1) + k4-source/k4-patches/0001-0016,0018; k4-source/susfs/{susfs.config,
+          k4_build.sh.diff,build_log_tail.txt}. Userspace: the ReSukiSU manager's SuSFS screen drives it (ksud susfs), no extra module.
+          Pinned in kernel_bone_machine for 9.3.103. NOT yet boot-tested in a ROM build at the time of pinning.

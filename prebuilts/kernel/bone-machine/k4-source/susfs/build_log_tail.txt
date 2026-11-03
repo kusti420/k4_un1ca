@@ -1,0 +1,120 @@
+  INSTALL techpack/audio/soc/pinctrl_wcd_dlkm.ko
+  INSTALL techpack/audio/soc/snd_event_dlkm.ko
+  INSTALL techpack/audio/soc/swr_ctrl_dlkm.ko
+  INSTALL techpack/audio/soc/swr_dlkm.ko
+  INSTALL techpack/camera/drivers/camera.ko
+  INSTALL techpack/datarmnet-ext/offload/rmnet_offload.ko
+  INSTALL techpack/datarmnet-ext/shs/rmnet_shs.ko
+  INSTALL techpack/datarmnet/core/rmnet_core.ko
+  INSTALL techpack/datarmnet/core/rmnet_ctl.ko
+  DEPMOD  5.4.302-bone-machine-qgki
+make: Leaving directory '/home/kusti420/git/kernel_a52sxq_bone'
+[0;36m[1m[INFO][0m  Kernel version: 5.4.302-bone-machine-qgki
+[0;36m[1m[INFO][0m  Found 84 kernel modules
+depmod: WARNING: could not open modules.order at /home/kusti420/toolchains/k4-kernel-cache/src/android_kernel_samsung_sm7325_a52s_5g/out/flat_modules/lib/modules/5.4.302-bone-machine-qgki: No such file or directory
+depmod: WARNING: could not open modules.builtin at /home/kusti420/toolchains/k4-kernel-cache/src/android_kernel_samsung_sm7325_a52s_5g/out/flat_modules/lib/modules/5.4.302-bone-machine-qgki: No such file or directory
+depmod: WARNING: could not open modules.builtin.modinfo at /home/kusti420/toolchains/k4-kernel-cache/src/android_kernel_samsung_sm7325_a52s_5g/out/flat_modules/lib/modules/5.4.302-bone-machine-qgki: No such file or directory
+[0;32m[1m[OK][0m    Modules installed, stripped, and metadata generated: 84 files
+[0;36m[1m[INFO][0m  Creating flashable zip: bone-machine_2026-11-03_One-UI_ReSukiSU-v4.2.0-rc3_a52sxq.zip...
+[0;36m[1m[INFO][0m  Repacking boot.img...
+Parsing boot image: [boot.img]
+HEADER_VER      [3]
+KERNEL_SZ       [48808448]
+RAMDISK_SZ      [725840]
+OS_VERSION      [11.0.0]
+OS_PATCH_LEVEL  [2025-09]
+PAGESIZE        [4096]
+CMDLINE         [console=null androidboot.hardware=qcom androidboot.memcg=1 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 androidboot.usbcontroller=a600000.dwc3 swiotlb=0 loop.max_part=7 cgroup.memory=nokmem,nosocket firmware_class.path=/vendor/firmware_mnt/image pcie_ports=compat loop.max_part=7 iptable_raw.raw_before_defrag=1 ip6table_raw.raw_before_defrag=1 printk.devkmsg=on]
+KERNEL_FMT      [raw]
+RAMDISK_FMT     [gzip]
+SAMSUNG_SEANDROID
+Parsing boot image: [boot.img]
+HEADER_VER      [3]
+KERNEL_SZ       [48808448]
+RAMDISK_SZ      [725840]
+OS_VERSION      [11.0.0]
+OS_PATCH_LEVEL  [2025-09]
+PAGESIZE        [4096]
+CMDLINE         [console=null androidboot.hardware=qcom androidboot.memcg=1 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 androidboot.usbcontroller=a600000.dwc3 swiotlb=0 loop.max_part=7 cgroup.memory=nokmem,nosocket firmware_class.path=/vendor/firmware_mnt/image pcie_ports=compat loop.max_part=7 iptable_raw.raw_before_defrag=1 ip6table_raw.raw_before_defrag=1 printk.devkmsg=on]
+KERNEL_FMT      [raw]
+RAMDISK_FMT     [gzip]
+SAMSUNG_SEANDROID
+Repack to boot image: [new-boot.img]
+HEADER_VER      [3]
+KERNEL_SZ       [47221248]
+RAMDISK_SZ      [722399]
+OS_VERSION      [11.0.0]
+OS_PATCH_LEVEL  [2025-09]
+PAGESIZE        [4096]
+CMDLINE         [console=null androidboot.hardware=qcom androidboot.memcg=1 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 androidboot.usbcontroller=a600000.dwc3 swiotlb=0 loop.max_part=7 cgroup.memory=nokmem,nosocket firmware_class.path=/vendor/firmware_mnt/image pcie_ports=compat loop.max_part=7 iptable_raw.raw_before_defrag=1 ip6table_raw.raw_before_defrag=1 printk.devkmsg=on]
+[0;32m[1m[OK][0m    boot.img repacked
+[0;36m[1m[INFO][0m  Copying dtbo.img...
+[0;32m[1m[OK][0m    dtbo.img placed in staging dir
+[0;36m[1m[INFO][0m  Repacking vendor_boot.img...
+Parsing boot image: [vendor_boot.img]
+VENDOR_BOOT_HDR
+HEADER_VER      [3]
+RAMDISK_SZ      [707084]
+DTB_SZ          [466624]
+PAGESIZE        [4096]
+NAME            [SRPUE26A011]
+CMDLINE         [console=null androidboot.hardware=qcom androidboot.memcg=1 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 androidboot.usbcontroller=a600000.dwc3 swiotlb=0 loop.max_part=7 cgroup.memory=nokmem,nosocket firmware_class.path=/vendor/firmware_mnt/image pcie_ports=compat loop.max_part=7 iptable_raw.raw_before_defrag=1 ip6table_raw.raw_before_defrag=1 printk.devkmsg=on]
+RAMDISK_FMT     [gzip]
+7084 blocks
+53321 blocks
+Parsing boot image: [vendor_boot.img]
+VENDOR_BOOT_HDR
+HEADER_VER      [3]
+RAMDISK_SZ      [707084]
+DTB_SZ          [466624]
+PAGESIZE        [4096]
+NAME            [SRPUE26A011]
+CMDLINE         [console=null androidboot.hardware=qcom androidboot.memcg=1 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 androidboot.usbcontroller=a600000.dwc3 swiotlb=0 loop.max_part=7 cgroup.memory=nokmem,nosocket firmware_class.path=/vendor/firmware_mnt/image pcie_ports=compat loop.max_part=7 iptable_raw.raw_before_defrag=1 ip6table_raw.raw_before_defrag=1 printk.devkmsg=on]
+RAMDISK_FMT     [gzip]
+Repack to boot image: [new-boot.img]
+HEADER_VER      [3]
+RAMDISK_SZ      [6189326]
+DTB_SZ          [466396]
+PAGESIZE        [4096]
+NAME            [SRPUE26A001]
+CMDLINE         [console=null androidboot.hardware=qcom androidboot.memcg=1 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 androidboot.usbcontroller=a600000.dwc3 swiotlb=0 loop.max_part=7 cgroup.memory=nokmem,nosocket firmware_class.path=/vendor/firmware_mnt/image pcie_ports=compat loop.max_part=7 iptable_raw.raw_before_defrag=1 ip6table_raw.raw_before_defrag=1 printk.devkmsg=on]
+[0;32m[1m[OK][0m    vendor_boot.img repacked
+  adding: META-INF/ (stored 0%)
+  adding: META-INF/com/ (stored 0%)
+  adding: META-INF/com/google/ (stored 0%)
+  adding: META-INF/com/google/android/ (stored 0%)
+  adding: META-INF/com/google/android/update-binary (deflated 66%)
+  adding: META-INF/com/google/android/updater-script (stored 0%)
+  adding: images/ (stored 0%)
+  adding: images/vendor_boot.img (deflated 8%)
+  adding: images/dtbo.img (deflated 80%)
+  adding: images/boot.img (deflated 56%)
+[0;32m[1m[OK][0m    Flashable zip created: /home/kusti420/toolchains/k4-kernel-cache/src/android_kernel_samsung_sm7325_a52s_5g/bone-machine_2026-11-03_One-UI_ReSukiSU-v4.2.0-rc3_a52sxq.zip
+
+[0;32m[1m══════════════════════════════════════════════[0m
+[0;32m[1m  Build complete![0m
+  Author:     bone-machine
+  Device:     a52sxq
+  ROM:        One UI
+  Root:       ReSukiSU v4.2.0-rc3
+  Date:       2026-11-03
+  Output:     bone-machine_2026-11-03_One-UI_ReSukiSU-v4.2.0-rc3_a52sxq.zip
+[0;32m[1m══════════════════════════════════════════════[0m
+make: Entering directory '/home/kusti420/git/kernel_a52sxq_bone'
+  GEN     Makefile
+  HOSTCC  scripts/basic/fixdep
+  HOSTCC  scripts/kconfig/conf.o
+  HOSTCC  scripts/kconfig/confdata.o
+  HOSTCC  scripts/kconfig/expr.o
+  HOSTCC  scripts/kconfig/lexer.lex.o
+  HOSTCC  scripts/kconfig/parser.tab.o
+  HOSTCC  scripts/kconfig/preprocess.o
+  HOSTCC  scripts/kconfig/symbol.o
+  HOSTLD  scripts/kconfig/conf
+scripts/kconfig/conf  --olddefconfig Kconfig
+mm/Kconfig:980:warning: no new line at end of file
+#
+# configuration written to .config
+#
+make: Leaving directory '/home/kusti420/git/kernel_a52sxq_bone'
+[1;36m[k4][0m Done: /home/kusti420/git/kernel_a52sxq_bone/bone-machine_2026-11-03_One-UI_ReSukiSU-v4.2.0-rc3_a52sxq.zip
