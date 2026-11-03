@@ -4,19 +4,28 @@
 #
 # The PROGRAMS stay the base object's, byte for byte; only map definitions are added. A map lives in four places of
 # an AOSP bpf object and each is copied from the donor:
-#   .android_maps   192-byte struct bpf_map_def (what netbpfload reads: kver/api window, uid/gid/mode, pins)
+#   .android_maps   struct bpf_map_def (what netbpfload reads: kver/api window, uid/gid/mode, pins); two layouts:
+#                   192 bytes up to Tethering 26Q3 (v1: type key_size value_size max_entries map_flags uid gid mode
+#                   min_api max_api min_kver max_kver create[70] pin[70] name_idx) and 180 bytes since the 26Q4 train
+#                   373041100 (v2: the same without key_size/value_size/max_entries, which libbpf takes from .maps).
+#                   Records are converted to the base object's layout (sizes from the donor's BTF .maps definition).
 #   .maps           libbpf BTF-defined map (bpf_object__find_map_by_name must find it, or the loader fails)
 #   .maps.<name>    ____btf_map_<name> {key; value} (key/value BTF type ids for the non-libbpf loader path)
 #   .BTF            VAR + DATASEC entry for each of the three, plus the types they use; ELF symbols for each VAR
 #                   (libbpf resolves DATASEC var offsets via ELF symbols); .rel.BTF relocs for those DATASEC entries
 # New BTF types are appended (existing type ids and string offsets, which .BTF.ext refers to, stay unchanged) and
-# deduplicated against the base's types. A map that both objects define must have an identical bpf_map_def.
+# deduplicated against the base's types. A map that both objects define must have an identical bpf_map_def
+# (layout-independent fields, key/value size and max_entries compared).
 import struct, sys
 
 SHT_SYMTAB, SHT_REL = 2, 9
 BTF_KINDS_REF = {2, 8, 9, 10, 11, 12, 13, 14, 17, 18}   # kinds whose size_or_type field is a type id
 KIND_VAR, KIND_DATASEC = 14, 15
-M_SZ = 192
+M_SZ, M_SZ_V2 = 192, 180             # struct bpf_map_def v1 (<= 26Q3, the loader's internal layout) / v2 (26Q4+)
+MAP_LAYOUTS = (M_SZ, M_SZ_V2)
+# field offsets per layout (common fields; v1 has key_size@4 value_size@8 max_entries@12 in front of map_flags)
+M_OFF = {M_SZ: dict(flags=16, uid=20, api=32, kver=40, create=48, pin=118, name_idx=188),
+         M_SZ_V2: dict(flags=4, uid=8, api=20, kver=28, create=36, pin=106, name_idx=176)}
 
 
 def extra_len(kind, vlen):
@@ -69,6 +78,35 @@ class Btf:
     def find(self, kind, name):
         r = [i for i, t in enumerate(self.types) if t and t[0] == kind and t[1] == name]
         assert len(r) <= 1, (kind, name, r); return r[0] if r else None
+
+    def size(self, tid):
+        """sizeof the C type tid (like btf__resolve_size)"""
+        if tid == 0: return 0
+        kind, name, info, st, ex = self.types[tid][:5]
+        if kind in (1, 4, 5, 6, 16, 19): return st           # INT STRUCT UNION ENUM FLOAT ENUM64
+        if kind == 2: return 8                               # PTR
+        if kind == 3: return self.size(ex[0][0]) * ex[0][2]  # ARRAY: elem type, index type, nelems
+        if kind in (8, 9, 10, 11, 14, 18): return self.size(st)   # TYPEDEF VOLATILE CONST RESTRICT VAR TYPE_TAG
+        raise AssertionError(("BTF size of kind", kind, name))
+
+    def libbpf_map_sizes(self):
+        """name -> (key_size, value_size, max_entries) from the libbpf-style .maps definitions (DEFINE_LIBBPF_MAP:
+        __type(key/value) are pointers to the types, __uint(max_entries) is a pointer to int[N]); what libbpf, and
+        the 26Q4 loader, create the map with"""
+        ds = self.find(KIND_DATASEC, ".maps"); assert ds, ".maps DATASEC"
+        out = {}
+        for vid, _, _ in self.types[ds][4]:
+            v = self.types[vid]; assert v[0] == KIND_VAR, v[:2]
+            st = self.types[v[3]]; assert st[0] == 4, (v[1], "libbpf map def is not a struct")
+            m = {self.s(x[0]): x[1] for x in st[4]}
+            def ptr(tid):
+                t = self.types[tid]; assert t[0] == 2, (v[1], "not a pointer"); return t[3]
+            def nelems(tid):
+                t = self.types[ptr(tid)]; assert t[0] == 3, (v[1], "not an array"); return t[4][0][2]
+            out[v[1]] = (self.size(ptr(m["key"])) if "key" in m else 0,
+                         self.size(ptr(m["value"])) if "value" in m else 0,
+                         nelems(m["max_entries"]) if "max_entries" in m else 0)
+        return out
 
     def serialize(self):
         out, offs = bytearray(), [None]
@@ -175,13 +213,68 @@ class Elf:
         return bytes(out)
 
 
-def map_defs(e):
-    """name -> (offset in .android_maps, 192-byte record), from the records' own name_idx."""
-    d = e.sh[e.idx(".android_maps")]["data"]; assert len(d) % M_SZ == 0
+def map_rec_size(e):
+    """sizeof(struct bpf_map_def) an object was built with: the st_size of its *_def symbols in .android_maps (what
+    the loader derives it from too), else the only layout the section size is a multiple of."""
+    si = e.idx(".android_maps"); n = len(e.sh[si]["data"])
+    sizes = {s[6] for s in e.syms() if s[4] == si and s[6]}
+    if len(sizes) == 1 and sizes <= set(MAP_LAYOUTS) and n % next(iter(sizes)) == 0: return next(iter(sizes))
+    fits = [m for m in MAP_LAYOUTS if n % m == 0]
+    assert not sizes and len(fits) == 1, ("struct bpf_map_def layout", sizes, n)
+    return fits[0]
+
+
+class MapDef:
+    """one .android_maps record of either layout; key/val/max are the record's own (v1) or None (v2) until set"""
+    def __init__(self, raw):
+        self.raw, self.size = bytes(raw), len(raw); o = M_OFF[self.size]
+        self.type, = struct.unpack_from("<I", raw, 0)
+        self.key, self.val, self.max = struct.unpack_from("<3I", raw, 4) if self.size == M_SZ else (None, None, None)
+        self.flags, = struct.unpack_from("<I", raw, o["flags"])
+        self.uid, self.gid, self.mode = struct.unpack_from("<3I", raw, o["uid"])
+        self.min_api, self.max_api = struct.unpack_from("<2i", raw, o["api"])
+        self.min_kver, self.max_kver = struct.unpack_from("<2I", raw, o["kver"])
+        self.create = bytes(raw[o["create"]:o["create"] + 70])
+        self.pin = bytes(raw[o["pin"]:o["pin"] + 70])
+        self.name_idx, = struct.unpack_from("<I", raw, o["name_idx"])
+        self.name = self.pin.split(b"\0")[0].decode()[self.name_idx:]
+
+    @property
+    def pin_path(self): return self.pin.split(b"\0")[0].decode()
+
+    @property
+    def create_path(self): return self.create.split(b"\0")[0].decode()
+
+    def canon(self):
+        """the layout-independent fields as a v2 record (byte-comparable across layouts)"""
+        return struct.pack("<5I2i2I", self.type, self.flags, self.uid, self.gid, self.mode, self.min_api, self.max_api,
+                           self.min_kver, self.max_kver) + self.create + self.pin + struct.pack("<I", self.name_idx)
+
+    @property
+    def sizes(self): return (self.key, self.val, self.max)
+
+    def to(self, size):
+        """the record in layout `size` (v1 needs key/val/max known)"""
+        if size == M_SZ_V2: return self.canon()
+        assert size == M_SZ and None not in self.sizes, (self.name, "key/value/max_entries unknown")
+        c = self.canon()
+        return c[:4] + struct.pack("<3I", self.key, self.val, self.max) + c[4:]
+
+    def with_sizes(self, kvm):
+        self.key, self.val, self.max = kvm; return self
+
+
+def map_defs(e, btf=None):
+    """name -> (offset in .android_maps, MapDef), from the records' own name_idx. key/value/max_entries of v2 records
+    come from the object's BTF .maps definitions (btf: a parsed Btf of e, else parsed here)."""
+    d = e.sh[e.idx(".android_maps")]["data"]; sz = map_rec_size(e)
     out = {}
-    for o in range(0, len(d), M_SZ):
-        r = bytes(d[o:o + M_SZ]); pin = r[118:188].split(b"\0")[0].decode(); ni, = struct.unpack_from("<I", r, 188)
-        out[pin[ni:]] = (o, r)
+    for o in range(0, len(d), sz):
+        m = MapDef(d[o:o + sz]); out[m.name] = (o, m)
+    if sz != M_SZ:
+        btf = btf or Btf(bytes(e.sh[e.idx(".BTF")]["data"])); lb = btf.libbpf_map_sizes()
+        for name, (_, m) in out.items():
+            assert name in lb, (name, "no libbpf .maps definition"); m.with_sizes(lb[name])
     return out
 
 
@@ -191,8 +284,9 @@ def datasec_entries(btf, sec):
 
 
 def union(base_bytes, donors, log=print):
-    b = Elf(base_bytes); b.nsh0 = len(b.sh)
+    b = Elf(base_bytes); b.nsh0 = len(b.sh); bsz = map_rec_size(b)
     bbtf = Btf(bytes(b.sh[b.idx(".BTF")]["data"]))
+    bdef_struct = bbtf.find(4, "bpf_map_def"); assert bdef_struct and bbtf.types[bdef_struct][3] == bsz, "base bpf_map_def BTF"
     rel_btf = b.rels_for(b.idx(".BTF")); assert len(rel_btf) == 1, rel_btf
     # .rel.BTF entries point at DATASEC var offset fields: remember which (datasec id, entry) each one is
     hdr = 24 + struct.unpack_from("<I", bbtf.hdr, 8)[0]
@@ -205,28 +299,33 @@ def union(base_bytes, donors, log=print):
     assert all(o in field for o, _ in old_rels), "unexpected .rel.BTF target"
     old_rels = [(field[o], info) for o, info in old_rels]
     new_rels = []
-    bdefs = map_defs(b)
+    bdefs = map_defs(b, bbtf)
     added = []
     for dpath, dbytes in donors:
-        d = Elf(dbytes); dbtf = Btf(bytes(d.sh[d.idx(".BTF")]["data"])); imp = Importer(bbtf, dbtf)
+        d = Elf(dbytes); dbtf = Btf(bytes(d.sh[d.idx(".BTF")]["data"])); imp = Importer(bbtf, dbtf); dsz = map_rec_size(d)
+        # the donor's struct bpf_map_def is the base's, whatever its layout (records are converted below)
+        ddef_struct = dbtf.find(4, "bpf_map_def"); assert ddef_struct and dbtf.types[ddef_struct][3] == dsz, (dpath, "bpf_map_def BTF")
+        imp.memo[ddef_struct] = bdef_struct
+        if dsz != bsz: log(f"bpf_union: {dpath}: struct bpf_map_def is {dsz} bytes, converting to the base's {bsz}")
         dhdr = 24 + struct.unpack_from("<I", dbtf.hdr, 8)[0]
         drd = d.sh[d.rels_for(d.idx(".BTF"))[0]]["data"]
         drel = {struct.unpack_from("<Q", drd, 16 * i)[0]: struct.unpack_from("<Q", drd, 16 * i + 8)[0] for i in range(len(drd) // 16)}
         dsyms = list(d.syms())
-        for name, (doff, rec) in map_defs(d).items():
+        for name, (doff, dm) in map_defs(d, dbtf).items():
             if name in bdefs:
-                if bdefs[name][1] != rec:
-                    mk = lambda r: struct.unpack_from("<I", r, 40)[0]
+                bm = bdefs[name][1]
+                if bm.canon() != dm.canon() or bm.sizes != dm.sizes:
                     # only tolerated for maps neither side creates below 5.10 (sk_storage: BTF value grew)
-                    assert mk(rec) >= 0x050A0000 and mk(bdefs[name][1]) >= 0x050A0000 and \
-                        struct.unpack_from("<I", rec, 0)[0] != 27, (dpath, name, "bpf_map_def differs")
+                    assert dm.min_kver >= 0x050A0000 and bm.min_kver >= 0x050A0000 and dm.type != 27, \
+                        (dpath, name, "bpf_map_def differs")
                     log(f"bpf_union: {name}: definition differs in {dpath}, kept base (kver >= 5.10 only)")
                 continue
+            rec = dm.to(bsz)
             # 1. .android_maps record + <name>_def symbol
             am = b.idx(".android_maps"); ad = b.sh[am]["data"]; aoff = len(ad); b.set(am, bytes(ad) + rec)
             _, _, info, other, _, _, size = next(s for s in dsyms if s[1] == name + "_def" and s[4] == d.idx(".android_maps"))
-            assert size == M_SZ
-            s_def = b.add_sym(name + "_def", info, other, am, aoff, size)
+            assert size == dsz
+            s_def = b.add_sym(name + "_def", info, other, am, aoff, bsz)
             # 2. libbpf .maps definition + <name> symbol
             mp = b.idx(".maps"); md = b.sh[mp]["data"]
             _, _, info, other, _, _, size = next(s for s in dsyms if s[1] == name and s[4] == d.idx(".maps"))
@@ -239,9 +338,10 @@ def union(base_bytes, donors, log=print):
                 _, _, info, other, _, _, size = next(s for s in dsyms if s[1] == "____btf_map_" + name and s[4] == d.idx(kv))
                 s_kv = b.add_sym("____btf_map_" + name, info, other, ksec, 0, size)
             # 4. BTF: VARs (+ their types) and DATASEC entries; .rel.BTF like the donor's
-            def add_var(var, sec, sym, newsec=False):
+            def add_var(var, sec, sym, newsec=False, size=None):
                 dsid, dent = datasec_entries(dbtf, sec); k = dent[var]
                 dv, _, dsize = dbtf.types[dsid][4][k]; assert dbtf.types[dv][0] == KIND_VAR
+                if size is not None: assert dsize == dsz, (var, dsize); dsize = size
                 nv = imp.copy(dv)
                 if newsec:
                     assert bbtf.find(KIND_DATASEC, sec) is None, sec
@@ -252,10 +352,10 @@ def union(base_bytes, donors, log=print):
                 assert t[3] == 0 and all(o == 0 for _, o, _ in t[4]), (sec, "clang-style DATASEC expected")
                 dinfo = drel.get(dhdr + dbtf.types[dsid][5] + 12 + 12 * k + 4)
                 if dinfo is not None: new_rels.append(((bsid, len(t[4]) - 1), (sym << 32) | (dinfo & 0xFFFFFFFF)))
-            add_var(name + "_def", ".android_maps", s_def)
+            add_var(name + "_def", ".android_maps", s_def, size=bsz)
             add_var(name, ".maps", s_map)
             if s_kv is not None: add_var("____btf_map_" + name, kv, s_kv, newsec=True)
-            bdefs[name] = (aoff, rec); added.append(name)
+            bdefs[name] = (aoff, MapDef(rec).with_sizes(dm.sizes)); added.append(name)
             log(f"bpf_union: + {name} (from {dpath})")
     if not added: return base_bytes, added
     blob, offs = bbtf.serialize()
