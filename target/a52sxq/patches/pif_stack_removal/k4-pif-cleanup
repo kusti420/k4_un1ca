@@ -94,13 +94,10 @@ GOING=""
 for id in teesim playintegrityfix; do
     ours "$id" && GOING="$GOING $id"
 done
-if ours zygisksu; then
-    if zygisk_needed; then
-        log "zygisksu kept: another module still uses Zygisk"
-    else
-        GOING="$GOING zygisksu"
-    fi
-fi
+# Zygisk Next is a generic Zygisk provider, not Play Integrity by itself: it stays, so a PIF (or any Zygisk module) the
+# user installs afterwards works. 9.3.98-9.3.100 removed it when nothing else used Zygisk at that moment, and users who
+# then installed their own PIF got a module that silently did nothing.
+[ -d "$ADB/modules/zygisksu" ] && log "zygisksu kept (Zygisk provider for the user's own modules)"
 
 fail=0
 for id in $GOING; do
@@ -117,8 +114,11 @@ for id in $IDS; do
     case " $GOING " in *" $id "*) ;; *) [ -d "$ADB/modules/$id" ] && log "$id: kept (installed or updated by the user)" ;; esac
 done
 
-# Settings (Settings.Secure unica_keybox_data, persist.sys.unica.pif / .keybox) are left alone: since 9.3.101 they are
-# the switches and the keybox of the framework Play Integrity / keybox hooks again (the 9.3.88 setup).
+# Since 9.3.101 persist.sys.unica.pif is the switch of the framework PlayIntegrityHooks again (unset = on). On a
+# phone coming from the module-stack builds it was that stack's switch; a "false" left there would keep the framework
+# hooks off, so it is reset to the default once. The keybox switch and the imported keybox (unica_keybox_data) are
+# the user's own and stay.
+[ -n "$K4PC_PROPFILE" ] || [ -n "$(getprop persist.sys.unica.pif)" ] && sp persist.sys.unica.pif ""
 
 if [ "$fail" != 0 ]; then
     sp sys.k4.pifcleanup retry

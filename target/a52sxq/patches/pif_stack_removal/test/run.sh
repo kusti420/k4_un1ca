@@ -56,16 +56,18 @@ no_ "settings untouched" "$T/root/settings.log"
 
 fresh "boot 1 uninstalls, files wait for boot 2 (modules still running)"
 mkdir -p "$T/root/data/system/users/0" "$T/root/data/system/users/10"; run
-for m in zygisksu teesim playintegrityfix; do has "$m marked" "$ADB/modules/$m/remove"; done
-eq status "$(prop sys.k4.pifcleanup)" "pending:teesim,playintegrityfix,zygisksu"
+for m in teesim playintegrityfix; do has "$m marked" "$ADB/modules/$m/remove"; done
+no_ "zygisksu kept" "$ADB/modules/zygisksu/remove"
+eq status "$(prop sys.k4.pifcleanup)" "pending:teesim,playintegrityfix"
 for f in pif.prop teesim/config.json teesim/keybox.xml .k4_gmscompat; do has "$f still there" "$ADB/$f"; done
 no_ "Settings keybox import left alone (framework hooks use it again)" "$T/root/settings.log"
-grep -q '^persist.sys.unica.pif=' "$T/props" && bad "persist.sys.unica.pif touched" || ok
+grep -q '^persist.sys.unica.pif=$' "$T/props" && ok || bad "persist.sys.unica.pif not reset to default"
+grep -q '^persist.sys.unica.keybox=' "$T/props" && bad "keybox switch touched" || ok
 CASE="boot 1 again (system_server restart re-run): still pending, nothing deleted"; run
 eq status "$(prop sys.k4.pifcleanup)" "pending: teesim still installed, next boot"; has "config still there" "$ADB/teesim/config.json"
 CASE="boot 2: modules gone -> files removed, state gone"; reboot_; run
 for f in pif.prop teesim/config.json teesim/overrides.json teesim/keybox.xml .k4_gmscompat .k4_gmscompat.log teesim; do no_ "$f" "$ADB/$f"; done
-eq status "$(prop sys.k4.pifcleanup)" "done:teesim,playintegrityfix,zygisksu"
+eq status "$(prop sys.k4.pifcleanup)" "done:teesim,playintegrityfix"
 CASE="boot 3: nothing left to do"; run; eq status "$(prop sys.k4.pifcleanup)" none
 
 fresh "teesim runtime files go with our teesim (boot 2), the user's keybox stays"
@@ -84,9 +86,9 @@ mod zygisk_lsposed 7000 z; run
 no_ "zygisksu kept" "$ADB/modules/zygisksu/remove"; has "teesim removed" "$ADB/modules/teesim/remove"; has "pif removed" "$ADB/modules/playintegrityfix/remove"
 reboot_; run; eq status "$(prop sys.k4.pifcleanup)" "done:teesim,playintegrityfix"; has "zygisksu still installed" "$ADB/modules/zygisksu/module.prop"
 
-fresh "a disabled zygisk module does not keep zygisksu"
-mod zygisk_lsposed 7000 z; touch "$ADB/modules/zygisk_lsposed/disable"; run
-has "zygisksu removed" "$ADB/modules/zygisksu/remove"
+fresh "zygisksu stays even with no other zygisk user"
+run
+no_ "zygisksu kept" "$ADB/modules/zygisksu/remove"
 
 fresh "user-updated modules stay, with their configs (done in one boot: nothing to wait for)"
 mod teesim 80; mod playintegrityfix 500 z; run
@@ -104,15 +106,15 @@ echo "edited" >> "$ADB/pif.prop"; echo "<AndroidAttestation>mine</AndroidAttesta
 has "pif.prop kept" "$ADB/pif.prop"; has "own keybox kept" "$ADB/teesim/keybox.xml"; no_ "seeded config gone" "$ADB/teesim/config.json"
 has "teesim dir kept" "$ADB/teesim"
 
-fresh "modules the user removed: seeds still cleaned"
-rm -rf "$ADB/modules/teesim" "$ADB/modules/playintegrityfix"; run; reboot_; run
-no_ "keybox" "$ADB/teesim/keybox.xml"; no_ "pif.prop" "$ADB/pif.prop"; no_ "zygisksu gone" "$ADB/modules/zygisksu"
-eq status "$(prop sys.k4.pifcleanup)" "done:zygisksu"
+fresh "modules the user removed: seeds still cleaned (nothing to uninstall: done in one boot)"
+rm -rf "$ADB/modules/teesim" "$ADB/modules/playintegrityfix"; run
+no_ "keybox" "$ADB/teesim/keybox.xml"; no_ "pif.prop" "$ADB/pif.prop"; has "zygisksu kept" "$ADB/modules/zygisksu/module.prop"
+eq status "$(prop sys.k4.pifcleanup)" "done"
 
 fresh "ksud failure: nothing deleted, state kept for a retry next boot"
 export KSUD_FAIL=1; run; unset KSUD_FAIL
 eq status "$(prop sys.k4.pifcleanup)" retry; has "state kept" "$ADB/.k4_gmscompat/teesim.ours"; has "config kept" "$ADB/teesim/config.json"
-CASE="retry succeeds over two boots"; run; reboot_; run; eq status "$(prop sys.k4.pifcleanup)" "done:teesim,playintegrityfix,zygisksu"; no_ "state gone" "$ADB/.k4_gmscompat"
+CASE="retry succeeds over two boots"; run; reboot_; run; eq status "$(prop sys.k4.pifcleanup)" "done:teesim,playintegrityfix"; no_ "state gone" "$ADB/.k4_gmscompat"
 
 fresh "no ksud"
 rm -f "$ADB/ksud"; K4PC_ROOT="$T/root" K4PC_PROPFILE="$T/props" K4PC_KSUD="$ADB/ksud" K4PC_SETTINGS="$T/settings" K4PC_KMSG="$T/kmsg" sh "$H/k4-pif-cleanup"
