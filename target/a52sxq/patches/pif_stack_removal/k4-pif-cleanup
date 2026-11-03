@@ -117,14 +117,8 @@ for id in $IDS; do
     case " $GOING " in *" $id "*) ;; *) [ -d "$ADB/modules/$id" ] && log "$id: kept (installed or updated by the user)" ;; esac
 done
 
-# the Settings keybox import kept a private key in Settings.Secure (per user); nothing reads it any more
-users="$(ls "$R/data/system/users" 2> /dev/null | grep -E '^[0-9]+$')"
-for u in ${users:-0}; do
-    "$SETTINGS" --user "$u" delete secure unica_keybox_data > /dev/null 2>&1
-done
-for p in persist.sys.unica.pif persist.sys.unica.keybox persist.sys.unica.keybox_import; do
-    [ -n "$K4PC_PROPFILE" ] || [ -n "$(getprop $p)" ] && sp "$p" ""
-done
+# Settings (Settings.Secure unica_keybox_data, persist.sys.unica.pif / .keybox) are left alone: since 9.3.101 they are
+# the switches and the keybox of the framework Play Integrity / keybox hooks again (the 9.3.88 setup).
 
 if [ "$fail" != 0 ]; then
     sp sys.k4.pifcleanup retry

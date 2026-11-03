@@ -54,19 +54,19 @@ rm -rf "$ADB/.k4_gmscompat"; run
 eq status "$(prop sys.k4.pifcleanup)" none; has "teesim kept" "$ADB/modules/teesim/module.prop"; no_ "no remove" "$ADB/modules/teesim/remove"
 no_ "settings untouched" "$T/root/settings.log"
 
-fresh "boot 1 uninstalls and clears settings, files wait for boot 2 (modules still running)"
+fresh "boot 1 uninstalls, files wait for boot 2 (modules still running)"
 mkdir -p "$T/root/data/system/users/0" "$T/root/data/system/users/10"; run
 for m in zygisksu teesim playintegrityfix; do has "$m marked" "$ADB/modules/$m/remove"; done
 eq status "$(prop sys.k4.pifcleanup)" "pending:teesim,playintegrityfix,zygisksu"
 for f in pif.prop teesim/config.json teesim/keybox.xml .k4_gmscompat; do has "$f still there" "$ADB/$f"; done
-eq settings "$(cat "$T/root/settings.log")" "$(printf -- '--user 0 delete secure unica_keybox_data\n--user 10 delete secure unica_keybox_data')"
-eq "pif prop cleared" "$(prop persist.sys.unica.pif)" ""; grep -q '^persist.sys.unica.keybox_import=$' "$T/props" && ok || bad "keybox_import not cleared"
+no_ "Settings keybox import left alone (framework hooks use it again)" "$T/root/settings.log"
+grep -q '^persist.sys.unica.pif=' "$T/props" && bad "persist.sys.unica.pif touched" || ok
 CASE="boot 1 again (system_server restart re-run): still pending, nothing deleted"; run
 eq status "$(prop sys.k4.pifcleanup)" "pending: teesim still installed, next boot"; has "config still there" "$ADB/teesim/config.json"
 CASE="boot 2: modules gone -> files removed, state gone"; reboot_; run
 for f in pif.prop teesim/config.json teesim/overrides.json teesim/keybox.xml .k4_gmscompat .k4_gmscompat.log teesim; do no_ "$f" "$ADB/$f"; done
 eq status "$(prop sys.k4.pifcleanup)" "done:teesim,playintegrityfix,zygisksu"
-CASE="boot 3: nothing left to do"; rm -f "$T/root/settings.log"; run; eq status "$(prop sys.k4.pifcleanup)" none; no_ "no settings call" "$T/root/settings.log"
+CASE="boot 3: nothing left to do"; run; eq status "$(prop sys.k4.pifcleanup)" none
 
 fresh "teesim runtime files go with our teesim (boot 2), the user's keybox stays"
 echo '{"rewritten":1}' > "$ADB/teesim/config.json"; echo x > "$ADB/teesim/harvest.json"; echo x > "$ADB/teesim/.state"
