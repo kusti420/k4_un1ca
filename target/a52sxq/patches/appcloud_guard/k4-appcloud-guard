@@ -1,21 +1,107 @@
 #!/system/bin/sh
-# Remove ironSource/Aura "AppCloud" for the user at boot (see module.prop). The base APKs live on the stock
-# Samsung /prism (CSC) partition, which the ROM does not flash, so a package can only be taken away from the
-# user (pm uninstall --user 0); a Galaxy Store update of it in /data is dropped first. Idempotent.
-PKGS="com.aura.oobe.samsung.gl com.aura.oobe.samsung com.ironsource.appcloud.oobe.hutchison"
-for PKG in $PKGS; do
+# Remove the stock /prism (CSC) OOBE app pushers for the user at boot (see module.prop). The base APKs live on
+# Samsung's /prism partition, which the ROM does not flash. The build already keeps PackageManager from scanning
+# them (/system/etc/skipping_apk_exceptions.xml + allowed-system-preload-apps.xml); this script covers what is
+# left over from an earlier ROM or the stock firmware: a /data copy (Galaxy Store update, or a /prism app that
+# got demoted to a plain app once its base stopped being scanned) and the per-user install state. Idempotent.
+# Only the packages named below and the strict vendor name patterns are ever touched.
+TAG=k4-appcloud-guard
+REMOVED=0
+
+# App pushers / installers: drop a /data update, then take the package away from user 0.
+PUSHERS="
+com.aura.oobe.samsung.gl
+com.aura.oobe.samsung
+com.ironsource.appcloud.oobe.hutchison
+com.ironsource.appcloud.oobe
+com.aura.oobe.att
+com.aura.oobe.dish
+com.aura.jet.att
+com.ironsrc.aura.tmo
+com.ironsrc.aura.appmanager.tmo
+com.dti.telefonica
+com.dti.tim
+com.dti.samsung
+com.LogiaGroup.LogiaDeck
+com.digitalturbine.android.apps.news.att
+com.applovin.array.apphub.samsung
+com.array.deviceservices
+com.orange.update
+com.altice.android.myapps.samsung
+com.sfr.android.sfrjeux.samsung
+de.telekom.tsc
+com.dish.wireless.installer
+com.sprint.w.installer
+"
+
+# Preload stubs of third-party apps (Facebook's app-manager family): only removed while the package is still the
+# untouched /prism stub. Once the user has installed the real app over it (its code path is then in /data) the
+# package is theirs and is left alone.
+STUBS="
+com.instagram.android
+com.facebook.katana
+com.facebook.orca
+com.facebook.appmanager
+com.facebook.services
+com.facebook.system
+"
+
+remove_for_user()
+{
+    # $1 = package, $2 = current code path (for the log)
+    if pm uninstall --user 0 "$1" > /dev/null 2>&1; then
+        log -p w -t "$TAG" "removed $1 for the user (was $2)"
+        REMOVED=$((REMOVED + 1))
+    elif pm disable-user --user 0 "$1" > /dev/null 2>&1; then
+        log -p w -t "$TAG" "could not uninstall $1 for the user, disabled it instead ($2)"
+    else
+        log -p e -t "$TAG" "could not remove $1 ($2)"
+    fi
+}
+
+handle_pusher()
+{
+    p="$(pm path --user 0 "$1" 2> /dev/null | head -n 1)"
+    [ -n "$p" ] || return 0
+    p="${p#package:}"
+    case "$p" in /data/*)
+        # a system app updated by the Galaxy Store: drop the update first, the base (if any) is handled below
+        if pm uninstall-system-updates "$1" > /dev/null 2>&1; then
+            log -p i -t "$TAG" "dropped the /data update of $1 ($p)"
+        fi ;;
+    esac
+    remove_for_user "$1" "$p"
+}
+
+for PKG in $PUSHERS; do
+    handle_pusher "$PKG"
+done
+
+for PKG in $STUBS; do
     p="$(pm path --user 0 "$PKG" 2> /dev/null | head -n 1)"
     [ -n "$p" ] || continue
-    case "$p" in package:/data/*)
-        pm uninstall-system-updates "$PKG" > /dev/null 2>&1
-        log -p i -t k4-appcloud-guard "dropped the /data update of $PKG (${p#package:})" ;;
+    p="${p#package:}"
+    case "$p" in
+        /prism/*) remove_for_user "$PKG" "$p" ;;
+        *) log -p i -t "$TAG" "left $PKG alone, it is not the /prism stub any more ($p)" ;;
     esac
-    # a system app can only be deleted per user by uid 0 (this service runs as root); disabling is the fallback
-    if pm uninstall --user 0 "$PKG" > /dev/null 2>&1; then
-        log -p w -t k4-appcloud-guard "removed $PKG for the user (was ${p#package:})"
-    elif pm disable-user --user 0 "$PKG" > /dev/null 2>&1; then
-        log -p w -t k4-appcloud-guard "could not uninstall $PKG for the user, disabled it instead (${p#package:})"
-    else
-        log -p e -t k4-appcloud-guard "could not remove $PKG (${p#package:})"
-    fi
 done
+
+# Fallback for pusher variants not named above: system packages (so: from /prism, the ROM ships none) in the
+# ironSource/Aura and Digital Turbine vendor namespaces. Nothing outside these prefixes is ever matched.
+for line in $(pm list packages -s -f -u --user 0 2> /dev/null); do
+    PKG="${line##*=}"
+    case "$PKG" in
+        com.aura.oobe.*|com.aura.jet.*|com.ironsource.appcloud.*|com.ironsrc.aura.*|com.dti.*|com.digitalturbine.*) ;;
+        *) continue ;;
+    esac
+    listed=0
+    for KNOWN in $PUSHERS; do
+        [ "$KNOWN" = "$PKG" ] && { listed=1; break; }
+    done
+    [ "$listed" = 1 ] && continue
+    handle_pusher "$PKG"
+done
+
+log -p i -t "$TAG" "done: $REMOVED package(s) removed for the user"
+exit 0
