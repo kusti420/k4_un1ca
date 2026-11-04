@@ -1,0 +1,4 @@
+id=a52sxq_appcloud_guard
+name=Galaxy A52s 5G: remove AppCloud at boot
+author=kusti420
+description=Samsung's stock CSC partition /prism (not part of this ROM, left on the phone by the stock firmware) carries ironSource/Aura "AppCloud" (com.aura.oobe.samsung.gl, plus the Orange and Three variants com.aura.oobe.samsung / com.ironsource.appcloud.oobe.hutchison), a privileged app that offers third-party app installs during setup and gets updated by the Galaxy Store into /data. The ROM cannot delete a file on /prism, so at every boot_completed /system/bin/k4-appcloud-guard drops a /data update of each variant (pm uninstall-system-updates) and uninstalls it for the user (pm uninstall --user 0); the /prism base stays, invisible to the user. Idempotent, shell domain, log tag k4-appcloud-guard. A factory reset brings the package back for one boot.

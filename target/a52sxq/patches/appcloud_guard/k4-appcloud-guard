@@ -1,0 +1,21 @@
+#!/system/bin/sh
+# Remove ironSource/Aura "AppCloud" for the user at boot (see module.prop). The base APKs live on the stock
+# Samsung /prism (CSC) partition, which the ROM does not flash, so a package can only be taken away from the
+# user (pm uninstall --user 0); a Galaxy Store update of it in /data is dropped first. Idempotent.
+PKGS="com.aura.oobe.samsung.gl com.aura.oobe.samsung com.ironsource.appcloud.oobe.hutchison"
+for PKG in $PKGS; do
+    p="$(pm path --user 0 "$PKG" 2> /dev/null | head -n 1)"
+    [ -n "$p" ] || continue
+    case "$p" in package:/data/*)
+        pm uninstall-system-updates "$PKG" > /dev/null 2>&1
+        log -p i -t k4-appcloud-guard "dropped the /data update of $PKG (${p#package:})" ;;
+    esac
+    # a system app can only be deleted per user by uid 0 (this service runs as root); disabling is the fallback
+    if pm uninstall --user 0 "$PKG" > /dev/null 2>&1; then
+        log -p w -t k4-appcloud-guard "removed $PKG for the user (was ${p#package:})"
+    elif pm disable-user --user 0 "$PKG" > /dev/null 2>&1; then
+        log -p w -t k4-appcloud-guard "could not uninstall $PKG for the user, disabled it instead (${p#package:})"
+    else
+        log -p e -t k4-appcloud-guard "could not remove $PKG (${p#package:})"
+    fi
+done
