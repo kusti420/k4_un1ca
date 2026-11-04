@@ -53,6 +53,12 @@
 # module found on the same boot cannot overwrite the record; the rc does the same if this script never ran).
 # A selected user driver that is missing, damaged or cannot be mounted falls back to the stock driver
 # (sys.k4.gpu_missing, Settings shows a banner). A module that went away falls back to the previous choice.
+# No selection (persist.sys.k4.gpu_driver unset: a new install, a Format Data): the ROM's default (ro.k4.gpu_default,
+# set by customize.sh; a built-in set) is selected here with a trial boot, like a newly installed module - the rc
+# mounts it at early-boot, settle promotes it, and a boot that never settles goes back to the stock driver, which is
+# then stored as the selection (so the default is not retried every boot). A "failed" trial with no selection stays
+# on the stock driver for the same reason. No default, or one that is not a built-in set: the stock driver. This runs
+# after init.rc's own post-fs-data block has loaded the persistent properties, so what is stored here is kept.
 # Escapes that need no root: Android safe mode (persist.sys.safemode=1) runs the stock driver for that boot without
 # changing the selection; `setprop persist.sys.k4.gpu_reset 1` (settable from adb shell) resets to the stock driver
 # on the next boot.
@@ -81,7 +87,7 @@ LIST="$BASE/drivers"
 HIDDEN="$BASE/hidden"
 LOGF="$BASE/boot.log"
 STOCK="${2:-V@0530.0}"
-DEF=530
+DEF=530  # the stock driver's id: nothing to mount; what the failsafe, the reset, safe mode and a lost selection go to
 P=persist.sys.k4.gpu_
 S=sys.k4.gpu_
 # Adreno file names a set may contain (the union of the built-in v*/ sets; nothing else is imported or bound).
@@ -417,14 +423,8 @@ boot() {
     trial="$(gp ${P}trial)"
     failed="$(gp ${P}failed)"
     prev="$(gp ${P}prev)"
-    [ -n "$sel" ] || sel=$DEF
-    missing=""
-    rejected=""
-    failsafe=""
-    have_list=""
-    [ -n "$(gp ro.k4.gpu_drivers)" ] && have_list=1
-
-    # one-shot reset from adb shell (persist.sys.k4.gpu_reset=1): back to the stock driver
+    # one-shot reset from adb shell (persist.sys.k4.gpu_reset=1): back to the stock driver (before the default below:
+    # a reset on a phone with no selection stores the stock driver, nothing else)
     if [ "$(gp ${P}reset)" = 1 ]; then
         log "reset requested: back to V@0$DEF"
         [ "$sel" != "$DEF" ] && prev="$sel"
@@ -433,6 +433,27 @@ boot() {
         failed=""
         sp ${P}reset ""
     fi
+
+    if [ -z "$sel" ]; then
+        # no selection yet: the ROM's default with a trial boot (see the header); a "testing" left over means the
+        # previous boot (on the default, with the selection lost since) never settled: the failsafe below handles it
+        def="$(gp ro.k4.gpu_default)"
+        if [ -n "$def" ] && [ "$def" != "$DEF" ] && is_builtin "$def" && [ "$trial" != failed ]; then
+            sel="$def"
+            if [ "$trial" != testing ]; then
+                trial=pending
+                failed=""
+                log "no driver selected yet: the default $sel is selected with a trial boot"
+            fi
+        else
+            sel=$DEF
+        fi
+    fi
+    missing=""
+    rejected=""
+    failsafe=""
+    have_list=""
+    [ -n "$(gp ro.k4.gpu_drivers)" ] && have_list=1
 
     # the stock driver is never on trial (nothing to fall back from): a "pending"/"testing" left on it (older Settings
     # selected it with a trial) becomes ok, so no 150 s settle runs and no gpu_failed=530 can be recorded

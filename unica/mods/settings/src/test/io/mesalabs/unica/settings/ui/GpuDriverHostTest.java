@@ -253,6 +253,8 @@ public final class GpuDriverHostTest {
         m.reload();
         eq("available", m.available(), true);
         eq("entries", ids(m), Arrays.asList("530", "530_55", "849", "863"));
+        eq("stock", m.stockDriver(), "530");
+        eq("no default prop: the stock is the default", m.defaultDriver(), "530");
         eq("selected default", m.selected(), "530");
         eq("active default", m.active(), "530");
         eq("no user entries", m.hasUserEntries(), false);
@@ -267,6 +269,27 @@ public final class GpuDriverHostTest {
         eq("the stock driver is never on trial", p.get(GpuDriverModel.PROP_TRIAL), "ok");
         eq("a built-in other than stock is", m.select("863") && "pending".equals(p.get(GpuDriverModel.PROP_TRIAL)), true);
         p.set(GpuDriverModel.PROP_ACTIVE, "");
+
+        section = "model: the default (ro.k4.gpu_default = 849, the stock 530 stays the fallback)";
+        p.set(GpuDriverModel.PROP_DEFAULT, "849");
+        p.set(GpuDriverModel.PROP_SELECTED, "");
+        m.reload();
+        eq("default", m.defaultDriver(), "849");
+        eq("stock unchanged", m.stockDriver(), "530");
+        eq("no selection shows the stock (k4-gpu-driver stores the default at boot, Settings never sees it unset)", m.selected(), "530");
+        eq("no active prop shows the stock", m.active(), "530");
+        eq("select the default from stock", m.select("849"), true);
+        eq("the default is on trial like any set", p.get(GpuDriverModel.PROP_TRIAL), "pending");
+        eq("select stock", m.select("530"), true);
+        eq("stock never on trial", p.get(GpuDriverModel.PROP_TRIAL), "ok");
+        p.set(GpuDriverModel.PROP_DEFAULT, "999");
+        m.reload();
+        eq("unknown default: the stock", m.defaultDriver(), "530");
+        p.set(GpuDriverModel.PROP_DEFAULT, "530_55");
+        m.reload();
+        eq("another built-in as the default", m.defaultDriver(), "530_55");
+        p.set(GpuDriverModel.PROP_DEFAULT, "849");
+        m.reload();
 
         section = "model: user drivers listed only after the boot scan";
         write(new File(base, "drivers"), "m_adreno_x\tmodule\t-\tV@0744.0 (module adreno_x)\n"
@@ -313,8 +336,8 @@ public final class GpuDriverHostTest {
         eq("remove", m.remove("u_0849_0_k3"), true);
         eq("request", new File(base, "incoming/u_0849_0_k3.remove").exists(), true);
         eq("hidden now", m.isKnown("u_0849_0_k3"), false);
-        eq("prev is itself: default", p.get(GpuDriverModel.PROP_SELECTED), "530");
-        eq("the stock driver gets no trial", p.get(GpuDriverModel.PROP_TRIAL), "ok");
+        eq("prev is itself: the default", p.get(GpuDriverModel.PROP_SELECTED), "849");
+        eq("the default gets a trial (it is not the stock driver)", p.get(GpuDriverModel.PROP_TRIAL), "pending");
         eq("restart still needed (selected != active)", m.selected().equals(m.active()), false);
 
         section = "model: hide a module's driver";

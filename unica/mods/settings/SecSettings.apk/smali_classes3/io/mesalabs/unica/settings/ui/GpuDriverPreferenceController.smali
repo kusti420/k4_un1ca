@@ -113,7 +113,7 @@
 
     .line 211
     :cond_f
-    invoke-virtual {p1}, Lio/mesalabs/unica/settings/ui/GpuDriverModel;->defaultDriver()Ljava/lang/String;
+    invoke-virtual {p1}, Lio/mesalabs/unica/settings/ui/GpuDriverModel;->stockDriver()Ljava/lang/String;
 
     move-result-object v1
 

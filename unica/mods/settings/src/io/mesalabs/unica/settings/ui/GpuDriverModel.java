@@ -13,14 +13,17 @@ import java.util.List;
 
 /**
  * The GPU driver selector's state (no Android dependencies, host-tested by src/test): the entries, the selection and
- * removal. Built-in drivers come from ro.k4.gpu_drivers ("<default> <id>..."), user drivers from what the boot-time
- * part (target/a52sxq/patches/adreno_driver/k4-gpu-driver) found this boot (/data/k4gpu/drivers, valid once
+ * removal. Built-in drivers come from ro.k4.gpu_drivers ("<stock> <id>...": the stock driver, what /vendor holds and
+ * the failsafe falls back to, first) and ro.k4.gpu_default (the one a phone with no selection gets, selected by the
+ * boot-time part with a trial boot; absent = the stock driver), user drivers from what the boot-time part
+ * (target/a52sxq/patches/adreno_driver/k4-gpu-driver) found this boot (/data/k4gpu/drivers, valid once
  * sys.k4.gpu_scan=1) and from drivers Settings staged for the next boot (/data/k4gpu/incoming/u_*).
  * Requests to the boot-time part are files in /data/k4gpu/incoming: &lt;slot&gt;.remove (delete an added driver),
  * &lt;slot&gt;.hide (hide a module's driver).
  */
 final class GpuDriverModel {
     static final String PROP_DRIVERS = "ro.k4.gpu_drivers";
+    static final String PROP_DEFAULT = "ro.k4.gpu_default";
     static final String PROP_SELECTED = "persist.sys.k4.gpu_driver";
     static final String PROP_TRIAL = "persist.sys.k4.gpu_trial";
     static final String PROP_FAILED = "persist.sys.k4.gpu_failed";
@@ -89,9 +92,17 @@ final class GpuDriverModel {
         return builtins().length > 1;
     }
 
-    String defaultDriver() {
+    /** The stock driver (listed first): what /vendor holds, never on trial, what every fallback goes to. */
+    String stockDriver() {
         String[] d = builtins();
         return d.length > 0 ? d[0] : "";
+    }
+
+    /** The driver a phone with no selection gets (ro.k4.gpu_default when it is a built-in, else the stock one). */
+    String defaultDriver() {
+        String d = prop(PROP_DEFAULT);
+        for (String b : builtins()) if (b.equals(d)) return d;
+        return stockDriver();
     }
 
     /** Built-ins (label null: the caller has the resources), then module and added drivers, then staged ones. */
@@ -154,15 +165,18 @@ final class GpuDriverModel {
         return entry(id) != null;
     }
 
+    /** The stored selection; an unknown one (or none, which k4-gpu-driver never leaves behind: it stores the default
+     *  at post-fs-data) shows the stock driver, which is what the next boot resolves it to. */
     String selected() {
         String s = prop(PROP_SELECTED);
-        return isKnown(s) ? s : defaultDriver();
+        return isKnown(s) ? s : stockDriver();
     }
 
-    /** What this boot uses; a user driver stays the active one while it is being removed (until the restart). */
+    /** What this boot uses (the stock driver when nothing says otherwise); a user driver stays the active one while
+     *  it is being removed (until the restart). */
     String active() {
         String s = prop(PROP_ACTIVE);
-        return isKnown(s) || isSlot(s) ? s : defaultDriver();
+        return isKnown(s) || isSlot(s) ? s : stockDriver();
     }
 
     /** The driver whose trial boot never completed (the boot after it went back to the default). */
@@ -202,15 +216,16 @@ final class GpuDriverModel {
     }
 
     /**
-     * Selects a driver for the next boot, with a trial boot unless it is already active or it is the stock (default)
-     * driver - the stock driver is what the failsafe falls back to, so it is never on trial. False if refused.
+     * Selects a driver for the next boot, with a trial boot unless it is already active or it is the stock driver -
+     * the stock driver is what the failsafe falls back to, so it is never on trial (the default is: it is a built-in
+     * set like any other here). False if refused.
      */
     boolean select(String id) {
         if (!isKnown(id)) return false;
         String ext = external();
         if (!ext.isEmpty() && !ext.equals(id)) return false;
         mProps.set(PROP_SELECTED, id);
-        mProps.set(PROP_TRIAL, id.equals(active()) || id.equals(defaultDriver()) ? "ok" : "pending");
+        mProps.set(PROP_TRIAL, id.equals(active()) || id.equals(stockDriver()) ? "ok" : "pending");
         mProps.set(PROP_FAILED, "");
         return true;
     }

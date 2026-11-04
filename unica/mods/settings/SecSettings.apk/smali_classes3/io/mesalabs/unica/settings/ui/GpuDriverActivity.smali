@@ -1159,7 +1159,7 @@
     iget-object v3, p0, Lio/mesalabs/unica/settings/ui/GpuDriverActivity;->mModel:Lio/mesalabs/unica/settings/ui/GpuDriverModel;
 
     .line 188
-    invoke-virtual {v3}, Lio/mesalabs/unica/settings/ui/GpuDriverModel;->defaultDriver()Ljava/lang/String;
+    invoke-virtual {v3}, Lio/mesalabs/unica/settings/ui/GpuDriverModel;->stockDriver()Ljava/lang/String;
 
     move-result-object v3
 

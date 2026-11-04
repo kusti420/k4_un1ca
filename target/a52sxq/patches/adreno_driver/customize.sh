@@ -1,9 +1,10 @@
 SKIPUNZIP=1
 
-# GPU driver selector (Settings > K4_UN1CA > UI > GPU driver). The stock A52s Adreno V@0530 stays in /vendor untouched
-# and is the default. The built-in sets are every v<id>/ directory of this patch (v849 = V@0849, v863 = V@0863.1,
-# v530_55 = V@0530.55: the id is the version with "." as "_"), pinned by v<id>/SHA256SUMS, installed as complete sets
-# under /vendor/k4gpu/v<id>/; /system/etc/init/k4_gpu_driver.rc puts the selected one in place at early-boot:
+# GPU driver selector (Settings > K4_UN1CA > UI > GPU driver). The stock A52s Adreno V@0530 stays in /vendor untouched:
+# it is what every fallback goes to and stays selectable, and V@0849 is the default (GPU_DEFAULT: what a phone with no
+# selection gets, see below). The built-in sets are every v<id>/ directory of this patch (v849 = V@0849, v863 =
+# V@0863.1, v530_55 = V@0530.55: the id is the version with "." as "_"), pinned by v<id>/SHA256SUMS, installed as
+# complete sets under /vendor/k4gpu/v<id>/; /system/etc/init/k4_gpu_driver.rc puts the selected one in place at early-boot:
 #   - its egl directory bound over /vendor/lib64/egl (the stock one holds only the six Adreno libraries; the set's
 #     libraries that stock has no counterpart for, e.g. libadreno_app_profiles.so, live in that egl directory, which is
 #     on the sphal and vendor linker search paths, so they are never visible while V@0530 is active: the stock GL/Vulkan
@@ -15,19 +16,31 @@ SKIPUNZIP=1
 #     /dev/kgsl-3d0 open, by the camera provider / SurfaceFlinger at boot, i.e. after early-boot),
 #   - for V@07xx and newer builds, android.hardware.vulkan.version 1.3 bound over the vendor's 1.1 feature file (the flag
 #     must match the driver: V@0530 builds report Vulkan 1.1, V@0849 / V@0863 1.3).
-# Selection: persist.sys.k4.gpu_driver = 530 | <id> | m_<module> | u_<added>. Failsafe: Settings sets
-# persist.sys.k4.gpu_trial=pending; the rc turns it into "testing" for that boot; k4-gpu-driver settle turns it into
-# "ok" only after 150 s past boot_completed with no system_server restart; "testing" still set at the next boot means
-# that boot never settled (a bootloop, or a crash/reboot inside the window), so the stock V@0530 is used,
+# Selection: persist.sys.k4.gpu_driver = 530 | <id> | m_<module> | u_<added>. Unset (a new install, a Format Data):
+# k4-gpu-driver boot selects the default (ro.k4.gpu_default = GPU_DEFAULT) on that boot with a trial boot, exactly like
+# a user-selected driver - init.rc's own post-fs-data block loads the persistent properties before this patch's
+# post-fs-data exec runs, so the selection is stored. An existing selection is never changed: a phone that ran
+# 9.3.105 or older has 530 stored (written by the user in Settings or by k4-gpu-driver when nothing was selected -
+# the two cannot be told apart), so it stays on the stock driver until its user picks V@0849 in Settings.
+# Failsafe: Settings sets persist.sys.k4.gpu_trial=pending; the rc turns it into "testing" for that boot; k4-gpu-driver
+# settle turns it into "ok" only after 150 s past boot_completed with no system_server restart; "testing" still set at
+# the next boot means that boot never settled (a bootloop, or a crash/reboot inside the window), so the stock V@0530
+# is used and stored as the selection (also when the default was on trial: no second trial of it on the next boot),
 # persist.sys.k4.gpu_failed records the driver and the trial is set to "failed". sys.k4.gpu_active reports what this
 # boot actually uses. Escapes that need no root: persist.sys.safemode=1 (Android safe mode) runs the stock driver for
 # that boot; `setprop persist.sys.k4.gpu_reset 1` (settable from adb shell) resets to the stock driver next boot.
+# History: V@0849 was the default from 9.1.25 (2026-10-09) to 9.3.63; the stock V@0530 from 9.3.64 (2026-10-21, at
+# the testers' request) to 9.3.105; V@0849 again since 9.3.106 (owner decision after the 2026-10-20 benchmarks and the
+# 2026-11-04 battery review: +5 % GL / +8 % Vulkan graphics, -8 % light-load scroll power, same clocks and heat).
 #
 # Drivers the user brings (k4-gpu-driver, run by the rc at post-fs-data in its own SELinux domain k4gpu): KernelSU /
 # Magisk driver modules and drivers added in Settings ("Add driver") are kept in /data/k4gpu/store and bound the same
 # way, at post-fs-data (before zygote-start). A module already mounted over /vendor by the root manager (metamodule,
 # magic mount, Mountify) is left alone and reported as active. See k4-gpu-driver for the details.
-GPU_DEFAULT="530"
+# the stock driver's id (nothing to mount; the failsafe, the reset and safe mode go to it) and the default for a phone
+# with no selection (the stock id, or one of the built-in sets below)
+GPU_STOCK_ID="530"
+GPU_DEFAULT="849"
 VK13=4206592
 
 # The stock driver must still be the one in /vendor (an older build of this patch replaced it in place). Exact
@@ -43,10 +56,14 @@ for d in "$MODPATH"/v*/; do
     v="${d%/}"
     v="${v##*/v}"
     [[ "$v" =~ ^[0-9]+(_[0-9]+)*$ ]] || ABORT "adreno_driver: unexpected set directory v$v (v<version with _ for .>)"
-    [ "$v" != "$GPU_DEFAULT" ] || ABORT "adreno_driver: v$GPU_DEFAULT would shadow the stock driver"
+    [ "$v" != "$GPU_STOCK_ID" ] || ABORT "adreno_driver: v$GPU_STOCK_ID would shadow the stock driver"
     GPU_SETS+="${GPU_SETS:+ }$v"
 done
 [ -n "$GPU_SETS" ] || ABORT "adreno_driver: no driver set"
+case " $GPU_STOCK_ID $GPU_SETS " in
+    *" $GPU_DEFAULT "*) ;;
+    *) ABORT "adreno_driver: the default v$GPU_DEFAULT is neither the stock driver nor a built-in set" ;;
+esac
 
 SET_METADATA "vendor" "k4gpu" 0 2000 755 "u:object_r:vendor_file:s0"
 for v in $GPU_SETS; do
@@ -108,7 +125,9 @@ SET_METADATA "system" "system/bin/k4-gpu-driver" 0 2000 755 "u:object_r:system_f
 
 RC="$WORK_DIR/system/system/etc/init/k4_gpu_driver.rc"
 {
-    echo "# GPU driver selector (target/a52sxq/patches/adreno_driver). V@0$GPU_DEFAULT = stock, nothing to mount."
+    echo "# GPU driver selector (target/a52sxq/patches/adreno_driver). V@0$GPU_STOCK_ID = stock, nothing to mount; it is"
+    echo "# what the failsafe below falls back to. A phone with no selection gets V@0$GPU_DEFAULT (ro.k4.gpu_default),"
+    echo "# selected by k4-gpu-driver boot with a trial boot like any newly selected driver."
     echo "# User drivers (driver modules, Settings > Add driver): k4-gpu-driver, after the root manager's post-fs-data"
     echo "# (KernelSU / Magisk run theirs from init.rc, which comes first) and before zygote-start. It also does the"
     echo "# failsafe below first, for every driver, and selects a newly installed driver module with a trial boot."
@@ -134,12 +153,13 @@ RC="$WORK_DIR/system/system/etc/init/k4_gpu_driver.rc"
     echo "    start k4_gpu_settle"
     echo
     echo "on early-boot"
-    echo "    setprop sys.k4.gpu_active \${sys.k4.gpu_user_active:-$GPU_DEFAULT}"
+    echo "    setprop sys.k4.gpu_active \${sys.k4.gpu_user_active:-$GPU_STOCK_ID}"
     echo
-    echo "# The previous boot with a newly selected driver never reached boot_completed: back to the stock driver."
+    echo "# The previous boot with a newly selected driver never reached boot_completed: back to the stock driver, stored"
+    echo "# as the selection (so a failed trial of the default is not retried on every boot)."
     echo "on early-boot && property:persist.sys.k4.gpu_trial=testing"
     echo "    setprop persist.sys.k4.gpu_failed \${persist.sys.k4.gpu_driver}"
-    echo "    setprop persist.sys.k4.gpu_driver $GPU_DEFAULT"
+    echo "    setprop persist.sys.k4.gpu_driver $GPU_STOCK_ID"
     echo "    setprop persist.sys.k4.gpu_trial failed"
     echo
     echo "on early-boot && property:persist.sys.k4.gpu_trial=pending"
@@ -254,8 +274,11 @@ fi
 grep -q -x -F "(allow system_app k4_gpu_prop (property_service (set)))" "$PLAT_CIL" || \
     ABORT "adreno_driver: k4gpu rules missing from plat_sepolicy.cil"
 
-# read by Settings (GpuDriverPreferenceController): a system prop; init does not load ro.k4.* from the vendor build.prop
-SET_PROP "system" "ro.k4.gpu_drivers" "$GPU_DEFAULT $GPU_SETS"
-LOG "- GPU driver selector: stock $GPU_STOCK default, $(sed "s/_/./g; s/^/V@0/; s/ /, V@0/g" <<< "$GPU_SETS") selectable, user drivers via k4-gpu-driver"
+# read by Settings (GpuDriverModel) and k4-gpu-driver: system props (init does not load ro.k4.* from the vendor
+# build.prop). gpu_drivers = "<stock> <set>..." (the stock driver first), gpu_default = the selection a phone with none
+# gets.
+SET_PROP "system" "ro.k4.gpu_drivers" "$GPU_STOCK_ID $GPU_SETS"
+SET_PROP "system" "ro.k4.gpu_default" "$GPU_DEFAULT"
+LOG "- GPU driver selector: V@0${GPU_DEFAULT//_/.} default (stock $GPU_STOCK the fallback), $(sed "s/_/./g; s/^/V@0/; s/ /, V@0/g" <<< "$GPU_SETS") built in, user drivers via k4-gpu-driver"
 for v in $GPU_SETS; do unset "GPU_BINDS_$v" "GPU_SQE_$v" "GPU_VK_$v"; done
-unset GPU_DEFAULT GPU_SETS GPU_STOCK GPU_STOCK_VER VK13 SRC DST VER BINDS B LABEL VKXML RC INIT_RC PLAT_CIL PLAT_FC PLAT_PC v t d f n a
+unset GPU_STOCK_ID GPU_DEFAULT GPU_SETS GPU_STOCK GPU_STOCK_VER VK13 SRC DST VER BINDS B LABEL VKXML RC INIT_RC PLAT_CIL PLAT_FC PLAT_PC v t d f n a

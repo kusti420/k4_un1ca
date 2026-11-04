@@ -23,7 +23,7 @@ import io.mesalabs.unica.utils.Utils;
  * Settings > K4_UN1CA > UI > GPU driver (unica_ui_settings.xml: k4_gpu_driver_active, k4_gpu_driver,
  * k4_gpu_driver_restart, k4_gpu_driver_add, k4_gpu_driver_remove).
  *
- * Only shown when the target ships a selector (ro.k4.gpu_drivers = "<default> <alternative>...", e.g.
+ * Only shown when the target ships a selector (ro.k4.gpu_drivers = "<stock> <alternative>...", ro.k4.gpu_default, e.g.
  * target/a52sxq/patches/adreno_driver, whose /system/etc/init/k4_gpu_driver.rc does the switch at early-boot and whose
  * k4-gpu-driver handles user drivers at post-fs-data). State and entries: GpuDriverModel. "Add driver…" and
  * "Remove a driver…" open GpuDriverActivity.
@@ -202,13 +202,13 @@ public class GpuDriverPreferenceController extends BasePreferenceController
     }
 
     /**
-     * Built-in: the k4_gpu_driver_entries/values arrays (fallback "V@0<id>"); the default entry shows the version of a
+     * Built-in: the k4_gpu_driver_entries/values arrays (fallback "V@0<id>"); the stock entry shows the version of a
      * driver flashed into /vendor instead; user drivers: the label k4-gpu-driver wrote; unknown slots: "module <id>".
      */
     static String label(Context context, GpuDriverModel model, String id) {
         GpuDriverModel.Entry e = model.anyEntry(id);
         if (e != null && e.label != null) return e.label;
-        if (id.equals(model.defaultDriver()) && !model.vendorVersion().isEmpty()) {
+        if (id.equals(model.stockDriver()) && !model.vendorVersion().isEmpty()) {
             return string(context, "k4_gpu_driver_label_vendor", model.vendorVersion());
         }
         if (id.startsWith("m_")) return string(context, "k4_gpu_driver_label_module", model.moduleOf(id));

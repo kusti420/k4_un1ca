@@ -185,7 +185,7 @@ public class GpuDriverActivity extends Activity {
         } else {
             String slot = r[0];
             mDialog = builder().setTitle(str("k4_gpu_driver_add_done_title", r[1]))
-                    .setMessage(str("k4_gpu_driver_add_done_msg", label(mModel.defaultDriver())))
+                    .setMessage(str("k4_gpu_driver_add_done_msg", label(mModel.stockDriver())))
                     .setPositiveButton(str("k4_gpu_driver_add_use"), (d, w) -> {
                         if (!mModel.select(slot)) toast(lockedMessage());
                     })

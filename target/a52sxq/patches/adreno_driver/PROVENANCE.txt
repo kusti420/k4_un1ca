@@ -16,8 +16,11 @@ v863  "Adreno GPU Driver 863.1 From RayBan Meta", versionCode 863, author @Josha
 GPU microcode (firmware/a660_sqe.fw, the same file in both sets, sha256 01cacafc...): it runs on the GPU's command
 processor, so it is the most trusted file here. It matches no file we can check against: stock A52s f911a4ba...
 (header version 0x016dc094), linux-firmware qcom/a660_sqe.fw d222f3fe... (0x016dc112), this one 0x016dc109 - a release
-between the two, consistent with a genuine Qualcomm build, but not provable. Nothing from these sets is used unless the
-owner of the phone picks V@0849 or V@0863 in Settings > K4_UN1CA > UI (default: stock V@0530 untouched).
+between the two, consistent with a genuine Qualcomm build, but not provable. V@0849 is the default since 9.3.106 (a
+phone with no selection gets it on its first boot, with a trial boot that falls back to the stock V@0530 if the boot
+never settles; from 9.3.64 to 9.3.105 the stock driver was the default and nothing from these sets was used unless
+the owner of the phone picked V@0849 or V@0863 in Settings > K4_UN1CA > UI). The stock V@0530 stays in /vendor
+untouched and selectable.
 
 v530_55  stock Samsung, SM-A528B A528BXXSBGYI3 (vendor A528BXXSBGYI3, security patch 2025-09-01, built 2025-09-11)
       libGLESv2_adreno.so: "OpenGL ES 3.2 V@0530.55.1 (GIT@9ad1b67875, Ib48d2dada6, 1746950435) (Date:05/11/25)"
