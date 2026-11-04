@@ -1,0 +1,165 @@
+[
+ {
+  "isDefault": false,
+  "index": 0,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "video_001.mp4",
+    "thumbnail_system_frame_no": 0,
+    "thumbnail_lock_frame_no": 0,
+    "thumbnail_frame_no": 0,
+    "transition_frame_info": "AOD AOD 0 75 1200 0.17 0.17 0.1 1\nAOD LOCK 0 180 1800 0.33 0 0.1 1\nAOD HOME 0 737 2500 0.33 0 0.1 1\nLOCK HOME 180 737 1200 0.17 0.17 0.1 1\nLOCK TOUCH 180 450 1000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "video_001.mp4",
+  "frame_no": 0,
+  "desc_str_id": "str_id_black",
+  "cmf_info": [
+   "zk",
+   "lg"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_s24u_source": {
+   "filename": "E3_Infinite_Video_Wallpaper_ZKLG.mp4",
+   "desc_str_id": "str_id_black",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 738,
+   "table": "engine default (SEM_FIRST_SDK_INT<35)"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 1,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "video_002.mp4",
+    "thumbnail_system_frame_no": 0,
+    "thumbnail_lock_frame_no": 0,
+    "thumbnail_frame_no": 0,
+    "transition_frame_info": "AOD AOD 0 75 1200 0.17 0.17 0.1 1\nAOD LOCK 0 180 1800 0.33 0 0.1 1\nAOD HOME 0 737 2500 0.33 0 0.1 1\nLOCK HOME 180 737 1200 0.17 0.17 0.1 1\nLOCK TOUCH 180 450 1000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "video_002.mp4",
+  "frame_no": 0,
+  "desc_str_id": "str_id_warm_gray",
+  "cmf_info": [
+   "zt"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_s24u_source": {
+   "filename": "E3_Infinite_Video_Wallpaper_ZT.mp4",
+   "desc_str_id": "str_id_warm_gray",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 738,
+   "table": "engine default (SEM_FIRST_SDK_INT<35)"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 2,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "video_003.mp4",
+    "thumbnail_system_frame_no": 0,
+    "thumbnail_lock_frame_no": 0,
+    "thumbnail_frame_no": 0,
+    "transition_frame_info": "AOD AOD 0 75 1200 0.17 0.17 0.1 1\nAOD LOCK 0 180 1800 0.33 0 0.1 1\nAOD HOME 0 737 2500 0.33 0 0.1 1\nLOCK HOME 180 737 1200 0.17 0.17 0.1 1\nLOCK TOUCH 180 450 1000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "video_003.mp4",
+  "frame_no": 0,
+  "desc_str_id": "str_id_violet",
+  "cmf_info": [
+   "zv",
+   "lb"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_s24u_source": {
+   "filename": "E3_Infinite_Video_Wallpaper_ZVLB.mp4",
+   "desc_str_id": "str_id_violet",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 738,
+   "table": "engine default (SEM_FIRST_SDK_INT<35)"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 3,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "video_004.mp4",
+    "thumbnail_system_frame_no": 0,
+    "thumbnail_lock_frame_no": 0,
+    "thumbnail_frame_no": 0,
+    "transition_frame_info": "AOD AOD 0 75 1200 0.17 0.17 0.1 1\nAOD LOCK 0 180 1800 0.33 0 0.1 1\nAOD HOME 0 737 2500 0.33 0 0.1 1\nLOCK HOME 180 737 1200 0.17 0.17 0.1 1\nLOCK TOUCH 180 450 1000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "video_004.mp4",
+  "frame_no": 0,
+  "desc_str_id": "str_id_yellow",
+  "cmf_info": [
+   "zy",
+   "zo"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_s24u_source": {
+   "filename": "E3_Infinite_Video_Wallpaper_ZYZO.mp4",
+   "desc_str_id": "str_id_yellow",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 738,
+   "table": "engine default (SEM_FIRST_SDK_INT<35)"
+  }
+ }
+]
