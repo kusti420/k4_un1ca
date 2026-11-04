@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  target/a52sxq/patches/codec_av1_sw_off: hide the software AV1 decoders of the Google swcodec APEX.
+  Parsed by Codec2InfoBuilder (libsfplugin_ccodec) right after /apex/com.android.media.swcodec/etc/media_codecs.xml,
+  before /vendor/etc/media_codecs.xml; update="true" needs the codec and the type to exist already (they come from the
+  APEX xml), enabled="false" marks them attribute::disabled so they are left out of the MediaCodecList.
+  The SM7325 has no AV1 hardware decoder, apps then fall back to VP9/H.264 (c2.qti.*, hardware).
+-->
+<MediaCodecs>
+    <Decoders>
+        <MediaCodec name="c2.android.av1-dav1d.decoder" type="video/av01" update="true" enabled="false" />
+        <MediaCodec name="c2.android.av1.decoder" type="video/av01" update="true" enabled="false" />
+    </Decoders>
+</MediaCodecs>
