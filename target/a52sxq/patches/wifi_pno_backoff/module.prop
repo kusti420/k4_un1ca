@@ -1,0 +1,4 @@
+id=a52sxq_wifi_pno_backoff
+name=Galaxy A52s 5G: stock Wi-Fi PNO scan back-off
+author=kusti420
+description=The source product overlay WifiRROverlayApp (com.android.wifi.resources, S26 Ultra) sets config_wifiPnoScanIterations=1 and config_wifiPnoScanIntervalMultiplier=1, so with Wi-Fi on but not connected (screen off, typically on mobile data) the firmware PNO scan runs every 160 s forever. The stock A52s overlay uses 3 and 3: three scans at the base interval, then the interval is multiplied by 3 (Wi-Fi framework PNO back-off), i.e. far fewer disconnected background scans. Restores the A52s values; everything else in the overlay stays the S26 Ultra's. Cost: after the back-off kicks in, a known network that comes into range is found up to a few minutes later while the screen is off (screen on rescans at once).
