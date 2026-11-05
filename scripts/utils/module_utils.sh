@@ -291,7 +291,10 @@ SET_FLOATING_FEATURE_CONFIG()
         return 1
     fi
 
-    if grep -q "$CONFIG" "$FILE"; then
+    # Match the whole tag: a key that is a prefix of another one (SETTINGS_ENABLE_EU_BATTERY_REGULATORY vs ..._WITHOUT_IC)
+    # used to hit the replace branch with an empty line address, and `sed c\` without an address rewrote every line
+    # of the file (9.3.108: 7-line floating_feature.xml, SystemUI crash loop at boot).
+    if grep -q "<$CONFIG>" "$FILE"; then
         if [[ "$VALUE" == "-d" ]] || [[ "$VALUE" == "--delete" ]]; then
             LOG "- Deleting \"$CONFIG\" config in /system/system/etc/floating_feature.xml"
             sed -i "/<$CONFIG>/d" "$FILE"
