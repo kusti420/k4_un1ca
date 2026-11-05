@@ -120,3 +120,20 @@ if [ -f "$PPC" ] && [ -f "$PCIL" ]; then
     LOG "- Property contexts: every type is a property_type member"
 fi
 unset PPC PCIL PT_LINE t
+
+# floating_feature.xml sanity (last step of the build): 9.3.108 shipped a 7-line file after SET_FLOATING_FEATURE_CONFIG
+# matched a key as a prefix of another and `sed c\` rewrote every line; SystemUI's BasicRune.<clinit> then threw
+# NumberFormatException on an empty value at every start (no status bar, no navbar, USB blocked as "locked").
+FFX="$WORK_DIR/system/system/etc/floating_feature.xml"
+[ -f "$FFX" ] || ABORT "post_mods: floating_feature.xml missing"
+FFN="$(grep -c '^    <SEC_FLOATING_FEATURE_[A-Z0-9_]*>.*</SEC_FLOATING_FEATURE_[A-Z0-9_]*>$' "$FFX")"
+[ "$FFN" -ge 200 ] || ABORT "post_mods: floating_feature.xml has only $FFN feature lines (expected 200+), the file was damaged"
+grep -q '^</SecFloatingFeatureSet>$' "$FFX" || ABORT "post_mods: floating_feature.xml has no closing SecFloatingFeatureSet"
+if command -v xmllint > /dev/null 2>&1; then
+    xmllint --noout "$FFX" 2> /dev/null || ABORT "post_mods: floating_feature.xml is not well-formed XML"
+fi
+for k in SEC_FLOATING_FEATURE_LCD_CONFIG_HFR_MODE SEC_FLOATING_FEATURE_SETTINGS_ENABLE_EU_BATTERY_REGULATORY_WITHOUT_IC; do
+    grep -q "^    <$k>" "$FFX" || ABORT "post_mods: floating_feature.xml lost $k"
+done
+LOG "- floating_feature.xml: $FFN features, well-formed"
+unset FFX FFN k
