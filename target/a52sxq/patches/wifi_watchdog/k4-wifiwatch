@@ -7,11 +7,11 @@
 # neighbours, so no "lost provisioning", no reconnect, and the network keeps looking validated. Samsung's own monitor
 # (WifiConnectivityMonitor) is disabled on this port.
 #
-# Every 5 s while wlan0 has a default route in any routing table (`ip route show table all`: so also under a VPN, whose
+# Every 10 s while wlan0 has a default route in any routing table (`ip route show table all`: so also under a VPN, whose
 # tun0 holds the main default - the Wi-Fi uplink underneath still matters - but not while Wi-Fi is off, not connected,
 # or still in DHCP; a restart does drop a VPN or a Wi-Fi-uplink hotspot for a few seconds):
 #   dead = the gateway's neighbour entry is FAILED/INCOMPLETE/missing AND tx packets grew AND rx packets did not.
-# Four dead samples in a row (20 s; the first 30 s after the route appears are ignored) -> un-wedge:
+# Two dead samples in a row (20 s; the first 30 s after the route appears are ignored) -> un-wedge:
 #   1. cmd connectivity reevaluate (so the network loses "validated" and cellular takes over at once) and restart Wi-Fi
 #      (svc wifi disable/enable: a new association; on R5CTA0ESFTF the dead ones were the 2.4 GHz BSS of a dual-band
 #      router and the restart usually lands on the healthy 5 GHz BSS; it also clears the framework's 10-minute
@@ -21,12 +21,16 @@
 # Opt-out: setprop persist.sys.k4.wifiwatch 0 (adb shell). Status: sys.k4.wifiwatch, kernel log "k4-wifiwatch:".
 # Cost: the loop never holds a wake lock (sleep is a plain timer, it does not wake the SoC from suspend). While Wi-Fi is
 # not the default route (off, cellular, hotspot only) it only looks once a minute; the status property is written on a
-# change only (a setprop every tick woke every property waiter in the system for nothing).
+# change only (a setprop every tick woke every property waiter in the system for nothing). A tick is a handful of
+# execs, ~150 ms of CPU on this kernel: the old 5 s tick with 8 execs was 2.9 % of a core around the clock while
+# Wi-Fi was up (9.3.108). The tick is 10 s now (two 10 s samples = the same 20 s), the uptime is read with a shell
+# builtin, and the gateway's neighbour state (ip + awk) is only looked up when it can change the verdict: tx grew
+# without rx, or the last verdict was not "ok". Measured side by side over 120 s: 1.1 % of a core instead of 2.9 %.
 # Runs as root in the shell domain (like init's console service): needs ip/netlink, /proc/net, binder to cmd.
 
 P=persist.sys.k4.wifiwatch
-NEED=4        # consecutive dead samples
-TICK=5
+NEED=2        # consecutive dead samples
+TICK=10
 GRACE=30      # seconds after the wlan0 default route appears
 COOLDOWN=600  # seconds to stay quiet after both actions failed
 
@@ -76,17 +80,18 @@ status idle
 log "started"
 while true; do
     sleep $TICK
-    now=$(cut -d . -f 1 /proc/uptime)
+    read -r now _ < /proc/uptime
+    now=${now%%.*}
     if [ "$(getprop $P)" = 0 ]; then
         status off
-        sleep 55
+        sleep 50
         continue
     fi
     gw="$(gw_ip)"
     if [ -z "$gw" ]; then
         dead=0; since=0; actions=0
         status idle
-        sleep 55      # no wlan0 default route: nothing to watch, look again in a minute
+        sleep 50      # no wlan0 default route: nothing to watch, look again in a minute
         continue
     fi
     [ "$since" = 0 ] && since=$now
@@ -97,6 +102,11 @@ while true; do
     if [ $((now - since)) -lt $GRACE ] || [ "$now" -lt "$quiet_until" ]; then
         dead=0
         continue
+    fi
+    if [ "$dtx" -le 0 ] || [ "$drx" -gt 0 ]; then
+        # rx moving (or nothing sent): not dead whatever the neighbour state. Once the last verdict is "ok" with no
+        # action pending, the lookup below could only repeat it.
+        if [ "$last_status" = ok ] && [ "$actions" = 0 ]; then dead=0; continue; fi
     fi
     st="$(gw_state "$gw")"
     case "$st" in
