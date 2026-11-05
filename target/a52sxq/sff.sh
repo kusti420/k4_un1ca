@@ -26,3 +26,7 @@ SEC_FLOATING_FEATURE_GALLERY_CONFIG_BEST_FACE_MODE=GENIMAGE
 # One UI Home animation tier: Mass instead of the S26U's HighEnd (owner's call 2026-10-17, "slightly simpler but faster").
 # HighEnd app-open home/wallpaper zoom runs ~800 ms; Mass ~200 ms, shorter close/drawer/recents and no icon morph.
 SEC_FLOATING_FEATURE_LAUNCHER_CONFIG_ANIMATION_TYPE=Mass
+
+# Full Battery information page (cycle count, manufacture / first-use dates) without a battery auth IC: Samsung's own
+# switch for IC-less models, paired with target/a52sxq/patches/battery_info_regulatory (drops the KR-only check).
+SEC_FLOATING_FEATURE_SETTINGS_ENABLE_EU_BATTERY_REGULATORY_WITHOUT_IC=TRUE

@@ -22,7 +22,8 @@ if ! sed -n '/^\.method public static isAvailableBatteryRegulatory(Landroid\/con
 fi
 
 LOG "- Showing the regulatory Battery information rows without a battery auth IC"
-SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_SETTINGS_ENABLE_EU_BATTERY_REGULATORY_WITHOUT_IC" "TRUE"
+# The floating feature itself is set from target/a52sxq/sff.sh (unica/patches/__floating_feature validates the xml and
+# rejects the comment SET_FLOATING_FEATURE_CONFIG adds for a new key from a target patch).
 SMALI_PATCH "system" "$SECSETTINGS" \
     "$BIU" "replace" \
     'isAvailableBatteryRegulatory(Landroid/content/Context;)Z' \
