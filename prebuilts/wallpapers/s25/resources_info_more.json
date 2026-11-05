@@ -1,0 +1,483 @@
+[
+ {
+  "isDefault": false,
+  "index": 0,
+  "which": 2,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s25_01.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_silver",
+  "cmf_info": [
+   "zs",
+   "zk"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s25_01.webp",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "wallpaper_001.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 1,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s25_02.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_dark_silver",
+  "cmf_info": [
+   "zs",
+   "zk"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s25_02.webp",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "wallpaper_002.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 2,
+  "which": 2,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s25_03.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_green",
+  "cmf_info": [
+   "lg"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s25_03.webp",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "wallpaper_003.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 3,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s25_04.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_dark_green",
+  "cmf_info": [
+   "lg"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s25_04.webp",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "wallpaper_004.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 4,
+  "which": 2,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s25_05.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_light_blue",
+  "cmf_info": [
+   "lb"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s25_05.webp",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "wallpaper_005.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 5,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s25_06.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_blue_violet",
+  "cmf_info": [
+   "lb"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s25_06.webp",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "wallpaper_006.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 6,
+  "which": 2,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s25_07.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_blue",
+  "cmf_info": [
+   "db"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s25_07.webp",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "wallpaper_007.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 7,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s25_08.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_dark_blue",
+  "cmf_info": [
+   "db"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s25_08.webp",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "wallpaper_008.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 8,
+  "which": 2,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s25_09.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_pink",
+  "cmf_info": [
+   "zr",
+   "zd"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s25_09.webp",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "wallpaper_009.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 9,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s25_10.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_dark_pink",
+  "cmf_info": [
+   "zr",
+   "zd"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s25_10.webp",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "wallpaper_010.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 10,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s25_v01.mp4",
+    "thumbnail_system_frame_no": 509,
+    "thumbnail_lock_frame_no": 175,
+    "thumbnail_frame_no": 175,
+    "transition_frame_info": "AOD AOD 0 75 1200 0.17 0.17 0.1 1\nAOD LOCK 0 175 1000 0.33 0 0.1 1\nAOD HOME 0 509 2500 0.33 0 0.1 1\nLOCK HOME 175 509 1500 0.17 0.17 0.1 1\nLOCK TOUCH 175 438 1500 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s25_v01.mp4",
+  "frame_no": 175,
+  "desc_str_id": "str_id_silver",
+  "cmf_info": [
+   "zs",
+   "zk"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s25_v01.mp4",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "video_001.mp4",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 510,
+   "table": "resource",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 11,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s25_v02.mp4",
+    "thumbnail_system_frame_no": 509,
+    "thumbnail_lock_frame_no": 175,
+    "thumbnail_frame_no": 175,
+    "transition_frame_info": "AOD AOD 0 75 1200 0.17 0.17 0.1 1\nAOD LOCK 0 175 1000 0.33 0 0.1 1\nAOD HOME 0 509 2500 0.33 0 0.1 1\nLOCK HOME 175 509 1500 0.17 0.17 0.1 1\nLOCK TOUCH 175 438 1500 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s25_v02.mp4",
+  "frame_no": 175,
+  "desc_str_id": "str_id_green",
+  "cmf_info": [
+   "lg"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s25_v02.mp4",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "video_002.mp4",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 510,
+   "table": "resource",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 12,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s25_v03.mp4",
+    "thumbnail_system_frame_no": 509,
+    "thumbnail_lock_frame_no": 175,
+    "thumbnail_frame_no": 175,
+    "transition_frame_info": "AOD AOD 0 75 1200 0.17 0.17 0.1 1\nAOD LOCK 0 175 1000 0.33 0 0.1 1\nAOD HOME 0 509 2500 0.33 0 0.1 1\nLOCK HOME 175 509 1500 0.17 0.17 0.1 1\nLOCK TOUCH 175 438 1500 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s25_v03.mp4",
+  "frame_no": 175,
+  "desc_str_id": "str_id_light_blue",
+  "cmf_info": [
+   "lb"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s25_v03.mp4",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "video_003.mp4",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 510,
+   "table": "resource",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 13,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s25_v04.mp4",
+    "thumbnail_system_frame_no": 509,
+    "thumbnail_lock_frame_no": 175,
+    "thumbnail_frame_no": 175,
+    "transition_frame_info": "AOD AOD 0 75 1200 0.17 0.17 0.1 1\nAOD LOCK 0 175 1000 0.33 0 0.1 1\nAOD HOME 0 509 2500 0.33 0 0.1 1\nLOCK HOME 175 509 1500 0.17 0.17 0.1 1\nLOCK TOUCH 175 438 1500 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s25_v04.mp4",
+  "frame_no": 175,
+  "desc_str_id": "str_id_blue",
+  "cmf_info": [
+   "db"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s25_v04.mp4",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "video_004.mp4",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 510,
+   "table": "resource",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 14,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s25_v05.mp4",
+    "thumbnail_system_frame_no": 509,
+    "thumbnail_lock_frame_no": 175,
+    "thumbnail_frame_no": 175,
+    "transition_frame_info": "AOD AOD 0 75 1200 0.17 0.17 0.1 1\nAOD LOCK 0 175 1000 0.33 0 0.1 1\nAOD HOME 0 509 2500 0.33 0 0.1 1\nLOCK HOME 175 509 1500 0.17 0.17 0.1 1\nLOCK TOUCH 175 438 1500 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s25_v05.mp4",
+  "frame_no": 175,
+  "desc_str_id": "str_id_pink",
+  "cmf_info": [
+   "zr",
+   "zd"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s25_v05.mp4",
+  "_source": {
+   "set": "s25",
+   "build": "SM-S931B EUX S931BXXUCDZIF",
+   "filename": "video_005.mp4",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 510,
+   "table": "resource",
+   "note": ""
+  }
+ }
+]

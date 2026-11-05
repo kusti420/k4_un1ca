@@ -1,0 +1,158 @@
+[
+ {
+  "isDefault": false,
+  "index": 0,
+  "which": 2,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s26_01.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_black",
+  "cmf_info": [
+   "zk"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s26_01.webp",
+  "_source": {
+   "set": "s26",
+   "build": "SM-S942B EUX S942BXXS4BZIG",
+   "filename": "wallpaper_001.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 1,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s26_02.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_light_blue",
+  "cmf_info": [
+   "lb"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s26_02.webp",
+  "_source": {
+   "set": "s26",
+   "build": "SM-S942B EUX S942BXXS4BZIG",
+   "filename": "wallpaper_002.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 2,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s26_03.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_violet",
+  "cmf_info": [
+   "zv"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s26_03.webp",
+  "_source": {
+   "set": "s26",
+   "build": "SM-S942B EUX S942BXXS4BZIG",
+   "filename": "wallpaper_003.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 3,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s26_04.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_white",
+  "cmf_info": [
+   "zw"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s26_04.webp",
+  "_source": {
+   "set": "s26",
+   "build": "SM-S942B EUX S942BXXS4BZIG",
+   "filename": "wallpaper_004.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 4,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s26_05.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_gold",
+  "cmf_info": [
+   "zd"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s26_05.webp",
+  "_source": {
+   "set": "s26",
+   "build": "SM-S942B EUX S942BXXS4BZIG",
+   "filename": "wallpaper_005.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 5,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s26_06.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_silver",
+  "cmf_info": [
+   "zs"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s26_06.webp",
+  "_source": {
+   "set": "s26",
+   "build": "SM-S942B EUX S942BXXS4BZIG",
+   "filename": "wallpaper_006.png",
+   "note": ""
+  }
+ }
+]

@@ -1,0 +1,260 @@
+[
+ {
+  "isDefault": false,
+  "index": 0,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s26u_v01.mp4",
+    "thumbnail_system_frame_no": 90,
+    "thumbnail_lock_frame_no": 90,
+    "thumbnail_frame_no": 90,
+    "transition_frame_info": "AOD LOCK 0 90 1500 0.17 0.17 0.1 1\nAOD HOME 0 240 3000 0.33 0 0.1 1\nLOCK HOME_LEFT 90 240 3000 0.17 0.17 0.1 1\nLOCK HOME_UP 240 390 3000 0.17 0.17 0.1 1\nLOCK HOME_RIGHT 390 539 3000 0.17 0.17 0.1 1\nLOCK TOUCH_LEFT 90 173 3000 0.17 0.17 0.1 1\nLOCK TOUCH_UP 240 323 3000 0.17 0.17 0.1 1\nLOCK TOUCH_RIGHT 390 473 3000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s26u_v01.mp4",
+  "frame_no": 90,
+  "desc_str_id": "str_id_black",
+  "cmf_info": [
+   "zk"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s26u_v01.mp4",
+  "_source": {
+   "set": "s26u",
+   "build": "SM-S948B EUX S948BXXS4BZIG",
+   "filename": "video_001.mp4",
+   "src_fps": 90,
+   "dst_fps": 30,
+   "frames": 540,
+   "table": "resource",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 1,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s26u_v02.mp4",
+    "thumbnail_system_frame_no": 90,
+    "thumbnail_lock_frame_no": 90,
+    "thumbnail_frame_no": 90,
+    "transition_frame_info": "AOD LOCK 0 90 1500 0.17 0.17 0.1 1\nAOD HOME 0 240 3000 0.33 0 0.1 1\nLOCK HOME_LEFT 90 240 3000 0.17 0.17 0.1 1\nLOCK HOME_UP 240 390 3000 0.17 0.17 0.1 1\nLOCK HOME_RIGHT 390 539 3000 0.17 0.17 0.1 1\nLOCK TOUCH_LEFT 90 173 3000 0.17 0.17 0.1 1\nLOCK TOUCH_UP 240 323 3000 0.17 0.17 0.1 1\nLOCK TOUCH_RIGHT 390 473 3000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s26u_v02.mp4",
+  "frame_no": 90,
+  "desc_str_id": "str_id_light_blue",
+  "cmf_info": [
+   "lb"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s26u_v02.mp4",
+  "_source": {
+   "set": "s26u",
+   "build": "SM-S948B EUX S948BXXS4BZIG",
+   "filename": "video_002.mp4",
+   "src_fps": 90,
+   "dst_fps": 30,
+   "frames": 540,
+   "table": "resource",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 2,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s26u_v03.mp4",
+    "thumbnail_system_frame_no": 90,
+    "thumbnail_lock_frame_no": 90,
+    "thumbnail_frame_no": 90,
+    "transition_frame_info": "AOD LOCK 0 90 1500 0.17 0.17 0.1 1\nAOD HOME 0 240 3000 0.33 0 0.1 1\nLOCK HOME_LEFT 90 240 3000 0.17 0.17 0.1 1\nLOCK HOME_UP 240 390 3000 0.17 0.17 0.1 1\nLOCK HOME_RIGHT 390 539 3000 0.17 0.17 0.1 1\nLOCK TOUCH_LEFT 90 173 3000 0.17 0.17 0.1 1\nLOCK TOUCH_UP 240 323 3000 0.17 0.17 0.1 1\nLOCK TOUCH_RIGHT 390 473 3000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s26u_v03.mp4",
+  "frame_no": 90,
+  "desc_str_id": "str_id_violet",
+  "cmf_info": [
+   "zv"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s26u_v03.mp4",
+  "_source": {
+   "set": "s26u",
+   "build": "SM-S948B EUX S948BXXS4BZIG",
+   "filename": "video_003.mp4",
+   "src_fps": 90,
+   "dst_fps": 30,
+   "frames": 540,
+   "table": "resource",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 3,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s26u_v04.mp4",
+    "thumbnail_system_frame_no": 90,
+    "thumbnail_lock_frame_no": 90,
+    "thumbnail_frame_no": 90,
+    "transition_frame_info": "AOD LOCK 0 90 1500 0.17 0.17 0.1 1\nAOD HOME 0 240 3000 0.33 0 0.1 1\nLOCK HOME_LEFT 90 240 3000 0.17 0.17 0.1 1\nLOCK HOME_UP 240 390 3000 0.17 0.17 0.1 1\nLOCK HOME_RIGHT 390 539 3000 0.17 0.17 0.1 1\nLOCK TOUCH_LEFT 90 173 3000 0.17 0.17 0.1 1\nLOCK TOUCH_UP 240 323 3000 0.17 0.17 0.1 1\nLOCK TOUCH_RIGHT 390 473 3000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s26u_v04.mp4",
+  "frame_no": 90,
+  "desc_str_id": "str_id_white",
+  "cmf_info": [
+   "zw"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s26u_v04.mp4",
+  "_source": {
+   "set": "s26u",
+   "build": "SM-S948B EUX S948BXXS4BZIG",
+   "filename": "video_004.mp4",
+   "src_fps": 90,
+   "dst_fps": 30,
+   "frames": 540,
+   "table": "resource",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 4,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s26u_v05.mp4",
+    "thumbnail_system_frame_no": 90,
+    "thumbnail_lock_frame_no": 90,
+    "thumbnail_frame_no": 90,
+    "transition_frame_info": "AOD LOCK 0 90 1500 0.17 0.17 0.1 1\nAOD HOME 0 240 3000 0.33 0 0.1 1\nLOCK HOME_LEFT 90 240 3000 0.17 0.17 0.1 1\nLOCK HOME_UP 240 390 3000 0.17 0.17 0.1 1\nLOCK HOME_RIGHT 390 539 3000 0.17 0.17 0.1 1\nLOCK TOUCH_LEFT 90 173 3000 0.17 0.17 0.1 1\nLOCK TOUCH_UP 240 323 3000 0.17 0.17 0.1 1\nLOCK TOUCH_RIGHT 390 473 3000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s26u_v05.mp4",
+  "frame_no": 90,
+  "desc_str_id": "str_id_gold",
+  "cmf_info": [
+   "zd"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s26u_v05.mp4",
+  "_source": {
+   "set": "s26u",
+   "build": "SM-S948B EUX S948BXXS4BZIG",
+   "filename": "video_005.mp4",
+   "src_fps": 90,
+   "dst_fps": 30,
+   "frames": 540,
+   "table": "resource",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 5,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_s26u_v06.mp4",
+    "thumbnail_system_frame_no": 90,
+    "thumbnail_lock_frame_no": 90,
+    "thumbnail_frame_no": 90,
+    "transition_frame_info": "AOD LOCK 0 90 1500 0.17 0.17 0.1 1\nAOD HOME 0 240 3000 0.33 0 0.1 1\nLOCK HOME_LEFT 90 240 3000 0.17 0.17 0.1 1\nLOCK HOME_UP 240 390 3000 0.17 0.17 0.1 1\nLOCK HOME_RIGHT 390 539 3000 0.17 0.17 0.1 1\nLOCK TOUCH_LEFT 90 173 3000 0.17 0.17 0.1 1\nLOCK TOUCH_UP 240 323 3000 0.17 0.17 0.1 1\nLOCK TOUCH_RIGHT 390 473 3000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_s26u_v06.mp4",
+  "frame_no": 90,
+  "desc_str_id": "str_id_silver",
+  "cmf_info": [
+   "zs"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_s26u_v06.mp4",
+  "_source": {
+   "set": "s26u",
+   "build": "SM-S948B EUX S948BXXS4BZIG",
+   "filename": "video_006.mp4",
+   "src_fps": 90,
+   "dst_fps": 30,
+   "frames": 540,
+   "table": "resource",
+   "note": ""
+  }
+ }
+]

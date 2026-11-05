@@ -1,0 +1,278 @@
+[
+ {
+  "isDefault": false,
+  "index": 0,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_fold8_01.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_dark_gray",
+  "cmf_info": [
+   "ZK"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_fold8_01.webp",
+  "_source": {
+   "set": "fold8",
+   "build": "SM-F976B INS F976BXXU1AZFW",
+   "filename": "wallpaper_001.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 1,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_fold8_02.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_cream",
+  "cmf_info": [
+   "ZW"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_fold8_02.webp",
+  "_source": {
+   "set": "fold8",
+   "build": "SM-F976B INS F976BXXU1AZFW",
+   "filename": "wallpaper_002.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 2,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_fold8_03.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_violet",
+  "cmf_info": [
+   "ZV"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_fold8_03.webp",
+  "_source": {
+   "set": "fold8",
+   "build": "SM-F976B INS F976BXXU1AZFW",
+   "filename": "wallpaper_003.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 3,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_fold8_04.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_green",
+  "cmf_info": [
+   "DG"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_fold8_04.webp",
+  "_source": {
+   "set": "fold8",
+   "build": "SM-F976B INS F976BXXU1AZFW",
+   "filename": "wallpaper_004.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 4,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_fold8_v01.mp4",
+    "thumbnail_system_frame_no": 135,
+    "thumbnail_lock_frame_no": 135,
+    "thumbnail_frame_no": 135,
+    "transition_frame_info": "AOD AOD 0 30 1200 0.17 0.17 0.1 1\nAOD LOCK 0 68 1800 0.33 0 0.1 1\nAOD HOME 0 135 2500 0.33 0 0.1 1\nLOCK HOME 68 135 1200 0.17 0.17 0.1 1\nLOCK TOUCH 68 102 1000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_fold8_v01.mp4",
+  "frame_no": 135,
+  "desc_str_id": "str_id_dark_gray",
+  "cmf_info": [
+   "ZK"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_fold8_v01.mp4",
+  "_source": {
+   "set": "fold8",
+   "build": "SM-F976B INS F976BXXU1AZFW",
+   "filename": "video_001.mp4",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 136,
+   "table": "custom (destination frames)",
+   "note": "FoldInteractive unfold clip (angle_frame_mapping 0 0, 60 60, 90 90, 175 545) recast as an infinity clip"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 5,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_fold8_v02.mp4",
+    "thumbnail_system_frame_no": 135,
+    "thumbnail_lock_frame_no": 135,
+    "thumbnail_frame_no": 135,
+    "transition_frame_info": "AOD AOD 0 30 1200 0.17 0.17 0.1 1\nAOD LOCK 0 68 1800 0.33 0 0.1 1\nAOD HOME 0 135 2500 0.33 0 0.1 1\nLOCK HOME 68 135 1200 0.17 0.17 0.1 1\nLOCK TOUCH 68 102 1000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_fold8_v02.mp4",
+  "frame_no": 135,
+  "desc_str_id": "str_id_cream",
+  "cmf_info": [
+   "ZW"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_fold8_v02.mp4",
+  "_source": {
+   "set": "fold8",
+   "build": "SM-F976B INS F976BXXU1AZFW",
+   "filename": "video_002.mp4",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 136,
+   "table": "custom (destination frames)",
+   "note": "FoldInteractive unfold clip (angle_frame_mapping 0 0, 60 60, 90 90, 175 545) recast as an infinity clip"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 6,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_fold8_v03.mp4",
+    "thumbnail_system_frame_no": 135,
+    "thumbnail_lock_frame_no": 135,
+    "thumbnail_frame_no": 135,
+    "transition_frame_info": "AOD AOD 0 30 1200 0.17 0.17 0.1 1\nAOD LOCK 0 68 1800 0.33 0 0.1 1\nAOD HOME 0 135 2500 0.33 0 0.1 1\nLOCK HOME 68 135 1200 0.17 0.17 0.1 1\nLOCK TOUCH 68 102 1000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_fold8_v03.mp4",
+  "frame_no": 135,
+  "desc_str_id": "str_id_violet",
+  "cmf_info": [
+   "ZV"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_fold8_v03.mp4",
+  "_source": {
+   "set": "fold8",
+   "build": "SM-F976B INS F976BXXU1AZFW",
+   "filename": "video_003.mp4",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 136,
+   "table": "custom (destination frames)",
+   "note": "FoldInteractive unfold clip (angle_frame_mapping 0 0, 60 60, 90 90, 175 545) recast as an infinity clip"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 7,
+  "which": 7,
+  "screen": 0,
+  "target_screen_only": true,
+  "type": 10,
+  "type_params": {
+   "content_type": "infinity",
+   "service_package_name": "com.samsung.android.wallpaper.live",
+   "service_class_name": "com.samsung.android.wallpaper.live.infinity.InfinityWallpaper",
+   "service_settings": {
+    "filename": "wpm_fold8_v04.mp4",
+    "thumbnail_system_frame_no": 135,
+    "thumbnail_lock_frame_no": 135,
+    "thumbnail_frame_no": 135,
+    "transition_frame_info": "AOD AOD 0 30 1200 0.17 0.17 0.1 1\nAOD LOCK 0 68 1800 0.33 0 0.1 1\nAOD HOME 0 135 2500 0.33 0 0.1 1\nLOCK HOME 68 135 1200 0.17 0.17 0.1 1\nLOCK TOUCH 68 102 1000 0.17 0.17 0.1 1"
+   }
+  },
+  "filename": "wpm_fold8_v04.mp4",
+  "frame_no": 135,
+  "desc_str_id": "str_id_green",
+  "cmf_info": [
+   "DG"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Interactive"
+   }
+  },
+  "_file": "wpm_fold8_v04.mp4",
+  "_source": {
+   "set": "fold8",
+   "build": "SM-F976B INS F976BXXU1AZFW",
+   "filename": "video_004.mp4",
+   "src_fps": 120,
+   "dst_fps": 30,
+   "frames": 136,
+   "table": "custom (destination frames)",
+   "note": "FoldInteractive unfold clip (angle_frame_mapping 0 0, 60 60, 90 90, 175 545) recast as an infinity clip"
+  }
+ }
+]

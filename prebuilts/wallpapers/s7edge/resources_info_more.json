@@ -1,0 +1,207 @@
+[
+ {
+  "isDefault": false,
+  "index": 0,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s7edge_01.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_black",
+  "cmf_info": [
+   ""
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s7edge_01.webp",
+  "_source": {
+   "set": "s7edge",
+   "build": "SM-G935F BTU G935FXXU8EVG2 (framework-res.apk)",
+   "filename": "",
+   "note": "framework-res res/drawable-xxxhdpi-v4/default_wallpaper.png 2240x2240"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 1,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s7edge_02.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_gold",
+  "cmf_info": [
+   ""
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s7edge_02.webp",
+  "_source": {
+   "set": "s7edge",
+   "build": "SM-G935F BTU G935FXXU8EVG2 (framework-res.apk)",
+   "filename": "",
+   "note": "framework-res res/drawable-xxxhdpi-v4/default_wallpaper_gold.png 2240x2240"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 2,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s7edge_03.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_pink",
+  "cmf_info": [
+   ""
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s7edge_03.webp",
+  "_source": {
+   "set": "s7edge",
+   "build": "SM-G935F BTU G935FXXU8EVG2 (framework-res.apk)",
+   "filename": "",
+   "note": "framework-res res/drawable-xxxhdpi-v4/default_wallpaper_pink.png 2240x2240"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 3,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s7edge_04.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_silver",
+  "cmf_info": [
+   ""
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s7edge_04.webp",
+  "_source": {
+   "set": "s7edge",
+   "build": "SM-G935F BTU G935FXXU8EVG2 (framework-res.apk)",
+   "filename": "",
+   "note": "framework-res res/drawable-xxxhdpi-v4/default_wallpaper_silver.png 2240x2240"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 4,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s7edge_05.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_white",
+  "cmf_info": [
+   ""
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s7edge_05.webp",
+  "_source": {
+   "set": "s7edge",
+   "build": "SM-G935F BTU G935FXXU8EVG2 (framework-res.apk)",
+   "filename": "",
+   "note": "framework-res res/drawable-xxxhdpi-v4/default_wallpaper_white.png 2240x2240"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 5,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s7edge_06.png",
+  "frame_no": -1,
+  "cmf_info": [
+   ""
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s7edge_06.webp",
+  "_source": {
+   "set": "s7edge",
+   "build": "SM-G935F BTU G935FXXU8EVG2 (framework-res.apk)",
+   "filename": "",
+   "note": "framework-res res/drawable-xxxhdpi-v4/essential_built_in_wallpaper_1.png 2240x2240"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 6,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s7edge_07.png",
+  "frame_no": -1,
+  "cmf_info": [
+   ""
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s7edge_07.webp",
+  "_source": {
+   "set": "s7edge",
+   "build": "SM-G935F BTU G935FXXU8EVG2 (framework-res.apk)",
+   "filename": "",
+   "note": "framework-res res/drawable-xxxhdpi-v4/essential_built_in_wallpaper_2.png 2240x2240"
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 7,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s7edge_08.png",
+  "frame_no": -1,
+  "cmf_info": [
+   ""
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s7edge_08.webp",
+  "_source": {
+   "set": "s7edge",
+   "build": "SM-G935F BTU G935FXXU8EVG2 (framework-res.apk)",
+   "filename": "",
+   "note": "framework-res res/drawable-xxxhdpi-v4/essential_built_in_wallpaper_3.png 2240x2240"
+  }
+ }
+]

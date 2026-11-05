@@ -1,0 +1,216 @@
+[
+ {
+  "isDefault": false,
+  "index": 0,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s24u_01.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_black",
+  "cmf_info": [
+   "zk",
+   "lg"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s24u_01.webp",
+  "_source": {
+   "set": "s24u_stills",
+   "build": "SM-S928B EUX S928BXXS6EZJ1",
+   "filename": "Wallpaper_009.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 1,
+  "which": 2,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s24u_02.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_gray",
+  "cmf_info": [
+   "zk",
+   "lg"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s24u_02.webp",
+  "_source": {
+   "set": "s24u_stills",
+   "build": "SM-S928B EUX S928BXXS6EZJ1",
+   "filename": "Wallpaper_010.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 2,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s24u_03.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_dark_gray",
+  "cmf_info": [
+   "zt"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s24u_03.webp",
+  "_source": {
+   "set": "s24u_stills",
+   "build": "SM-S928B EUX S928BXXS6EZJ1",
+   "filename": "Wallpaper_011.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 3,
+  "which": 2,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s24u_04.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_warm_gray",
+  "cmf_info": [
+   "zt"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s24u_04.webp",
+  "_source": {
+   "set": "s24u_stills",
+   "build": "SM-S928B EUX S928BXXS6EZJ1",
+   "filename": "Wallpaper_012.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 4,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s24u_05.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_dark_violet",
+  "cmf_info": [
+   "zv",
+   "lb"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s24u_05.webp",
+  "_source": {
+   "set": "s24u_stills",
+   "build": "SM-S928B EUX S928BXXS6EZJ1",
+   "filename": "Wallpaper_013.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 5,
+  "which": 2,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s24u_06.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_violet",
+  "cmf_info": [
+   "zv",
+   "lb"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s24u_06.webp",
+  "_source": {
+   "set": "s24u_stills",
+   "build": "SM-S928B EUX S928BXXS6EZJ1",
+   "filename": "Wallpaper_014.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 6,
+  "which": 1,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s24u_07.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_dark_yellow",
+  "cmf_info": [
+   "zy",
+   "zo"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s24u_07.webp",
+  "_source": {
+   "set": "s24u_stills",
+   "build": "SM-S928B EUX S928BXXS6EZJ1",
+   "filename": "Wallpaper_015.png",
+   "note": ""
+  }
+ },
+ {
+  "isDefault": false,
+  "index": 7,
+  "which": 2,
+  "screen": 0,
+  "type": 0,
+  "filename": "wpm_s24u_08.png",
+  "frame_no": -1,
+  "desc_str_id": "str_id_yellow",
+  "cmf_info": [
+   "zy",
+   "zo"
+  ],
+  "logging_info": {
+   "custom_dimens": {
+    "Category": "Featured",
+    "Content": "Featured_Signature_Image"
+   }
+  },
+  "_file": "wpm_s24u_08.webp",
+  "_source": {
+   "set": "s24u_stills",
+   "build": "SM-S928B EUX S928BXXS6EZJ1",
+   "filename": "Wallpaper_016.png",
+   "note": ""
+  }
+ }
+]
