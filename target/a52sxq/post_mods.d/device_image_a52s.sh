@@ -1,4 +1,10 @@
-# See module.prop. Runs after unica/mods/device_image (unica/mods/zz_target applies target patches last).
+# Sourced from post_mods.sh (after unica/mods/device_image, which device patches run before).
+# About phone shows a picture that Settings downloads from Samsung's SCPM server (DeviceImageManager$1, item 2) for a
+# product code. unica/mods/device_image replaces the code with a fixed S26 Ultra one (SM-S948BZDGEUX), so the header
+# showed an S26 Ultra with S Pen. This puts back the stock source, the phone's own ril.product_code (e.g.
+# SM-A528BZKCSEB), so the server returns the A52s 5G picture in the phone's own colour. Falls back to SM-A528BZKCSEB
+# when the property is empty. The cached /data/user_de/0/com.android.settings/files/DeviceImage.png is replaced on the
+# next About phone visit once it is older than a day.
 SECSETTINGS="system/priv-app/SecSettings/SecSettings.apk"
 DECODE_APK "system" "$SECSETTINGS" || ABORT "Failed to decode $SECSETTINGS"
 

@@ -137,3 +137,6 @@ for k in SEC_FLOATING_FEATURE_LCD_CONFIG_HFR_MODE SEC_FLOATING_FEATURE_SETTINGS_
 done
 LOG "- floating_feature.xml: $FFN features, well-formed"
 unset FFX FFN k
+
+# About phone device picture: the phone's own product code instead of unica/mods/device_image's S26 Ultra one
+source "$SRC_DIR/target/$TARGET_CODENAME/post_mods.d/device_image_a52s.sh"
