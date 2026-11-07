@@ -32,8 +32,8 @@ is_mounted("/data") || (
   ui_print(" ");
   ui_print("ERROR: /data is not mounted in the recovery.");
   ui_print("1. TWRP > Mount: tick Data, then flash again.");
-  ui_print("2. With a lock screen PIN/pattern: enter it when TWRP asks, then flash again.");
-  ui_print("3. No lock screen and Data still will not mount: this TWRP cannot decrypt your data. Usually a boot/kernel image with a newer security patch was flashed (its keys are then upgraded). Flash the boot image you had before, or use a TWRP that supports your data. Format Data (erases everything) is the last resort.");
+  ui_print("2. Still not mounted: this TWRP cannot open your data partition. Usually a boot/kernel image with a newer security patch was flashed (its keys are then upgraded). Flash the boot image you had before, or use a TWRP that supports your data. Format Data (erases everything) is the last resort.");
+  ui_print("A lock screen PIN/pattern is not the cause: TWRP 3.7.1 cannot unlock One UI 9 PIN-protected files anyway, but Data still mounts and the ROM installs. Flash from an SD card, USB stick or adb sideload when internal storage shows scrambled names.");
   ui_print(" ");
   abort("E3010: /data must be mounted (decrypted) to install this build")
 );
