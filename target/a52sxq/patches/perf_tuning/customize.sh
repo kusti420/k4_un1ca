@@ -13,6 +13,12 @@ SET_PROP "system" "pm.dexopt.post-boot" "verify"
 # Match the target (A52s stock has it off) so the runtime and odrefresh agree from the start.
 SET_PROP "product" "ro.dalvik.vm.enable_uffd_gc" "false"
 
+# The S26U product build.prop enables Settings' large-screen activity embedding (two-pane split); stock A52s does not
+# set it. On this 6.5" panel Settings never splits (isEmbedded=false even in landscape), but every Settings page opened
+# by intent (Quick Settings long-press, notifications, other apps) still goes through the embedding trampoline:
+# Location via its intent measured ~515 ms cold instead of 740-760 ms, 230-270 ms instead of 370-480 ms as a sub-page.
+SET_PROP "product" "persist.settings.large_screen_opt.enabled" "false"
+
 # Performance profile "Light" (Settings > Device care > Performance profile) acquires the vendor hyper hint
 # LOW_HEAT_MODE_HINT (ID 900), whose CPUMaxFreq "90#" is a position in Samsung's unified /sys/power/cpufreq_table, not a
 # percentage: HYPER-HAL applies 2208000 (measured; 86# gave the same), barely below Standard's 2.4 GHz. Absolute kHz
