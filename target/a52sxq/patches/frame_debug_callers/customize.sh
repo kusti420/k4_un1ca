@@ -56,4 +56,41 @@ else:
     s = s[:a] + body + s[b:]
     open(f, "w").write(s)
     print("  - QSAnimView.nowWithDebugCallers: timestamp only")
+
+# 3. per-frame Log.i of the blur pipeline (framework): ViewRootImpl.dispatchBlurRegionsEx ("dispatchBlurRegionsEx <n>",
+#    tag = the window's VRI[...]@hash, so no log.tag prop can silence it) and BackgroundBlurDrawable$Aggregator
+#    .getBlurRegionsCopyForRT ("getBlurRegionsCopyForRT, size : <n>", RenderThread). ~160 lines per shade pull each.
+def strip_log(pattern, sig, text):
+    f = one(pattern)
+    s = open(f).read()
+    a, b = method(s, sig)
+    body = s[a:b]
+    if MARK in body:
+        print("  - %s: already patched" % text)
+        return
+    m = re.search(r"\n(    new-instance (v\d+), Ljava/lang/StringBuilder;\n(?:(?!    new-instance ).)*?    const-string v\d+, \"" + re.escape(text) + r"\"\n.*?    invoke-static \{v\d+, v\d+\}, Landroid/util/Log;->i\(Ljava/lang/String;Ljava/lang/String;\)I\n)", body, re.S)
+    assert m, text
+    blk = m.group(1)
+    assert not re.search(r"^\s*(:|goto|if-|return|iput|sput|throw)", blk, re.M), "%s: control flow or stores in the log block" % text
+    body = body[:m.start(1)] + "    " + MARK + ": per-frame Log.i \"" + text + "\" removed\n" + body[m.end(1):]
+    open(f, "w").write(s[:a] + body + s[b:])
+    print("  - %s: removed" % text)
+
+strip_log(FW + "/smali*/android/view/ViewRootImpl.smali", ".method public blacklist dispatchBlurRegionsEx([Landroid/view/SemBlurRegionData;J)V\n", "dispatchBlurRegionsEx ")
+strip_log(FW + "/smali*/com/android/internal/graphics/drawable/BackgroundBlurDrawable$Aggregator.smali", ".method public blacklist getBlurRegionsCopyForRT()[Lcom/android/internal/graphics/drawable/BackgroundBlurDrawable$BlurRegion;\n", "getBlurRegionsCopyForRT, size : ")
+
+# 4. SystemUI QuickPanelLoggerHelper$PanelStateLogger.log: Debug.getCallers(n, " - ") appended to every new panel state
+#    line (QuickPanelLog, ~180 lines per shade pull). The line is kept, without the caller list.
+f = one(SUI + "/smali*/com/android/systemui/log/QuickPanelLoggerHelper$PanelStateLogger.smali")
+s = open(f).read()
+a, b = method(s, ".method public final log(ILjava/lang/String;Ljava/lang/String;)V\n")
+body = s[a:b]
+if MARK in body:
+    print("  - PanelStateLogger.log: already patched")
+else:
+    m = re.search(r"    invoke-static \{p1, p2\}, Landroid/os/Debug;->getCallers\(ILjava/lang/String;\)Ljava/lang/String;\n\s*move-result-object p1\n", body)
+    assert m and body.count("getCallers") == 1, "PanelStateLogger.log getCallers"
+    body = body[:m.start()] + "    " + MARK + ": no caller list\n    const-string p1, \"\"\n" + body[m.end():]
+    open(f, "w").write(s[:a] + body + s[b:])
+    print("  - PanelStateLogger.log: caller list dropped")
 PYEOF

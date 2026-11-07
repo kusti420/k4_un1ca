@@ -91,3 +91,13 @@ SET_PROP "system" "log.tag.SurfaceComposerClient" "I"
 SET_PROP "system" "log.tag.PluginLockMediatorImpl" "I"
 SET_PROP "system" "log.tag.SecPanelWindowBlurInteractor" "I"
 SET_PROP "system" "log.tag.SecPanelWindowBlurBinder" "I"
+
+# 9.3.113 shade pull (3 pulls, 4,120 SystemUI lines): per-frame D/I lines that only repeat the expansion fraction or
+# a constant state. D-level tags go to I, I-level tags to W. `setprop log.tag.<TAG> D` brings them back.
+SET_PROP "system" "log.tag.QuickPanelLog" "I"
+SET_PROP "system" "log.tag.PanelSplitOpenAnimator" "I"
+SET_PROP "system" "log.tag.ShadeExpansionStateManager" "I"
+SET_PROP "system" "log.tag.SecPanelSplitHelper" "I"
+SET_PROP "system" "log.tag.ImmersiveScrollAnimator" "I"
+SET_PROP "system" "log.tag.NowBarCardViewModel" "W"
+SET_PROP "system" "log.tag.NowBarGradientBlurController" "W"
