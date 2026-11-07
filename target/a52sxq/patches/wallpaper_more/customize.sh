@@ -4,7 +4,6 @@
 # < "wallpaper_more"). The sets live in prebuilts/wallpapers/<set>/ (README.txt in each: source build, transcode, budget):
 #   s24u_stills  Galaxy S24 Ultra   8 stills (lock/home pairs, 3120 -> 2400x2400)
 #   s26u         Galaxy S26 Ultra   6 interactive clips (the source's own clips, re-encoded; patches/wallpaper strips the originals)
-#   s26          Galaxy S26         6 stills (different images from the S26U ones already shipped)
 #   s25          Galaxy S25        10 stills (lock/home pairs) + 5 interactive clips
 #   fold8        Galaxy Z Fold8     4 main-screen stills + 4 unfold clips recast as interactive clips (centre crop 9:20)
 #   a52s         Galaxy A52s 5G    11 stock One UI 6 stills (native 2400x2400)
@@ -21,7 +20,9 @@
 PREBUILT="$SRC_DIR/prebuilts/wallpapers"
 APK_FILE="system/priv-app/wallpaper-res/wallpaper-res.apk"
 APK="$WORK_DIR/system/$APK_FILE"
-WPM_SETS="s24u_stills s26u s26 s25 fold8 a52s s7edge"
+# No "s26" set: the Galaxy S26 (SM-S942B) stills are the S26U designs at 2340 instead of 3120 (dHash distance 0-10 per
+# colour, checked 2026-11-07), so they only listed every S26U picture a third time.
+WPM_SETS="s24u_stills s26u s25 fold8 a52s s7edge"
 WPM_REQUIRED="$WPM_SETS"
 
 for s in $WPM_REQUIRED; do
