@@ -97,6 +97,16 @@ EVAL "\"$PROFMAN\" --dump-classes-and-methods --profile-file=\"$SOURCE_PROFILE\"
     || { LOGE "Failed to dump the source boot image profile"; exit 1; }
 SOURCE_METHODS="$(grep -c -- "->" "$TMP/profile.txt")"
 
+# Methods the source device's profile lacks but the target runs hot (collected on the target with boot classpath
+# profiling, see the file's header): appended as text, profman resolves them against the final jars below.
+EXTRA_PROFILE="$SRC_DIR/target/$TARGET_CODENAME/boot-image-extra.txt"
+if [ -f "$EXTRA_PROFILE" ]; then
+    grep -v -e '^#' -e '^[[:space:]]*$' "$EXTRA_PROFILE" >> "$TMP/profile.txt"
+    sort -u -o "$TMP/profile.txt" "$TMP/profile.txt"
+    SOURCE_METHODS="$(grep -c -- "->" "$TMP/profile.txt")"
+    LOG "- Added the target's extra boot profile entries (${EXTRA_PROFILE//$SRC_DIR\//})"
+fi
+
 EVAL "\"$PROFMAN\" --create-profile-from=\"$TMP/profile.txt\" --output-profile-type=boot ${TARGET_ARGS[*]} --reference-profile-file=\"$TMP/boot-image.prof\"" \
     || { LOGE "Failed to create the boot image profile"; exit 1; }
 "$PROFMAN" --dump-classes-and-methods --profile-file="$TMP/boot-image.prof" "${TARGET_ARGS[@]}" > "$TMP/check.txt" 2> /dev/null
