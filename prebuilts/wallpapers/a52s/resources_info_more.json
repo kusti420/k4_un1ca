@@ -1,277 +1,302 @@
 [
- {
-  "isDefault": false,
-  "index": 0,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_00.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 0,
+    "which": 2,
+    "screen": 0,
+    "type": 8,
+    "filename": "wpm_a52s_v00.mp4",
+    "frame_no": 0,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Video"
+      }
+    },
+    "_file": "wpm_a52s_v00.mp4",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "video_black.mp4",
+      "note": "type 8 lock screen video, byte-identical (1080x2400 H.264 High 30 fps, 5 s, AAC track kept)"
+    }
   },
-  "_file": "wpm_a52s_00.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "default_wallpaper.png",
-   "note": ""
-  }
- },
- {
-  "isDefault": false,
-  "index": 1,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_01.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 1,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_00.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_00.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "default_wallpaper.png",
+      "note": ""
+    }
   },
-  "_file": "wpm_a52s_01.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "wallpaper_001.png",
-   "note": ""
-  }
- },
- {
-  "isDefault": false,
-  "index": 2,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_02.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 2,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_01.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_01.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "wallpaper_001.png",
+      "note": ""
+    }
   },
-  "_file": "wpm_a52s_02.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "wallpaper_002.png",
-   "note": ""
-  }
- },
- {
-  "isDefault": false,
-  "index": 3,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_03.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 3,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_02.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_02.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "wallpaper_002.png",
+      "note": ""
+    }
   },
-  "_file": "wpm_a52s_03.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "wallpaper_003.png",
-   "note": ""
-  }
- },
- {
-  "isDefault": false,
-  "index": 4,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_04.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 4,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_03.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_03.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "wallpaper_003.png",
+      "note": ""
+    }
   },
-  "_file": "wpm_a52s_04.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "wallpaper_004.png",
-   "note": ""
-  }
- },
- {
-  "isDefault": false,
-  "index": 5,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_05.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 5,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_04.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_04.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "wallpaper_004.png",
+      "note": ""
+    }
   },
-  "_file": "wpm_a52s_05.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "wallpaper_005.png",
-   "note": ""
-  }
- },
- {
-  "isDefault": false,
-  "index": 6,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_06.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 6,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_05.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_05.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "wallpaper_005.png",
+      "note": ""
+    }
   },
-  "_file": "wpm_a52s_06.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "wallpaper_006.png",
-   "note": ""
-  }
- },
- {
-  "isDefault": false,
-  "index": 7,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_07.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 7,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_06.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_06.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "wallpaper_006.png",
+      "note": ""
+    }
   },
-  "_file": "wpm_a52s_07.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "wallpaper_007.png",
-   "note": ""
-  }
- },
- {
-  "isDefault": false,
-  "index": 8,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_08.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 8,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_07.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_07.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "wallpaper_007.png",
+      "note": ""
+    }
   },
-  "_file": "wpm_a52s_08.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "wallpaper_008.png",
-   "note": ""
-  }
- },
- {
-  "isDefault": false,
-  "index": 9,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_09.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 9,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_08.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_08.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "wallpaper_008.png",
+      "note": ""
+    }
   },
-  "_file": "wpm_a52s_09.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "wallpaper_009.png",
-   "note": ""
-  }
- },
- {
-  "isDefault": false,
-  "index": 10,
-  "which": 1,
-  "screen": 0,
-  "type": 0,
-  "filename": "wpm_a52s_10.png",
-  "frame_no": -1,
-  "cmf_info": [
-   ""
-  ],
-  "logging_info": {
-   "custom_dimens": {
-    "Category": "Featured",
-    "Content": "Featured_Signature_Image"
-   }
+  {
+    "isDefault": false,
+    "index": 10,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_09.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_09.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "wallpaper_009.png",
+      "note": ""
+    }
   },
-  "_file": "wpm_a52s_10.webp",
-  "_source": {
-   "set": "a52s",
-   "build": "SM-A528B BTU A528BXXU5FWK4",
-   "filename": "wallpaper_010.png",
-   "note": ""
+  {
+    "isDefault": false,
+    "index": 11,
+    "which": 1,
+    "screen": 0,
+    "type": 0,
+    "filename": "wpm_a52s_10.png",
+    "frame_no": -1,
+    "cmf_info": [
+      ""
+    ],
+    "logging_info": {
+      "custom_dimens": {
+        "Category": "Featured",
+        "Content": "Featured_Signature_Image"
+      }
+    },
+    "_file": "wpm_a52s_10.webp",
+    "_source": {
+      "set": "a52s",
+      "build": "SM-A528B BTU A528BXXU5FWK4",
+      "filename": "wallpaper_010.png",
+      "note": ""
+    }
   }
- }
 ]

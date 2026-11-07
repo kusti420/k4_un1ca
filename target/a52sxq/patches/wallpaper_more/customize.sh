@@ -6,7 +6,7 @@
 #   s26u         Galaxy S26 Ultra   6 interactive clips (the source's own clips, re-encoded; patches/wallpaper strips the originals)
 #   s25          Galaxy S25        10 stills (lock/home pairs) + 5 interactive clips
 #   fold8        Galaxy Z Fold8     4 main-screen stills + 4 unfold clips recast as interactive clips (centre crop 9:20)
-#   a52s         Galaxy A52s 5G    11 stock One UI 6 stills (native 2400x2400)
+#   a52s         Galaxy A52s 5G    11 stock One UI 6 stills (native 2400x2400) + its lock screen video (type 8)
 #   s7edge       Galaxy S7 edge     8 stock 2016 stills (framework-res of G935FXXU8EVG2, 2240x2240 square)
 # New resources need new resource ids, so the APK goes through the ROM's standard apktool flow: DECODE_APK here, files
 # dropped into the decoded tree, and make_rom rebuilds it (apktool b keeps the original ids via public.xml and appends
@@ -77,6 +77,11 @@ for s in sets:
             assert e["type_params"]["service_settings"]["filename"] == e["filename"]
             for line in e["type_params"]["service_settings"]["transition_frame_info"].split("\n"):
                 assert len(line.split(" ")) == 9, line
+            copies.append("res/raw/%s %s/%s" % (src, s, src))
+            clips += 1
+        elif e["type"] == 8:
+            # plain looping video, lock screen only (the A52s stock "video_black" confetti clip, DressRoom PreloadVideo)
+            assert src.endswith(".mp4") and e["which"] == 2 and e["frame_no"] == 0, e["filename"]
             copies.append("res/raw/%s %s/%s" % (src, s, src))
             clips += 1
         else:
