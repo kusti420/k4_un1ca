@@ -15,7 +15,10 @@
 # every flash; a text profile dumped from a used device (profman --dump-classes-and-methods) placed in
 # target/<codename>/profiles/<apk or jar name>.txt[.gz] is compiled in the same way. When both exist they are merged.
 #
-# Needs a host profman: PROFMAN=/path/to/profman, or profman in PATH. Skipped (with a warning) otherwise.
+# Needs a host profman: PROFMAN=/path/to/profman, profman in PATH, or an AOSP host build at
+# ~/git/android/out/host/linux-x86/bin/profman. Without one the build aborts: the source profiles match nothing in
+# the patched jars/APKs, so the ROM would ship an almost uncompiled boot image (9.3.92-9.3.111 did). Set
+# ALLOW_NO_PROFMAN=true to build anyway (warning only).
 
 # [
 source "$SRC_DIR/scripts/utils/build_utils.sh" || exit 1
@@ -93,7 +96,9 @@ REGEN_PROFILE()
 # ]
 
 PROFMAN="${PROFMAN:-$(command -v profman)}"
+[ -x "$PROFMAN" ] || PROFMAN="$HOME/git/android/out/host/linux-x86/bin/profman"
 if [ ! -x "$PROFMAN" ]; then
+    [[ "$ALLOW_NO_PROFMAN" == "true" ]] || { LOGE "profman not found (set PROFMAN, or ALLOW_NO_PROFMAN=true to ship the unmatched source app profiles)"; exit 1; }
     LOGW "profman not found (set PROFMAN), keeping the source app profiles"
     exit 0
 fi

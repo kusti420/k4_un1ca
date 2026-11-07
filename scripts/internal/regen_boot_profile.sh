@@ -9,7 +9,10 @@
 # no framework code compiled (everything then runs in the interpreter/JIT). Converting the source profile
 # to text against the source jars and back against the final jars keeps Samsung's method list intact.
 #
-# Needs a host profman: PROFMAN=/path/to/profman, or profman in PATH. Skipped (with a warning) otherwise.
+# Needs a host profman: PROFMAN=/path/to/profman, profman in PATH, or an AOSP host build at
+# ~/git/android/out/host/linux-x86/bin/profman. Without one the build aborts: the source profiles match nothing in
+# the patched jars/APKs, so the ROM would ship an almost uncompiled boot image (9.3.92-9.3.111 did). Set
+# ALLOW_NO_PROFMAN=true to build anyway (warning only).
 
 # [
 source "$SRC_DIR/scripts/utils/build_utils.sh" || exit 1
@@ -70,7 +73,9 @@ SOURCE_PROFILE="$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system/etc/boot-image.prof"
 [ -f "$PROFILE" ] && [ -f "$SOURCE_PROFILE" ] || exit 0
 
 PROFMAN="${PROFMAN:-$(command -v profman)}"
+[ -x "$PROFMAN" ] || PROFMAN="$HOME/git/android/out/host/linux-x86/bin/profman"
 if [ ! -x "$PROFMAN" ]; then
+    [[ "$ALLOW_NO_PROFMAN" == "true" ]] || { LOGE "profman not found (set PROFMAN, or ALLOW_NO_PROFMAN=true to ship the unmatched source boot image profile)"; exit 1; }
     LOGW "profman not found (set PROFMAN), keeping the source boot image profile"
     exit 0
 fi
@@ -79,9 +84,9 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 EXTRACT_APEX_JAVALIB "$(ls "$WORK_DIR/system/system/apex/"*.android.art*.apex | head -n 1)" "$TMP/art" \
-    || ABORT "Failed to extract the ART module boot jars"
+    || { LOGE "Failed to extract the ART module boot jars"; exit 1; }
 EXTRACT_APEX_JAVALIB "$(ls "$WORK_DIR/system/system/apex/"*.android.i18n*.apex | head -n 1)" "$TMP/i18n" \
-    || ABORT "Failed to extract the i18n module boot jars"
+    || { LOGE "Failed to extract the i18n module boot jars"; exit 1; }
 
 "$PROFMAN" --dump-only --profile-file="$SOURCE_PROFILE" > "$TMP/keys.txt" 2> /dev/null
 
@@ -89,11 +94,11 @@ mapfile -t SOURCE_ARGS < <(BCP_ARGS "$FW_DIR/$SOURCE_FIRMWARE_PATH/system/system
 mapfile -t TARGET_ARGS < <(BCP_ARGS "$WORK_DIR/system/system")
 
 EVAL "\"$PROFMAN\" --dump-classes-and-methods --profile-file=\"$SOURCE_PROFILE\" ${SOURCE_ARGS[*]} > \"$TMP/profile.txt\"" \
-    || ABORT "Failed to dump the source boot image profile"
+    || { LOGE "Failed to dump the source boot image profile"; exit 1; }
 SOURCE_METHODS="$(grep -c -- "->" "$TMP/profile.txt")"
 
 EVAL "\"$PROFMAN\" --create-profile-from=\"$TMP/profile.txt\" --output-profile-type=boot ${TARGET_ARGS[*]} --reference-profile-file=\"$TMP/boot-image.prof\"" \
-    || ABORT "Failed to create the boot image profile"
+    || { LOGE "Failed to create the boot image profile"; exit 1; }
 "$PROFMAN" --dump-classes-and-methods --profile-file="$TMP/boot-image.prof" "${TARGET_ARGS[@]}" > "$TMP/check.txt" 2> /dev/null
 TARGET_METHODS="$(grep -c -- "->" "$TMP/check.txt")"
 
