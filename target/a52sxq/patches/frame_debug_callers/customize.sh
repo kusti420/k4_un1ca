@@ -93,4 +93,23 @@ else:
     body = body[:m.start()] + "    " + MARK + ": no caller list\n    const-string p1, \"\"\n" + body[m.end():]
     open(f, "w").write(s[:a] + body + s[b:])
     print("  - PanelStateLogger.log: caller list dropped")
+
+# 5. SystemUI KeyguardSecUpdateMonitorImpl.isUserUnlocked$1(): LogUtil.d("isUserUnlocked userId:%s, unlocked:%s") with
+#    boxing + String.format on every call; the Now Bar (NowBarCardViewModel via FaceWidgetKeyguardUpdateMonitorWrapper)
+#    calls it on every shade frame (~80 lines and 0.4 % of the main thread per pull). The UserManager query stays.
+f = one(SUI + "/smali*/com/android/keyguard/KeyguardSecUpdateMonitorImpl.smali")
+s = open(f).read()
+a, b = method(s, ".method public final isUserUnlocked$1()Z\n")
+body = s[a:b]
+if MARK in body:
+    print("  - KeyguardSecUpdateMonitorImpl.isUserUnlocked: already patched")
+else:
+    m = re.search(r"\n(    invoke-static \{v0\}, Ljava/lang/Integer;->valueOf\(I\)Ljava/lang/Integer;\n.*?    invoke-static \{v1, v2, v0\}, Lcom/android/systemui/util/LogUtil;->d\(Ljava/lang/String;Ljava/lang/String;\[Ljava/lang/Object;\)V\n)", body, re.S)
+    assert m and '"isUserUnlocked userId:%s, unlocked:%s"' in m.group(1), "isUserUnlocked log block"
+    assert not re.search(r"^\s*(:|goto|if-|return|iput|sput)", m.group(1), re.M), "isUserUnlocked log block shape"
+    after = body[m.end():].strip()
+    assert after.startswith("return p0") or after.startswith(".line"), "return must follow the log"
+    body = body[:m.start(1)] + "    " + MARK + ": per-call LogUtil.d removed\n" + body[m.end(1):]
+    open(f, "w").write(s[:a] + body + s[b:])
+    print("  - KeyguardSecUpdateMonitorImpl.isUserUnlocked: per-call log removed")
 PYEOF
