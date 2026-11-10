@@ -109,7 +109,11 @@
     <local name="SUPPORT_SMART_SCAN_MANUAL_CROP" value="true" />
 	<local name="SUPPORT_SMART_SCAN_EXTRACT_TEXT" value="true"/>
     <local name="SUPPORT_ADDITIONAL_SCENE_DOCUMENT_SCAN" value="true" />
-    <local name="SUPPORT_COMPOSITION_GUIDE" value="true" />
+    <!-- k4: Shot suggestions off. Its vendor engine (libshotsuggestion, in the camera provider) loads two GPU models
+         (~3 s + ~1.2 s, same on the stock V@0530 and V@0849 drivers) on every camera open and again on every
+         portrait/landscape turn; a shot taken during a reload waits for it (2.6 s capture stall, 2026-11-09 tester
+         log) and its HDR merge failed (ARC_HDR_Process fail(24), plain frame saved). -->
+    <local name="SUPPORT_COMPOSITION_GUIDE" value="false" />
     <local name="SUPPORT_MACRO_NUDGE" value="true" />
 
     <!-- Video features -->
