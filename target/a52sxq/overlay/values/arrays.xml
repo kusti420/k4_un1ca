@@ -2640,4 +2640,33 @@
         <item>43</item>
         <item>95</item>
     </integer-array>
+    <!-- k4: HDR video brightness cap (SDR nits -> highest HDR nits). One UI 9's HdrBrightnessModifier raises the panel
+         for any HDR layer SurfaceFlinger marks "brightness scaled up" (no screen-size check) to SDR nits x the content's
+         HDR/SDR ratio, capped only by this map. Our overlay replaces the S26 Ultra's framework RRO values, which carried a
+         map for its 2600-nit panel (up to x5 / 1500 nits); without one the A52s went straight to its 800-nit HBM step for a
+         quarter-screen HDR10 clip at 112 nits indoors (9.3.116, 2026-11-13). This keeps HDR at about 2x the current
+         brightness, like stock A52s (A14 HighBrightnessModeController mapped brightness 0..1 to 0..1.9), and only reaches
+         HBM when the user is already above ~400 nits. Measured with this map: 112 -> 223 nits, hbm 0. -->
+    <array name="config_sdrHdrMapSdrNits">
+        <item>2.0</item>
+        <item>50.0</item>
+        <item>100.0</item>
+        <item>150.0</item>
+        <item>200.0</item>
+        <item>250.0</item>
+        <item>300.0</item>
+        <item>420.0</item>
+        <item>800.0</item>
+    </array>
+    <array name="config_sdrHdrMapHdrNits">
+        <item>4.0</item>
+        <item>100.0</item>
+        <item>200.0</item>
+        <item>300.0</item>
+        <item>400.0</item>
+        <item>500.0</item>
+        <item>600.0</item>
+        <item>800.0</item>
+        <item>800.0</item>
+    </array>
 </resources>
