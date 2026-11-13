@@ -15,14 +15,19 @@
 > This repository is an **unofficial, community-maintained fork** of [UN1CA](https://github.com/salvogiangri/UN1CA) by [salvogiangri](https://github.com/salvogiangri).
 > It is **not affiliated with or endorsed by** the UN1CA project. Please don't report problems with k4_un1ca builds to UN1CA.
 >
+> **What it is:** a port of the **Galaxy S26 Ultra (SM-S948B) One UI 9 / Android 17** system to the
+> **Galaxy A52s 5G (`a52sxq`, SM7325)**, which only has an Android 14 vendor and a 5.4 kernel. The system, product and
+> system_ext images come from the S26 Ultra firmware; vendor, odm and the kernel base come from the A52s firmware.
+>
 > **Why this fork exists:** UN1CA itself is actively developed, but its main branch currently targets One UI 8 (`sixteen`).
 > The One UI 9 (`seventeen`) port this fork builds on comes from [devcore94/MonsterROM](https://github.com/devcore94/MonsterROM).
-> k4_un1ca continues that One UI 9 work, focused on bringing it up on the **Galaxy A52s 5G (`a52sxq`, SM7325)**,
-> which only has an Android 14 vendor and a 5.4 kernel.
+> k4_un1ca continues that One UI 9 work on the `seventeen-s26u` branch.
 >
-> **Status (A52s 5G):** One UI 9 boots to the setup wizard and home screen; Wi-Fi, Bluetooth, audio, camera, video,
-> sensors and storage work. Fingerprint and telephony are still being worked on. Expect bugs: this is a bring-up, not a
-> daily-driver release. Builds require the `A528BXXU5FWK4` (BIT 5) firmware as base, an unlocked bootloader and TWRP.
+> **Status (A52s 5G):** released to testers as K4_UN1CA 9.3.x and used as a daily driver. Expect bugs. Installing needs
+> the `A528BXXU5FWK4` (BIT 5) bootloader/firmware, an unlocked bootloader and TWRP.
+>
+> The sections below are inherited from upstream UN1CA and describe UN1CA in general. Where this fork differs, the text
+> has been corrected; other device targets in `target/` are upstream's and are not built or tested here.
 >
 > All credit for the build system and patches goes to the UN1CA and MonsterROM authors; the license (GPL-3.0) is unchanged.
 
@@ -44,9 +49,9 @@ Any form of contribution, suggestions, bug report or feature request for the pro
 
 # Features
 ### Core features:
-- Based on the latest stable Galaxy S22 firmware
+- Based on the Galaxy S26 Ultra (SM-S948B) One UI 9 firmware
 - EROFS powered
-- Galaxy S25 wallpapers/sounds included
+- Galaxy S26 Ultra wallpapers/sounds included
 - Galaxy AI support
   - Audio eraser
   - Browsing assist
@@ -87,8 +92,6 @@ Any form of contribution, suggestions, bug report or feature request for the pro
 - Native/live blur toggle
 - One UI Home animations option
 - Vulkan renderer toggle
-- Key attestation spoof ([TrickyStore](https://github.com/5ec1cff/TrickyStore)) options*
-- Play Integrity Fix integrated
 - Ability to hide installed apps ([Hide My Applist](https://github.com/Dr-TSNG/Hide-My-Applist))
 - Ability to hide developer options
 - Allow app downgrade toggle
@@ -98,7 +101,7 @@ Any form of contribution, suggestions, bug report or feature request for the pro
 - Unlimited backup storage on Google Photos
 - Games FPS unlock toggle
 
-\* Requires a valid keybox
+Play Integrity Fix and the keybox (key attestation spoof) options are not part of k4_un1ca builds since 9.3.98; use your own modules for that.
 
 # Licensing
 This project is licensed under the terms of the [GNU General Public License v3.0](LICENSE). External dependencies might be distributed under a different license, such as:
