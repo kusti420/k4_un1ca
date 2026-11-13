@@ -1,7 +1,9 @@
 # Runs after unica/mods (see unica/mods/zz_target). Undo miracle floating features the A52s can't back.
 
-# Super HDR (Advanced features): the panel has no HDR headroom (HDR video settings are hidden for the same reason)
-SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_MMFW_SUPPORT_PHOTOHDR" --delete
+# k4: MMFW_SUPPORT_PHOTOHDR (set by miracle) is kept. The camera reads it as SUPPORT_JPEGR_PICTURE_FORMAT and then saves
+# Ultra HDR photos (JPEG + gain map) instead of plain SDR JPEGs; testers saw their photos "end up SDR". The panel has no
+# HDR headroom, so on the phone they look the same (Gallery/Google Photos request desiredHdrSdrRatio 1, measured
+# 2026-11-13, no brightness change); the HDR rendition shows on HDR screens the photo is shared to.
 # TalkBack AI image descriptions run on AICore/Gemini Nano, which has no SM7325 model
 SET_FLOATING_FEATURE_CONFIG "SEC_FLOATING_FEATURE_ACCESSIBILITY_SUPPORT_AI_CORE_IMAGE_DESCRIPTION" --delete
 # Game Booster "Touch response speed": secinputdev sends the TSP command set_fast_response, which the A52s stm_ts.ko
