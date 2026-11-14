@@ -70,7 +70,6 @@ Any form of contribution, suggestions, bug report or feature request for the pro
 - High end animations
 - Native/live blur support
 - AOD clock transition support
-- Adaptive color tone support
 - Adaptive refresh rate support
 - Extra brightness support
 - Picture remaster support
