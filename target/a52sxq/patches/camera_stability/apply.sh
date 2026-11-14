@@ -11,7 +11,7 @@ ST_APK="system/priv-app/SingleTakeService/SingleTakeService.apk"
 cmp -s "$WORK_DIR/system/$ST_APK" "$SRC_DIR/prebuilts/samsung/a73xqxx/$ST_APK" || \
     ABORT "camera_stability: /$ST_APK is not the a73xqxx stp1 service 1c (SUPPORT_SINGLE_TAKE_VIDEO_SNAPSHOT) was made for"
 unset ST_APK
-LOG "- SamsungCamera: Single Take on the MediaRecorder path with its stills, vendor CaptureResult keys looked up once"
+LOG "- SamsungCamera: Single Take on the MediaRecorder path with its stills, vendor CaptureResult keys looked up once, is_drm on PPP drafts"
 python3 - "$APKTOOL_DIR/system/${CAMERA_APK//system\//}" << 'PYEOF' || ABORT "camera_stability: failed to patch SamsungCamera"
 import glob, os, re, sys
 
@@ -281,11 +281,15 @@ else:
 
 # ---------------------------------------------------------------------------------------------------------------------
 # 3. PostSavingModuleSecMpInsert.insertToSecMpForDraft: is_drm=1 on the PPP draft insert (sef_file_type 0xb70).
-# Off by default: the draft must carry is_drm=1 and it is not verified yet that the final photo row ends with
-# is_drm=0 (a photo left marked DRM would be worse than the harmless rejected draft). Enable with K4_CAMERA_PPP_DRM=1.
+# The rejected draft was not harmless: the null draft Uri makes PostSavingModuleRecoveryDataSave throw, the save goes
+# IDLE->RECOVERY and the photo written is the draft run through DraftRecoveryProcess, saved before the real
+# post-processing ends; the processed result (LLHDR merge, UW shape correction, ...) is then dropped (camera audit
+# 2026-11-14). The S26U camera puts is_drm=1 on its draft the same way; the final photo row ends with is_drm=0 because
+# the MediaStore scan sync overwrites it (verified on 9.3.117: SecMP is_drm 0, _data_draft and sef_file_type NULL,
+# MediaStore is_drm 0; save path runDraft -> runComplete state DRAFT). K4_CAMERA_PPP_DRM=0 leaves it out.
 import os
-if os.environ.get("K4_CAMERA_PPP_DRM") != "1":
-    print("  - PPP draft is_drm: not applied (unverified; K4_CAMERA_PPP_DRM=1 enables it)")
+if os.environ.get("K4_CAMERA_PPP_DRM", "1") != "1":
+    print("  - PPP draft is_drm: not applied (K4_CAMERA_PPP_DRM=0)")
 else:
     f = one("com/samsung/android/camera/core2/processor/postSaving/module/PostSavingModuleSecMpInsert.smali")
     s = open(f).read()
