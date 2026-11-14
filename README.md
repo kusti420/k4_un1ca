@@ -90,15 +90,17 @@ Any form of contribution, suggestions, bug report or feature request for the pro
 
 \* DeX via HDMI not available for devices without USB-C DP support
 
-### UN1CA-exclusive features:
-- Integrated OTA updates app
+### K4_UN1CA Settings (Settings > K4_UN1CA Settings):
 - Native/live blur toggle
-- One UI Home animations option
 - Vulkan renderer toggle
+- Adreno GPU driver selector (stock V@0530, V@0530.55, V@0849 default, V@0863, or your own driver zip)
+- Boot sound toggle
+- Home screen depth clock (big clock behind the subject of a Gallery-made wallpaper)
 - Ability to hide installed apps ([Hide My Applist](https://github.com/Dr-TSNG/Hide-My-Applist))
 - Ability to hide developer options
 - Allow app downgrade toggle
 - Allow installing apps with old targetSdk toggle
+- Disable ASKS (Samsung app signature checks) toggle
 - Allow secure screenshot toggle
 - Screenshot/screen recording detection toggle
 - Unlimited backup storage on Google Photos
