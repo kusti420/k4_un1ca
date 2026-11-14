@@ -1,0 +1,4 @@
+id=a52sxq_superhdr_switch_hide
+name=Galaxy A52s 5G: hide the "Super HDR" switch in Advanced features
+author=kusti420
+description=The camera keeps saving Ultra HDR photos because SEC_FLOATING_FEATURE_MMFW_SUPPORT_PHOTOHDR stays on, but Samsung Settings (SuperHdrPreferenceController) shows a "Super HDR" switch in Advanced features whenever that flag is set. On this panel the switch has no effect: Gallery still asks for an HDR/SDR ratio of 1 and the screen stays at SDR brightness (verified on 9.3.117). This patch makes only that controller report UNSUPPORTED_ON_DEVICE, which hides the row and its search entry. The flag itself, the camera, Gallery and the system sec_superhdr setting are unchanged.
