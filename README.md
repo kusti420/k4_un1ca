@@ -104,7 +104,7 @@ Any form of contribution, suggestions, bug report or feature request for the pro
 - Unlimited backup storage on Google Photos
 - Games FPS unlock toggle
 
-Play Integrity Fix and the keybox (key attestation spoof) options are not part of k4_un1ca builds since 9.3.98; use your own modules for that.
+Play Integrity: Settings > K4_UN1CA Settings > Spoof settings has the built-in Play Integrity Fix switch and the hardware attestation (keybox) spoof. Both are off by default and no keybox is included, so bring your own keybox or use your own modules instead.
 
 # Licensing
 This project is licensed under the terms of the [GNU General Public License v3.0](LICENSE). External dependencies might be distributed under a different license, such as:
