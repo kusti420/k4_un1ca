@@ -2,11 +2,9 @@
   <img loading="lazy" src="readme-res/banner.png"/>
 </h1>
 <p align="center">
-  <a href="https://github.com/salvogiangri/UN1CA/blob/sixteen/LICENSE"><img loading="lazy" src="https://img.shields.io/github/license/salvogiangri/UN1CA?style=for-the-badge&logo=github"/></a>
-  <a href="https://github.com/salvogiangri/UN1CA/commits/sixteen"><img loading="lazy" src="https://img.shields.io/github/last-commit/salvogiangri/UN1CA/sixteen?style=for-the-badge"/></a>
-  <a href="https://github.com/salvogiangri/UN1CA/stargazers"><img loading="lazy" src="https://img.shields.io/github/stars/salvogiangri/UN1CA?style=for-the-badge"/></a>
-  <a href="https://github.com/salvogiangri/UN1CA/actions/workflows/ci.yml"><img loading="lazy" src="https://img.shields.io/github/actions/workflow/status/salvogiangri/UN1CA/ci.yml?style=for-the-badge"/></a>
-  <a href="https://crowdin.com/project/UN1CA"><img loading="lazy" src="https://img.shields.io/badge/Crowdin-263238?style=for-the-badge&logo=crowdin"/></a>
+  <a href="https://github.com/kusti420/k4_un1ca/blob/seventeen-s26u/LICENSE"><img loading="lazy" src="https://img.shields.io/github/license/kusti420/k4_un1ca?style=for-the-badge&logo=github"/></a>
+  <a href="https://github.com/kusti420/k4_un1ca/commits/seventeen-s26u"><img loading="lazy" src="https://img.shields.io/github/last-commit/kusti420/k4_un1ca/seventeen-s26u?style=for-the-badge"/></a>
+  <a href="https://github.com/kusti420/k4_un1ca/stargazers"><img loading="lazy" src="https://img.shields.io/github/stars/kusti420/k4_un1ca?style=for-the-badge"/></a>
 </p>
 <p align="center">UN1CA <i>(/ˈu.ni.ka/)</i> is a work-in-progress custom firmware for Samsung Galaxy devices.</p>
 
@@ -35,9 +33,11 @@
 > All credit for the build system and patches goes to the UN1CA and MonsterROM authors; the license (GPL-3.0) is unchanged.
 
 <p align="center">
-  <a href="https://github.com/salvogiangri/UN1CA/discussions">🚀 Discussions</a>
+  <a href="https://pub-6767d80b221d428f97378974ab2f32f0.r2.dev/index.html">⬇️ Download</a>
   •
-  <a href="https://t.me/unicarom">💬 Telegram</a>
+  <a href="https://github.com/kusti420/k4_un1ca/issues">🐞 Issues</a>
+  •
+  <a href="https://t.me/IchthysOS">💬 Telegram</a>
 </p>
 
 # What is UN1CA?
@@ -114,7 +114,7 @@ This project is licensed under the terms of the [GNU General Public License v3.0
 - [img2sdat](https://github.com/xpirt/img2sdat), licensed under the [MIT License](https://github.com/xpirt/img2sdat/blob/master/LICENSE)
 - [platform_build](https://android.googlesource.com/platform/build/) (ext4_utils, f2fs_utils, signapk), licensed under the [Apache License 2.0](https://source.android.com/docs/setup/about/licenses)
 
-# Contributors
+# Contributors (upstream UN1CA)
 <a href="https://github.com/salvogiangri/UN1CA/graphs/contributors"><img loading="lazy" src="https://contrib.rocks/image?repo=salvogiangri/UN1CA"/></a>
 
 # Credits
