@@ -26,6 +26,9 @@
 > **Status (A52s 5G):** released to testers as K4_UN1CA 9.3.x and used as a daily driver. Expect bugs. Installing needs
 > the `A528BXXU5FWK4` (BIT 5) bootloader/firmware, an unlocked bootloader and TWRP.
 >
+> **Download:** [latest build](https://pub-6767d80b221d428f97378974ab2f32f0.r2.dev/index.html) ·
+> **Support / testers:** [Telegram](https://t.me/IchthysOS)
+>
 > The sections below are inherited from upstream UN1CA and describe UN1CA in general. Where this fork differs, the text
 > has been corrected; other device targets in `target/` are upstream's and are not built or tested here.
 >
